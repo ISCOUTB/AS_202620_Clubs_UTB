@@ -8,7 +8,7 @@ El sistema **LinkClub** busca resolver este problema mediante una aplicación m�
 
 ## 1.2 Metas de calidad
 
-Con base en los [aspectos de calidad](docs/aspectos.md) declarados, las siguientes son las metas de calidad prioritarias para la arquitectura del sistema, ordenadas de mayor a menor prioridad:
+Con base en los [aspectos de calidad](../aspectos.md) declarados, las siguientes son las metas de calidad prioritarias para la arquitectura del sistema, ordenadas de mayor a menor prioridad:
 
 | # | Meta de calidad | Motivación |
 |---|---|---|
