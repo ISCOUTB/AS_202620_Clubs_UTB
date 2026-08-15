@@ -1,4 +1,4 @@
-# LinkClub — Gestión de Clubes y Grupos UTB
+# LinkClub - Gestión de Clubes y Grupos UTB
 
 > Repositorio académico: `AS_202620_Clubs_UTB` — Organización `ISCOUTB`
 > Proyecto del curso **Arquitectura de Software** (NRC: 1495), 2026-20
@@ -27,7 +27,7 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
 | Autenticación | Supabase Auth (o alternativa en evaluación) | En evaluación |
 | Metodología / arquitectura | Por definir | Pendiente (se define en fase de arquitectura) |
 
-> Nota: la elección de base de datos y autenticación no está cerrada aún. Esta tabla se actualiza en cuanto el equipo confirme la decisión — debe reflejarse también en `docs/arc42/02_restricciones.md` una vez definida.
+> Nota: la elección de base de datos y autenticación no está cerrada aún. Esta tabla se actualiza en cuanto el equipo confirme la decisión — debe reflejarse también en [`docs/arc42/02_restricciones.md`](docs/arc42/02_restricciones.md) una vez definida.
 
 ## 4. Estructura del repositorio
 
@@ -61,7 +61,7 @@ README.md
 
 ## 6. Estado del proyecto
 
-🟡 **En fase de planeación y documentación.** No hay desarrollo de código activo; el equipo está a la espera de la orden de inicio del docente. Este README y la documentación de `/docs` sirven como línea base para el siguiente reto de corte.
+**En fase de planeación y documentación.** No hay desarrollo de código activo; el equipo está a la espera de la orden de inicio del docente. Este README y la documentación de [`/docs`](docs/) sirven como línea base para el siguiente reto de corte.
 
 ---
 *Curso de Arquitectura de Software — Universidad Tecnológica de Bolívar (UTB)*
