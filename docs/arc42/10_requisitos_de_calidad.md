@@ -29,8 +29,8 @@ Los siguiente requisitos son las características que debe cumplir **LinkClub** 
 
 ## Escenarios de Calidad
 ### Escenarios de Uso
-|#| Atributo de calidad | Fuente | Estimulo |Artefacto|Entorno|Respuesta| Medida|
-|---|---|---|---|---|---|---|
+|num| Atributo de calidad | Fuente | Estimulo |Artefacto|Entorno|Respuesta| Medida|
+|---|---|---|---|---|---|---|---|
 |U1|Rendimiento|Usuario final|Envía una solicitud de búsqueda|Módulo de búsqueda|Operación normal,carga promedio|El sistema procesa y devuelve resultados|Tiempo de respuesta ≤ 1 seg en el 95% de los casos|
 |U2|Disponibilidad|Componente de base de datos|Falla la conexión a la BD|Servidor de aplicación| Producción, hora pico|El sistema detecta el fallo y activa el nodo de respaldo|Recuperación ≤5 seg, sin pérdida de datos|
 |U3|Seguridad|Usuario no autorizado|Intenta acceder sin credenciales válidas|API Gateway|Operación normal|El sistema rechaza la solicitud y registra el intento|Bloqueo en < 200 ms, log generado en 100% de los casos|
