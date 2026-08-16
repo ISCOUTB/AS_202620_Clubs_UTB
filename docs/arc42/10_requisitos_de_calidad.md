@@ -27,6 +27,55 @@ Los siguiente requisitos son las características que debe cumplir **LinkClub** 
 * En caso de falla **LinkClub** muestra un mensaje indicando que el servicio no esta disponible.
 
 
+## Árbol de Utilidades
+> Cada hoja indica su prioridad como (Importancia, Dificultad), donde H = alta, M = media, L = baja.
+> Por ejemplo (H, L) significa alta importancia para el negocio y baja dificultad técnica.
+### Usabilidad
+
+```mermaid
+graph TD
+    U[Usabilidad] --> U1["Ver info de clubes (H,L)"]
+    U --> U2["Opciones claras (M,L)"]
+    U --> U3["Formularios claros (M,L)"]
+```
+
+### Rendimiento
+
+```mermaid
+graph TD
+    R[Rendimiento] --> R1["Consultas optimizadas (H,M) → U1"]
+    R --> R2["Evita cargas innecesarias (M,M)"]
+```
+
+### Seguridad
+
+```mermaid
+graph TD
+    S[Seguridad] --> S1["Contraseñas cifradas (H,L)"]
+    S --> S2["Autenticación requerida (H,L) → U3"]
+    S --> S3["Permisos por rol (H,M)"]
+    S --> S4["Conexión segura (H,M)"]
+```
+
+### Mantenibilidad
+
+```mermaid
+graph TD
+    M[Mantenibilidad] --> M1["Nuevo tipo de publicación (M,M) → C1"]
+    M --> M2["Crecimiento 5x clubes/eventos (M,M) → C2"]
+    M --> M3["Cambio de proveedor BD (L,M) → C3"]
+    M --> M4["Control de versiones con Git (L,L)"]
+    M --> M5["Cambios documentados (M,L)"]
+```
+
+### Disponibilidad
+
+```mermaid
+graph TD
+    D[Disponibilidad] --> D1["Disponible en periodos establecidos (H,M)"]
+    D --> D2["Manejo de fallo de conexión (H,L) → U2"]
+```
+
 ## Escenarios de Calidad
 ### Escenarios de Uso
 |num| Atributo de calidad | Fuente | Estimulo |Artefacto|Entorno|Respuesta| Medida|
