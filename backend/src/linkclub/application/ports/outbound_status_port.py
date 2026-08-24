@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class HealthPort(ABC):
+class StatusPort(ABC):
     @abstractmethod
-    def check(self) -> dict:
+    def get_status(self) -> str:
         ...
