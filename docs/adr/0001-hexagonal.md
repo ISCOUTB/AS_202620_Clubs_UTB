@@ -32,3 +32,10 @@ La comunicacion se realizara  con los puertos y adaptadores
 ### Negativas
 * Es mas compleja que la arquitectura por capas sencilla.
 * Se usaran muchos archivos para conectar las diferentes partes.
+
+## Trazabilidad
+
+- **Aspecto de calidad:** [`docs/aspectos.md`](../aspectos.md) — filas U2, C1 y C3.
+- **Escenario que motiva esta decisión:** [Escenario de uso U2 — Disponibilidad](../arc42/10_requisitos_de_calidad.md#escenarios-de-uso). La separación en puertos y adaptadores permite manejar fallos de conexión con el proveedor externo (Supabase) sin que la lógica de negocio se vea afectada, que es justo lo que exige U2.
+- **También sostiene:** [Escenario de cambio C1 — Modificabilidad](../arc42/10_requisitos_de_calidad.md#escenarios-de-cambio) y [Escenario de cambio C3 — Portabilidad](../arc42/10_requisitos_de_calidad.md#escenarios-de-cambio), ambos citados como consecuencia directa de aislar la infraestructura del dominio.
+- **Restricción relacionada:** [T4](../arc42/02_restricciones.md) — el proveedor de base de datos/autenticación aún está en evaluación; esta arquitectura es lo que permite posponer esa decisión sin bloquear el resto del sistema.
