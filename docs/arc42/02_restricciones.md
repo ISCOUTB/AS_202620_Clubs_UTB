@@ -2,16 +2,16 @@
 
 Las siguientes restricciones limitan el espacio de decisiones de arquitectura disponible para **LinkClub**. Se agrupan por origen: técnicas, organizacionales y de tiempo.
 
-## 2.1 Restricciones técnicas
+## 2.1. Restricciones técnicas
 
 | # | Restricción | Justificación |
 |---|---|---|
 | T1 | El frontend/app móvil debe implementarse en **Flutter**. | Es requisito del curso y continuidad directa de la materia de desarrollo móvil inmediatamente anterior, donde el equipo ya adquirió experiencia práctica con el framework. |
 | T2 | El backend debe implementarse como una **API con FastAPI**. | Mismo motivo que T1: continuidad con la experiencia previa del equipo, lo que reduce la curva de aprendizaje dentro del tiempo limitado del curso. |
 | T3 | La persistencia de datos debe basarse en **PostgreSQL**. | Ya declarado como decisión en los [aspectos de calidad](../aspectos.md); es la base de datos con la que el equipo tiene experiencia previa. |
-| T4 | La solución de base de datos gestionada y autenticación está **aún en evaluación entre Supabase u otra alternativa compatible con PostgreSQL**. | El equipo tiene experiencia previa con Supabase, pero no tiene aún claridad sobre la plataforma que se deba usar finalmente. |
+| T4 | La solución de base de datos gestionada y autenticación está con **Supabase**, compatible con PostgreSQL. | El equipo tiene experiencia previa con Supabase. |
 
-## 2.2 Restricciones organizacionales
+## 2.2. Restricciones organizacionales
 
 | # | Restricción | Justificación |
 |---|---|---|
@@ -19,7 +19,7 @@ Las siguientes restricciones limitan el espacio de decisiones de arquitectura di
 | O2 | El desarrollo de código **no puede iniciar formalmente hasta recibir autorización del docente del curso**. | El proyecto se encuentra en fase de planeación por instrucción explícita de la materia; toda esta entrega corresponde a documentación de arquitectura, no a implementación. |
 | O3 | El proyecto se desarrolla bajo la organización de GitHub **ISCOUTB**, en el repositorio **AS_202620_Clubs_UTB**, con una convención de nombre de repositorio fija impuesta por el curso. | El nombre del repositorio no responde a decisiones de producto (de ahí que el nombre comercial de la app, **LinkClub**, sea independiente del nombre del repositorio). |
 
-## 2.3 Restricciones de tiempo
+## 2.3. Restricciones de tiempo
 
 | # | Restricción | Justificación |
 |---|---|---|
