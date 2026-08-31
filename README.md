@@ -65,3 +65,27 @@ README.md
 
 ---
 *Curso de Arquitectura de Software — Universidad Tecnológica de Bolívar (UTB)*
+
+## 7 Cómo arrancar
+
+Requisitos previos: Python 3.10+
+
+```bash
+cd backend
+python -m venv venv
+
+# Activar el entorno virtual
+source venv/bin/activate      # macOS / Linux
+venv\Scripts\activate         # Windows
+
+pip install -r requirements.txt
+uvicorn linkclub.main:app --app-dir src
+```
+
+Verifica en <http://localhost:8000/health> — debe responder `{"status": "ok"}`.
+
+### Correr las pruebas
+
+```bash
+PYTHONPATH=src pytest tests/ -v
+```
