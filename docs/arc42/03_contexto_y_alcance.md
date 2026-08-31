@@ -1,32 +1,35 @@
-# 3. CONTEXTO Y ALCANCE
-LinkClub tiene como objetivo facilitar la gestión de los clubes, para centralizar la información y avisos en un solo lugar.
+# 3. Contexto y alcance
 
-## contexto del sistema
+**LinkClub** tiene como objetivo facilitar la gestión de los clubes, para centralizar la información y los avisos en un solo lugar.
 
-| socio de comunicación | entendimiento |
+## Contexto del sistema
+
+| Socio de comunicación | Entendimiento |
 | --- | --- |
-| Estudiante | podrá consultar los clubes disponibles, además de su información. |
-| miembro del club | Son los que ya están vinculados y podrán publicar los eventos. |
-| Administrador del club | Encargado de supervisar y administrar la información del club y su contenido |
-|base de datos| almacenar la información de LinkClub, usuarios, clubes, actividades, etc.|
+| Estudiante | Podrá consultar los clubes disponibles, además de su información. |
+| Miembro del club | Son los que ya están vinculados y podrán publicar los eventos. |
+| Administrador del club | Encargado de supervisar y administrar la información del club y su contenido. |
+| Base de datos | Almacena la información de LinkClub: usuarios, clubes, actividades, etc. |
 
-## contexto del negocio
-Se mostrara las principales interacciones que hay entre la aplicación y las personas que utilizan el sistema.
+## 3.1. Contexto del negocio
 
-Estudiante: utiliza puede usar LinkClub para consultar los clubes disponibles, visualizar la información, además de inscribirse en un club.
+Se mostrarán las principales interacciones que hay entre la aplicación y las personas que utilizan el sistema.
 
-Miembro del club: Es quien puede publicar los eventos, avisos y noticias.
+**Estudiante:** puede usar LinkClub para consultar los clubes disponibles, visualizar su información, además de inscribirse en un club.
 
-Administrador: es el encargado de gestionar los usuarios del club, de las actividades y eventos.
+**Miembro del club:** es quien puede publicar los eventos, avisos y noticias.
 
-## contexto técnico
-LinkClub será desarrollado con flutter para que los usuarios puedan acceder al sistema desde sus dispositivos móviles, además flutter proporcionara la interfaz para interactuar con la aplicación, la cual se comunicara mediante una API al backend que procesara las solicitudes y almacenara la información.
+**Administrador:** es el encargado de gestionar los usuarios del club, las actividades y los eventos.
 
-## tecnologías y elementos técnicos
+## 3.2. Contexto técnico
 
-| Elemento | Descripción|
+LinkClub será desarrollado con Flutter para que los usuarios puedan acceder al sistema desde sus dispositivos móviles; Flutter proporcionará la interfaz para interactuar con la aplicación, la cual se comunicará mediante una API con el backend, que procesará las solicitudes y almacenará la información.
+
+## Tecnologías y elementos técnicos
+
+| Elemento | Descripción |
 | --- | --- |
-| Aplicación móvil | LinkClub será desarrollado por flutter que proporcionara la interfaz principal |
-| flutter | Framework utilizado para desarrollar el frontend de LinkClub |
-| Fastapi | medio de comunicacion entre la aplicacion y la base de datos |
-| Supabase | Almacenara la informacion de LinkClub |
+| Aplicación móvil | LinkClub será desarrollado en Flutter, que proporcionará la interfaz principal. |
+| Flutter | Framework utilizado para desarrollar el frontend de LinkClub. |
+| FastAPI | Medio de comunicación entre la aplicación y la base de datos. |
+| Supabase | Almacenará la información de LinkClub. |

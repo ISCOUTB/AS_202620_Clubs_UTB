@@ -1,20 +1,20 @@
-# 4. REQUISITOS DE CALIDAD
+# 10. Requisitos de calidad
 
-Los siguiente requisitos son las características que debe cumplir **LinkClub** para garantizar que sea fácil de utilizar, que sea seguro y rapido.
+Los siguientes requisitos son las características que debe cumplir **LinkClub** para garantizar que sea fácil de utilizar, seguro y rapido.
 
 ## Usabilidad
 * Los estudiantes deben poder ver la información de los clubes.
 * Las opciones deben verse claramente.
 * Los formularios son claros en los campos que pidan ingresar los datos.
 
-## rendimiento
+## Rendimiento
 * El sistema evita cargas innecesarias de información
-* las consultas de la base de datos están optimizadas para evitar tiempos de respuestas muy extensos.
+* Las consultas de la base de datos están optimizadas para evitar tiempos de respuestas muy extensos.
 
 ## Seguridad
 * Las contraseñas no se almacena en texto plano.
 * Los usuarios deben autentificarse antes acceder a funcionalidades
-* los permisos dependen del rol del usuario.
+* Los permisos dependen del rol del usuario.
 * La conexion entre el cliente y servidor es segura cuando el sistema este desplegado.
 
 ## Mantenibilidad
@@ -27,7 +27,7 @@ Los siguiente requisitos son las características que debe cumplir **LinkClub** 
 * En caso de falla **LinkClub** muestra un mensaje indicando que el servicio no esta disponible.
 
 
-## Árbol de Utilidades
+## 10.1. Árbol de Utilidades
 > Cada hoja indica su prioridad como (Importancia, Dificultad), donde H = alta, M = media, L = baja.
 > Por ejemplo (H, L) significa alta importancia para el negocio y baja dificultad técnica.
 ### Usabilidad
@@ -76,7 +76,7 @@ graph TD
     D --> D2["Manejo de fallo de conexión (H,L) → U2"]
 ```
 
-## Escenarios de Calidad
+## 10.2. Escenarios de Calidad
 ### Escenarios de Uso
 |num| Atributo de calidad | Fuente | Estimulo |Artefacto|Entorno|Respuesta| Medida|
 |---|---|---|---|---|---|---|---|

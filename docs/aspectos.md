@@ -9,7 +9,7 @@ En la Universidad Tecnológica de Bolívar, existen gran variedad de clubes abie
 ## Tecnologías
 
 - Framework: Flutter
-- Base de datos: PostgreSQL
+- Base de datos: PostgreSQL, con Supabase
 - API: FastAPI
 
 ## Estado del proyecto
