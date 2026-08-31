@@ -4,7 +4,7 @@ Esta sección documenta, mediante un diagrama de secuencia, cómo se comporta **
 
 ## 6.1. Escenario documentado: consulta de estado (`GET /health`)
 
-
+El siguiente diagrama de secuencia muestra este recorrido.
 
 ```mermaid
 sequenceDiagram
@@ -36,4 +36,4 @@ Este recorrido está cubierto por la prueba automatizada [`backend/tests/test_he
 
 ## 6.3. Relación con los escenarios de calidad
 
-Este flujo es la base sobre la que se construirá el manejo de fallos exigido por el escenario **U2 — Disponibilidad** (ver [Sección 10](./10_requisitos_de_calidad.md#escenarios-de-uso)): hoy `InMemoryStatusAdapter` no puede fallar porque no depende de una conexión externa, pero al reemplazarlo por un adaptador real contra Supabase, el manejo de errores de conexión (timeout, reintento, respuesta controlada) se implementará únicamente en el adaptador de salida, sin tocar el caso de uso ni el adaptador de entrada que es justo lo que exige U2 y lo que motivó la elección de arquitectura hexagonal. Esta decisión pendiente ya está anotada en la [Sección 9](./09_decisiones_de_diseño.md#decisiones-pendientes-de-registrar).
+Este flujo es la base sobre la que se construirá el manejo de fallos exigido por el escenario **U2 — Disponibilidad** (ver [Sección 10](./10_requisitos_de_calidad.md#escenarios-de-uso)): hoy `InMemoryStatusAdapter` no puede fallar porque no depende de una conexión externa, pero al reemplazarlo por un adaptador real contra Supabase, el manejo de errores de conexión (timeout, reintento, respuesta controlada) se implementará únicamente en el adaptador de salida, sin tocar el caso de uso ni el adaptador de entrada que es justo lo que exige U2 y lo que motivó la elección de arquitectura hexagonal. Esta decisión pendiente ya está anotada en la [Sección 9](./09_decisiones_de_diseno.md#decisiones-pendientes-de-registrar).

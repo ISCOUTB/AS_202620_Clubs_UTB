@@ -33,7 +33,7 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
 
 ```
 /docs
-  aspectos.md          # Aspectos de calidad declarados (pendiente: tabla de 8 columnas del curso)
+  aspectos.md          # Aspectos de calidad, tabla de 8 columnas (ID, Aspecto, Escenario, Requisito, C4, ADR, Código, Pruebas)
   ficha_problema.md
   ia.md                 # Registro de uso de IA en el proyecto
   /arc42
@@ -48,7 +48,7 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
     12_glosario.md
     matriz_comparativa_estilos.md
   /c4
-    contexto.md          # Diagrama C4 de contexto (nivel 1)
+    contexto.md          # Diagrama C4: contexto (nivel 1) y contenedores (nivel 2), en el mismo archivo
   /adr
     0001-hexagonal.md    # Decisión de estilo arquitectónico (aceptado)
 
