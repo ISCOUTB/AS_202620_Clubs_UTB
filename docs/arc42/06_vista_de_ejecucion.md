@@ -4,7 +4,7 @@ Esta sección documenta, mediante un diagrama de secuencia, cómo se comporta **
 
 ## 6.1. Escenario documentado: consulta de estado (`GET /health`)
 
-Este es el corte vertical mínimo exigido para esta entrega. Atraviesa las cuatro capas de la arquitectura hexagonal descrita en la [Sección 5](./05_vista_de_bloques.md) y materializa la decisión de diseño registrada en [`docs/adr/0001-hexagonal.md`](../adr/0001-hexagonal.md): la capa de aplicación no conoce el adaptador concreto, solo el puerto `StatusPort`.
+
 
 ```mermaid
 sequenceDiagram
@@ -36,4 +36,4 @@ Este recorrido está cubierto por la prueba automatizada [`backend/tests/test_he
 
 ## 6.3. Relación con los escenarios de calidad
 
-Este flujo es la base sobre la que se construirá el manejo de fallos exigido por el escenario **U2 — Disponibilidad** (ver [Sección 10](./10_requisitos_de_calidad.md#escenarios-de-uso)): hoy `InMemoryStatusAdapter` no puede fallar porque no depende de una conexión externa, pero al reemplazarlo por un adaptador real contra Supabase, el manejo de errores de conexión (timeout, reintento, respuesta controlada) se implementará únicamente en el adaptador de salida, sin tocar el caso de uso ni el adaptador de entrada — que es justo lo que exige U2 y lo que motivó la elección de arquitectura hexagonal. Esta decisión pendiente ya está anotada en la [Sección 9](./09_decisiones_de_diseño.md#decisiones-pendientes-de-registrar).
+Este flujo es la base sobre la que se construirá el manejo de fallos exigido por el escenario **U2 — Disponibilidad** (ver [Sección 10](./10_requisitos_de_calidad.md#escenarios-de-uso)): hoy `InMemoryStatusAdapter` no puede fallar porque no depende de una conexión externa, pero al reemplazarlo por un adaptador real contra Supabase, el manejo de errores de conexión (timeout, reintento, respuesta controlada) se implementará únicamente en el adaptador de salida, sin tocar el caso de uso ni el adaptador de entrada que es justo lo que exige U2 y lo que motivó la elección de arquitectura hexagonal. Esta decisión pendiente ya está anotada en la [Sección 9](./09_decisiones_de_diseño.md#decisiones-pendientes-de-registrar).
