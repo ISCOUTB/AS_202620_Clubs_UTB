@@ -40,10 +40,13 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
     01_introduccion_y_metas.md
     02_restricciones.md
     03_contexto_y_alcance.md
+    04_estrategia_de_solucion.md
     05_vista_de_bloques.md
-    09_decisiones.md      # Enlaza el ADR con el escenario que lo motiva
+    06_vista_de_ejecucion.md
+    09_decisiones_de_diseno.md      # Enlaza el ADR con el escenario que lo motiva
     10_requisitos_de_calidad.md   # Árbol de utilidad + escenarios de calidad
     12_glosario.md
+    matriz_comparativa_estilos.md
   /c4
     contexto.md          # Diagrama C4 de contexto (nivel 1)
   /adr
