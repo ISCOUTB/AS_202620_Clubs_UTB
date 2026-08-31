@@ -23,8 +23,8 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
 |---|---|---|
 | Frontend / App móvil | Flutter | Definido (requisito de la materia) |
 | Backend / API | FastAPI | Definido (continuidad de la materia anterior) |
-| Base de datos | Supabase (o alternativa en evaluación) | En evaluación |
-| Autenticación | Supabase Auth (o alternativa en evaluación) | En evaluación |
+| Base de datos | Supabase | Definido (continuidad de la materia anterior) |
+| Autenticación | Supabase Auth | Definido (continuidad de la materia anterior) |
 | Metodología / arquitectura | Por definir | Pendiente (se define en fase de arquitectura) |
 
 > Nota: la elección de base de datos y autenticación no está cerrada aún. Esta tabla se actualiza en cuanto el equipo confirme la decisión — debe reflejarse también en [`docs/arc42/02_restricciones.md`](docs/arc42/02_restricciones.md) una vez definida.
@@ -33,17 +33,40 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
 
 ```
 /docs
-  aspectos.md          # Aspectos de calidad declarados
+  aspectos.md          # Aspectos de calidad declarados (pendiente: tabla de 8 columnas del curso)
+  ficha_problema.md
   ia.md                 # Registro de uso de IA en el proyecto
   /arc42
     01_introduccion_y_metas.md
     02_restricciones.md
     03_contexto_y_alcance.md
+    05_vista_de_bloques.md
+    09_decisiones.md      # Enlaza el ADR con el escenario que lo motiva
     10_requisitos_de_calidad.md   # Árbol de utilidad + escenarios de calidad
+    12_glosario.md
   /c4
-    contexto.md          # Diagrama C4 de contexto + lectura
+    contexto.md          # Diagrama C4 de contexto (nivel 1)
   /adr
-    (decisiones de arquitectura — se irán agregando)
+    0001-hexagonal.md    # Decisión de estilo arquitectónico (aceptado)
+
+/backend
+  requirements.txt
+  /src/linkclub
+    main.py                                          # Punto de entrada de la API
+    /adapters/inbound/api
+      health_router.py                                # Endpoint /health
+    /adapters/outbound/persistence
+      in_memory_status_adapter.py                      # Adaptador de salida (implementación actual de StatusPort)
+    /application/ports
+      inbound_health_port.py                           # Puerto de entrada (HealthPort)
+      outbound_status_port.py                          # Puerto de salida (StatusPort)
+    /application/use_cases
+      check_health.py                                  # Caso de uso: CheckHealthUseCase
+    /domain
+      (vacío — sin entidades de negocio todavía)
+  /tests
+    test_health.py                                     # Prueba automatizada del esqueleto ejecutable
+
 README.md
 ```
 
