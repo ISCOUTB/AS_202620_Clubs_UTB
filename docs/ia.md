@@ -6,4 +6,6 @@
 
   > https://github.com/ISCOUTB/AS_202620_Clubs_UTB, teniendo en cuenta este repositorio, dime cómo puedo hacer el esqueleto.
 
-- Se uso chatgpt como guía sobre que lleva el arc42 sección 5
+- Se usó chatgpt como guía sobre que lleva el arc42 sección 5
+
+-Se usó Claude para corregir links rotos

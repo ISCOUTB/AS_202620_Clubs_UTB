@@ -4,7 +4,7 @@ Esta sección resume las decisiones arquitectónicas de LinkClub y remite al Reg
 
 | # | Decisión | Motivada por | ADR | Implementada en |
 |---|---|---|---|---|
-| 1 | Adoptar arquitectura hexagonal (puertos y adaptadores) para el backend | Escenario **U2**: Disponibilidad ante fallo de conexión con la base de datos (ver [Sección 10](./arc42/10_requisitos_de_calidad.md)) | [`docs/adr/0001-hexagonal.md`](../docs/adr/0001-hexagonal.md) | [Sección 5 — Vista de bloques](./arc42/05_vista_de_bloques.md) |
+| 1 | Adoptar arquitectura hexagonal (puertos y adaptadores) para el backend | Escenario **U2**: Disponibilidad ante fallo de conexión con la base de datos (ver [Sección 10](./10_requisitos_de_calidad.md)) | [`docs/adr/0001-hexagonal.md`](../adr/0001-hexagonal.md) | [Sección 5 — Vista de bloques](./05_vista_de_bloques.md) |
 
 ## Estado de las decisiones
 

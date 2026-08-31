@@ -5,7 +5,7 @@
 | Adaptador | Implementación concreta de un puerto, conecta el sistema con una tecnología específica (ej. una base de datos real o una en memoria). |
 | ADR (Architecture Decision Record) | Registro formal de una decisión arquitectónica, con su contexto, alternativas descartadas y consecuencias asumidas. |
 | arc42 | Plantilla de documentación de arquitectura de software usada como marco de referencia para todo el repositorio de LinkClub. |
-| Arquitectura hexagonal | Estilo arquitectónico que aísla el dominio y la lógica de negocio de la infraestructura, comunicándose únicamente a través de puertos y adaptadores. Estilo elegido para LinkClub ([ADR 0001](../docs/adr/)). |
+| Arquitectura hexagonal | Estilo arquitectónico que aísla el dominio y la lógica de negocio de la infraestructura, comunicándose únicamente a través de puertos y adaptadores. Estilo elegido para LinkClub ([ADR 0001](../adr/0001-hexagonal.md)). |
 | Arquitectura por capas (N-tier) | Estilo alternativo evaluado y descartado para LinkClub; organiza el sistema en capas técnicas (presentación, lógica, datos) sin aislar explícitamente el dominio de la infraestructura. |
 | Atributo de calidad | Característica del sistema evaluada en un escenario o en la matriz comparativa de estilos (ej. Rendimiento, Seguridad, Escalabilidad). No todo atributo evaluado corresponde necesariamente a una meta declarada en la Sección 1. |
 | C4 | Modelo de diagramación de arquitectura por niveles de zoom, usado en LinkClub para el diagrama de contexto (nivel 1) y de contenedores (nivel 2). |

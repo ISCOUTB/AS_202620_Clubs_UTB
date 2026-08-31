@@ -13,7 +13,7 @@ Siguiendo las restricciones técnicas declaradas en la Sección 2 (T1-T4), el si
  
 El backend adopta el estilo **hexagonal (puertos y adaptadores)**, separando dominio, aplicación, infraestructura y presentación. Esta decisión responde a la meta de calidad de disponibilidad (Sección 1) y a la restricción T4: mientras la elección final de base de datos gestionada sigue abierta, el dominio de la aplicación puede desarrollarse y probarse sin depender de ella.
  
-La comparación completa frente a las alternativas descartadas (capas, monolito modular) está documentada en [`docs/arc42/matriz_comparativa_estilos.md`](./arc42/matriz_comparativa_estilos.md), y la decisión formal con sus consecuencias en [`docs/adr/0001-hexagonal.md`](./adr/0001-hexagonal.md).
+La comparación completa frente a las alternativas descartadas (capas, monolito modular) está documentada en [`docs/arc42/matriz_comparativa_estilos.md`](./matriz_comparativa_estilos.md), y la decisión formal con sus consecuencias en [`docs/adr/0001-hexagonal.md`](../adr/0001-hexagonal.md).
 
 ## 4.3. Enfoques para alcanzar las metas de calidad
  
