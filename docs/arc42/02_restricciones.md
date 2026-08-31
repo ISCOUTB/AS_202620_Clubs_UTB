@@ -30,4 +30,4 @@ Las siguientes restricciones limitan el espacio de decisiones de arquitectura di
 
 | # | Convención | Justificación |
 |---|---|---|
-| CV1 | Toda la documentación de arquitectura se organiza bajo [`/docs/arc42/`](./), [`/docs/C4/`](../C4/) y [`/docs/adr/`](../adr/), siguiendo la plantilla arc42 académica entregada en el curso. | Para mantener consistencia con lo ya montado en las entregas previas y con lo que el docente espera encontrar al evaluar la correspondencia entre documentación y repositorio. |
+| CV1 | Toda la documentación de arquitectura se organiza bajo [`/docs/arc42/`](./), [`/docs/c4/`](../c4/) y [`/docs/adr/`](../adr/), siguiendo la plantilla arc42 académica entregada en el curso. | Para mantener consistencia con lo ya montado en las entregas previas y con lo que el docente espera encontrar al evaluar la correspondencia entre documentación y repositorio. |
