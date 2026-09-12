@@ -9,7 +9,6 @@
 | Estudiante | Podrá consultar los clubes disponibles, además de su información. |
 | Miembro del club | Son los que ya están vinculados y podrán publicar los eventos. |
 | Administrador del club | Encargado de supervisar y administrar la información del club y su contenido. |
-| Base de datos | Almacena la información de LinkClub: usuarios, clubes, actividades, etc. |
 
 ## 3.1. Contexto del negocio
 
@@ -31,5 +30,5 @@ LinkClub será desarrollado con Flutter para que los usuarios puedan acceder al 
 | --- | --- |
 | Aplicación móvil | LinkClub será desarrollado en Flutter, que proporcionará la interfaz principal. |
 | Flutter | Framework utilizado para desarrollar el frontend de LinkClub. |
-| FastAPI | Medio de comunicación entre la aplicación y la base de datos. |
+| FastAPI | framework sobre el que se construye el backend de LinkClub (aplicación, dominio, infraestructura, presentación). |
 | Supabase | Almacenará la información de LinkClub. |
