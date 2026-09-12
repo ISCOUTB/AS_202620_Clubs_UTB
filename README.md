@@ -25,9 +25,7 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
 | Backend / API | FastAPI | Definido (continuidad de la materia anterior) |
 | Base de datos | Supabase | Definido (continuidad de la materia anterior) |
 | Autenticación | Supabase Auth | Definido (continuidad de la materia anterior) |
-| Metodología / arquitectura | Por definir | Pendiente (se define en fase de arquitectura) |
-
-> Nota: la elección de base de datos y autenticación no está cerrada aún. Esta tabla se actualiza en cuanto el equipo confirme la decisión — debe reflejarse también en [`docs/arc42/02_restricciones.md`](docs/arc42/02_restricciones.md) una vez definida.
+| Metodología / arquitectura | Hexagonal | Definido (en fase de desarrollo bajo arquitectura) |
 
 ## 4. Estructura del repositorio
 
@@ -45,7 +43,7 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
     06_vista_de_ejecucion.md
     09_decisiones_de_diseno.md      # Enlaza el ADR con el escenario que lo motiva
     10_requisitos_de_calidad.md   # Árbol de utilidad + escenarios de calidad
-    12_glosario.md
+    12_glosario.md                # Listado de terminologías y conceptos usados dentro del proyecto
     matriz_comparativa_estilos.md
   /c4
     contexto.md          # Diagrama C4: contexto (nivel 1) y contenedores (nivel 2), en el mismo archivo
@@ -82,17 +80,17 @@ README.md
 | Diego Ramos | @devZavod |
 | Luis Salas | @Luis-Salas-Reyes |
 
-> Los 4 integrantes ya están añadidos como colaboradores del repositorio en GitHub.
+> Los 4 integrantes están añadidos como colaboradores del repositorio en GitHub.
 
 
 ## 6. Estado del proyecto
 
-**En fase de planeación y documentación.** No hay desarrollo de código activo; el equipo está a la espera de la orden de inicio del docente. Este README y la documentación de [`/docs`](docs/) sirven como línea base para el siguiente reto de corte.
+**En fase de planeación, dearrollo y documentación.** Se está desarrollando y probando código activamente entre pruebas y decisión de diseño y funcionalidades. Este README y la documentación de [`/docs`](docs/) sirven como línea base para la comprensión del proyecto y muestra de avance en retos semanales de curso.
 
 ---
 *Curso de Arquitectura de Software — Universidad Tecnológica de Bolívar (UTB)*
 
-## 7 Cómo arrancar
+## 7. Cómo arrancar
 
 Requisitos previos: Python 3.10+
 
