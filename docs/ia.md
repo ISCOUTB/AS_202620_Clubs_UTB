@@ -6,6 +6,7 @@ Las herramientas de IA se usan con contexto del proyecto (problema, decisiones y
 
 | Semana | Integrante | Para qué | Herramienta | Cómo se usó | Motivo |
 |---|---|---|---|---|---|
+| S5 | Hollman De Orta |Información de componentes de c4 nivel 3, como lo enfoco de acuerdo el diagrama que te anexo  | Claude | Incorporado, con ajustes y correcciones propias | Se usó como asistente de redacción técnica; las decisiones de contenido (prioridades, atributos evaluados, alcance del sistema) partieron de la documentación que el equipo ya había producido |
 | S4 | Hollman De Orta | Conversión exploratoria de un diagrama a código Mermaid siguiendo la especificación del modelo C4 | Claude | Se usó como prueba, no incorporado | Fue una consulta previa para validar el enfoque; el C4 nivel 2 final del repositorio se construyó por otra vía |
 | S3-S4 | Josh Ortega | Organización del esqueleto del proyecto (estructura de carpetas hexagonal) y reparación de links rotos | Claude | Se usó parcialmente | Se ajustó a mano antes de incorporarlo al repositorio |
 | S3 | Luis Salas | Guía sobre estructura y contenido de arc42 Sección 5, con ejemplo aplicado a LinkClub (niveles 1-3, diferencia con el ADR) | ChatGPT | Se usó parcialmente | La guía advirtió explícitamente no inventar componentes que no existen en el código; se usó como estructura, el contenido se ajusta al backend real |
