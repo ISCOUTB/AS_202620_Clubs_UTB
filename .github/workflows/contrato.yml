@@ -1,0 +1,35 @@
+name: contrato
+
+on:
+  pull_request:
+    paths: ["docs/api/**", "backend/**"]
+  push:
+    branches: [master]
+
+jobs:
+  lint-contrato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx -y @stoplight/spectral-cli lint docs/api/openapi.yaml
+
+  prueba-contrato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r backend/requirements.txt pytest httpx pyyaml jsonschema
+      - run: PYTHONPATH=src pytest tests/ -v
+        working-directory: backend
+
+  cambios-incompatibles:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Comparar contra master con oasdiff
+        run: |
+          git show origin/master:docs/api/openapi.yaml > /tmp/base.yaml
+          oasdiff breaking /tmp/base.yaml docs/api/openapi.yaml --fail-on ERR

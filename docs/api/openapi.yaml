@@ -1,67 +1,3 @@
-# Contrato de API — LinkClub (diseño objetivo)
-
-> **Qué es este documento:** el contrato de cómo **debería** comportarse la API
-> de LinkClub una vez cubra las tres personas descritas en el
-> [C4 de contexto](../c4/contexto.md) (Estudiante interesado, Miembro de club,
-> Administrador de club), siguiendo el enfoque **API-first**: el contrato se
-> define primero, en formato ejecutable, y el código se implementa y se prueba
-> contra él — no al revés.
->
-> **Qué NO es:** una descripción de lo que ya está codificado en `backend/`.
-> Hoy solo existe implementado un subconjunto (`GET /health`,
-> `POST /publicaciones`, `GET /publicaciones/{club_id}`, y solo con
-> `tipo ∈ {aviso, encuesta}`). La tabla de la sección 5 marca, endpoint por
-> endpoint, qué está implementado y qué es la meta a construir.
-
-## 1. Alcance: de las personas del C4 a las operaciones
-
-| Persona (C4 contexto) | Necesita poder... | Operaciones de este contrato |
-|---|---|---|
-| Estudiante interesado | Buscar y consultar clubes y eventos | `GET /clubes`, `GET /clubes/{club_id}`, `GET /clubes/{club_id}/eventos`, `GET /eventos/{evento_id}` |
-| Estudiante interesado | Inscribirse en un club | `POST /clubes/{club_id}/miembros` |
-| Miembro de club | Consultar el calendario y confirmar asistencia | `GET /clubes/{club_id}/eventos`, `POST /eventos/{evento_id}/asistencia` |
-| Miembro / Administrador de club | Publicar avisos, eventos y noticias | `POST /clubes/{club_id}/eventos`, `POST /clubes/{club_id}/publicaciones` |
-| Administrador de club | Ver y gestionar los miembros de su club | `GET /clubes/{club_id}/miembros` |
-| (Todos) Autenticación | Verificar credenciales de usuario | `Authorization: Bearer <token de Supabase Auth>` en cada operación que lo requiera |
-
-**Decisión de modelado:** *evento* y *publicación* son recursos separados, no
-un mismo `tipo` reutilizado. Un evento tiene fecha y lugar (campos que no
-tienen sentido en un aviso o una encuesta) y responde a una pregunta distinta
-("¿qué va a pasar y cuándo?" vs. "¿qué necesito saber ahora mismo?"). Dentro
-de *publicación* sí se reutiliza una sola entidad para `aviso`, `encuesta` y
-`noticia`, porque esos tres SÍ comparten forma (título + contenido) y es
-exactamente el escenario de cambio **C1** del árbol de utilidad: agregar un
-tipo nuevo de publicación sin tocar clubes ni eventos.
-
-## 2. Convenciones del contrato
-
-- **Autenticación:** Bearer JWT emitido por Supabase Auth (restricción **T4**).
-  Las operaciones de solo lectura son públicas (un interesado no necesita
-  sesión para explorar clubes); toda escritura requiere sesión, y algunas
-  además requieren un rol específico dentro de ese club (escenario **U3**).
-- **Formato de error uniforme:** toda respuesta de error usa
-  `{"detail": "mensaje legible"}`, igual en `401`, `403`, `404` y `422`, para
-  que el cliente maneje errores con un único shape.
-- **Identificadores:** `string` con formato `uuid` en las respuestas. En la
-  URL se aceptan como `string` simple para no acoplar el contrato a que el
-  proveedor de base de datos actual (Supabase/Postgres) seguirá siendo el
-  mismo (escenario de cambio **C3** — portabilidad).
-- **Versionado:** `info.version` sigue SemVer sobre el propio contrato,
-  independiente de la versión del código. Un cambio es:
-  - **Aditivo (no rompe, sube versión menor):** nuevo endpoint, nuevo campo
-    opcional en una respuesta, nuevo valor de un enum que el cliente ya trata
-    como lista abierta.
-  - **Incompatible (rompe, sube versión mayor y requiere ADR):** eliminar o
-    renombrar un campo, volver requerido un campo antes opcional, quitar un
-    valor de un enum, cambiar un tipo de dato, cambiar un código de estado
-    ya documentado.
-  - Ver [ADR 0002](../adr/0002-integracion-sincrona-asincrona.md) para la
-    decisión de qué operaciones van en este contrato síncrono y cuáles en el
-    contrato asíncrono de la sección 4.
-
-## 3. Contrato síncrono (REST) — OpenAPI 3.1
-
-```yaml
 openapi: 3.1.0
 info:
   title: LinkClub API
@@ -70,20 +6,28 @@ info:
     Fuente única de verdad del contrato entre el backend de LinkClub y sus
     consumidores (app Flutter). Cubre las tres personas descritas en el C4 de
     contexto: Estudiante interesado, Miembro de club y Administrador de club.
-    Este documento describe el contrato TAL COMO DEBE SER, no necesariamente
-    lo que ya está implementado; ver la tabla de estado de implementación en
-    el documento que acompaña este archivo.
+    Este archivo describe el contrato TAL COMO DEBE SER, no necesariamente lo
+    que ya está implementado; el estado de implementación por endpoint está en
+    docs/api/contrato_api.md (sección 5).
   version: 1.0.0
+  contact:
+    name: Equipo LinkClub
+    url: https://github.com/ISCOUTB/AS_202620_Clubs_UTB
 servers:
   - url: http://localhost:8000
     description: Entorno local de desarrollo
 
 tags:
   - name: health
+    description: Estado del servicio.
   - name: clubes
+    description: Consulta y búsqueda de clubes.
   - name: membresias
+    description: Inscripción y gestión de miembros de un club.
   - name: eventos
+    description: Eventos de un club y confirmación de asistencia.
   - name: publicaciones
+    description: Avisos, encuestas y noticias de un club.
 
 security:
   - bearerAuth: []
@@ -107,7 +51,7 @@ paths:
       operationId: listarClubes
       tags: [clubes]
       summary: Lista y busca clubes.
-      description: Consulta abierta al público objetivo (Estudiante interesado no requiere sesión).
+      description: Consulta abierta al público (el Estudiante interesado no requiere sesión).
       security: []
       parameters:
         - name: q
@@ -117,6 +61,7 @@ paths:
         - name: categoria
           in: query
           schema: { type: string }
+          description: Filtra por categoría del club.
       responses:
         "200":
           description: Clubes que coinciden con el filtro.
@@ -339,16 +284,19 @@ components:
       name: club_id
       in: path
       required: true
+      description: Identificador del club.
       schema: { type: string }
     EventoId:
       name: evento_id
       in: path
       required: true
+      description: Identificador del evento.
       schema: { type: string }
     PublicacionId:
       name: publicacion_id
       in: path
       required: true
+      description: Identificador de la publicación.
       schema: { type: string }
 
   responses:
@@ -502,21 +450,3 @@ components:
           items: { type: string }
         creado_en: { type: string, format: date-time }
       additionalProperties: false
-```
-
-
-## 4. Estado de implementación (a la fecha de este contrato)
-
-| Operación | En el contrato | Implementado en `backend/` |
-|---|---|---|
-| `GET /health` | ✅ | ✅ |
-| `POST /clubes/{club_id}/publicaciones` (`tipo: aviso`, `encuesta`) | ✅ | ✅ como `POST /publicaciones` (ruta plana, sin anidar bajo `/clubes`) |
-| `GET /clubes/{club_id}/publicaciones` | ✅ | ✅ como `GET /publicaciones/{club_id}` |
-| `tipo: noticia` | ✅ | ❌ pendiente (enum actual solo tiene `aviso`, `encuesta`) |
-| Autenticación (`bearerAuth`) en cualquier endpoint | ✅ | ❌ pendiente — restricción T4 aún sin proveedor confirmado |
-| `GET /clubes`, `GET /clubes/{club_id}` | ✅ | ❌ pendiente |
-| `POST /clubes/{club_id}/miembros`, `GET .../miembros` | ✅ | ❌ pendiente |
-| `GET/POST /clubes/{club_id}/eventos`, `GET /eventos/{evento_id}` | ✅ | ❌ pendiente |
-| `POST /eventos/{evento_id}/asistencia` | ✅ | ❌ pendiente |
-
-

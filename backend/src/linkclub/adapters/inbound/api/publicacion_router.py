@@ -1,5 +1,7 @@
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from linkclub.adapters.outbound.persistence.in_memory_publicacion_adapter import (
     InMemoryPublicacionAdapter,
@@ -7,14 +9,15 @@ from linkclub.adapters.outbound.persistence.in_memory_publicacion_adapter import
 from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
 from linkclub.domain.publicacion import TipoPublicacion
 
-router = APIRouter(prefix="/publicaciones", tags=["publicaciones"])
+router = APIRouter(tags=["publicaciones"])
 
 repository = InMemoryPublicacionAdapter()
 use_case = CrearPublicacionUseCase(repository=repository)
 
 
 class CrearPublicacionRequest(BaseModel):
-    club_id: str
+    model_config = ConfigDict(extra="forbid")
+
     titulo: str
     contenido: str
     tipo: str = TipoPublicacion.AVISO.value
@@ -28,13 +31,30 @@ class PublicacionResponse(BaseModel):
     contenido: str
     tipo: str
     opciones: list[str] | None = None
+    creado_en: datetime
 
 
-@router.post("", response_model=PublicacionResponse, status_code=201)
-def crear_publicacion(payload: CrearPublicacionRequest):
+def a_respuesta(publicacion) -> PublicacionResponse:
+    return PublicacionResponse(
+        id=str(publicacion.id),
+        club_id=publicacion.club_id,
+        titulo=publicacion.titulo,
+        contenido=publicacion.contenido,
+        tipo=publicacion.tipo.value,
+        opciones=publicacion.opciones,
+        creado_en=publicacion.creada_en,
+    )
+
+
+@router.post(
+    "/clubes/{club_id}/publicaciones",
+    response_model=PublicacionResponse,
+    status_code=201,
+)
+def crear_publicacion(club_id: str, payload: CrearPublicacionRequest):
     try:
         publicacion = use_case.ejecutar(
-            club_id=payload.club_id,
+            club_id=club_id,
             titulo=payload.titulo,
             contenido=payload.contenido,
             tipo=payload.tipo,
@@ -43,27 +63,12 @@ def crear_publicacion(payload: CrearPublicacionRequest):
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error))
 
-    return PublicacionResponse(
-        id=str(publicacion.id),
-        club_id=publicacion.club_id,
-        titulo=publicacion.titulo,
-        contenido=publicacion.contenido,
-        tipo=publicacion.tipo.value,
-        opciones=publicacion.opciones,
-    )
+    return a_respuesta(publicacion)
 
 
-@router.get("/{club_id}", response_model=list[PublicacionResponse])
+@router.get(
+    "/clubes/{club_id}/publicaciones",
+    response_model=list[PublicacionResponse],
+)
 def listar_publicaciones(club_id: str):
-    publicaciones = repository.listar_por_club(club_id)
-    return [
-        PublicacionResponse(
-            id=str(p.id),
-            club_id=p.club_id,
-            titulo=p.titulo,
-            contenido=p.contenido,
-            tipo=p.tipo.value,
-            opciones=p.opciones,
-        )
-        for p in publicaciones
-    ]
+    return [a_respuesta(p) for p in repository.listar_por_club(club_id)]
