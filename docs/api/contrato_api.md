@@ -55,9 +55,9 @@ tipo nuevo de publicación sin tocar clubes ni eventos.
     renombrar un campo, volver requerido un campo antes opcional, quitar un
     valor de un enum, cambiar un tipo de dato, cambiar un código de estado
     ya documentado.
-  - Ver [ADR 0002](../adr/0002-integracion-sincrona-asincrona.md) para la
-    decisión de qué operaciones van en este contrato síncrono y cuáles en el
-    contrato asíncrono de la sección 4.
+  - Ver [ADR 0003](../adr/0003-integracion-rest-openapi.md) para la
+    decisión de la estrategia de integración (REST síncrono con contrato
+    OpenAPI).
 
 ## 3. Contrato síncrono (REST) — OpenAPI 3.1
 
