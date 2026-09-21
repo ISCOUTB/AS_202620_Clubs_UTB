@@ -11,9 +11,8 @@ client = TestClient(app)
 
 def test_crear_publicacion_tipo_aviso():
     response = client.post(
-        "/publicaciones",
+        "/clubes/club-ajedrez/publicaciones",
         json={
-            "club_id": "club-ajedrez",
             "titulo": "Reunión general",
             "contenido": "Este sábado a las 10am en el auditorio",
             "tipo": "aviso",
@@ -23,31 +22,31 @@ def test_crear_publicacion_tipo_aviso():
     body = response.json()
     assert body["tipo"] == "aviso"
     assert body["club_id"] == "club-ajedrez"
+    assert "creado_en" in body
 
 
 def test_listar_publicaciones_por_club():
     client.post(
-        "/publicaciones",
-        json={"club_id": "club-futbol", "titulo": "Torneo", "contenido": "Inscripciones abiertas", "tipo": "aviso"},
+        "/clubes/club-futbol/publicaciones",
+        json={"titulo": "Torneo", "contenido": "Inscripciones abiertas", "tipo": "aviso"},
     )
-    response = client.get("/publicaciones/club-futbol")
+    response = client.get("/clubes/club-futbol/publicaciones")
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
 def test_crear_publicacion_tipo_no_soportado():
     response = client.post(
-        "/publicaciones",
-        json={"club_id": "club-musica", "titulo": "x", "contenido": "y", "tipo": "invalido"},
+        "/clubes/club-musica/publicaciones",
+        json={"titulo": "x", "contenido": "y", "tipo": "invalido"},
     )
     assert response.status_code == 422
 
 
 def test_crear_publicacion_tipo_encuesta():
     response = client.post(
-        "/publicaciones",
+        "/clubes/club-ajedrez/publicaciones",
         json={
-            "club_id": "club-ajedrez",
             "titulo": "¿Qué horario prefieren para el torneo?",
             "contenido": "Vota por la opción que más te convenga",
             "tipo": "encuesta",
@@ -62,7 +61,33 @@ def test_crear_publicacion_tipo_encuesta():
 
 def test_crear_encuesta_sin_opciones_falla():
     response = client.post(
-        "/publicaciones",
-        json={"club_id": "club-ajedrez", "titulo": "Encuesta vacía", "contenido": "x", "tipo": "encuesta"},
+        "/clubes/club-ajedrez/publicaciones",
+        json={"titulo": "Encuesta vacía", "contenido": "x", "tipo": "encuesta"},
+    )
+    assert response.status_code == 422
+
+
+def test_crear_publicacion_tipo_noticia():
+    response = client.post(
+        "/clubes/club-teatro/publicaciones",
+        json={"titulo": "Ganamos", "contenido": "Torneo interno", "tipo": "noticia"},
+    )
+    assert response.status_code == 201
+    assert response.json()["tipo"] == "noticia"
+
+
+def test_error_de_validacion_usa_formato_uniforme():
+    response = client.post(
+        "/clubes/club-teatro/publicaciones",
+        json={"contenido": "falta el titulo"},
+    )
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], str)
+
+
+def test_club_id_en_el_cuerpo_es_rechazado():
+    response = client.post(
+        "/clubes/club-teatro/publicaciones",
+        json={"club_id": "otro", "titulo": "x", "contenido": "y"},
     )
     assert response.status_code == 422

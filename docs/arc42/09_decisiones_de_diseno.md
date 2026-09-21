@@ -5,6 +5,8 @@ Esta sección resume las decisiones arquitectónicas de LinkClub y remite al Reg
 | # | Decisión | Motivada por | ADR | Implementada en |
 |---|---|---|---|---|
 | 1 | Adoptar arquitectura hexagonal (puertos y adaptadores) para el backend | Escenario **U2**: Disponibilidad ante fallo de conexión con la base de datos (ver [Sección 10](./10_requisitos_de_calidad.md)) | [`docs/adr/0001-hexagonal.md`](../adr/0001-hexagonal.md) | [Sección 5 — Vista de bloques](./05_vista_de_bloques.md) |
+| 2 | Fusionar Actividades y Notificaciones en el contexto Publicaciones | Regla de dueño único de datos ([Sección 8](./08_conceptos_transversales.md)) | [`docs/adr/0002-ajuste-contextos-publicaciones.md`](../adr/0002-ajuste-contextos-publicaciones.md) | [`tabla_modulo.md`](./tabla_modulo.md) |
+| 3 | Integración REST síncrona con contrato OpenAPI verificado en el pipeline | Escenarios **U3** y **C1** (ver [Sección 10](./10_requisitos_de_calidad.md)) | [`docs/adr/0003-integracion-rest-openapi.md`](../adr/0003-integracion-rest-openapi.md) | [`docs/api/openapi.yaml`](../api/openapi.yaml) y `.github/workflows/contrato.yml` |
 
 ## Estado de las decisiones
 
@@ -12,4 +14,4 @@ La decisión de estilo arquitectónico (ADR 0001) está **aceptada** y ya se ref
 
 ## Decisiones pendientes de registrar
 
-El equipo aún no ha formalizado cómo se simula el fallo de conexión con la base de datos dentro del corte vertical que ejercita el escenario U2. Cuando esa decisión quede resuelta e implementada, debe documentarse como un nuevo ADR (`0002-*.md`) y agregarse a la tabla anterior, no como una modificación del ADR 0001, que permanece aceptado y sin reescribir.
+El equipo aún no ha formalizado cómo se simula el fallo de conexión con la base de datos dentro del corte vertical que ejercita el escenario U2. Cuando esa decisión quede resuelta e implementada, debe documentarse como un nuevo ADR (`0004-*.md`) y agregarse a la tabla anterior, no como una modificación del ADR 0001, que permanece aceptado y sin reescribir.

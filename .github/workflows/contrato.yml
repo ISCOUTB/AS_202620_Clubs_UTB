@@ -1,0 +1,52 @@
+name: contrato
+
+on:
+  pull_request:
+    paths: ["docs/api/**", "backend/**", ".spectral.yaml"]
+  push:
+    branches: [master]
+
+jobs:
+  lint-contrato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validar openapi.yaml con spectral
+        run: npx -y @stoplight/spectral-cli lint docs/api/openapi.yaml
+
+  prueba-contrato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Probar que el codigo cumple el contrato
+        working-directory: backend
+        env:
+          PYTHONPATH: src
+        run: pytest tests/test_contrato_openapi.py -v
+
+  cambios-incompatibles:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Instalar oasdiff
+        run: curl -fsSL https://raw.githubusercontent.com/oasdiff/oasdiff/main/install.sh | sh
+      - name: Comparar contra master
+        run: |
+          if git cat-file -e origin/master:docs/api/openapi.yaml 2>/dev/null; then
+            git show origin/master:docs/api/openapi.yaml > /tmp/base.yaml
+            oasdiff breaking /tmp/base.yaml docs/api/openapi.yaml --fail-on ERR
+          else
+            echo "master aun no tiene contrato; nada que comparar."
+          fi

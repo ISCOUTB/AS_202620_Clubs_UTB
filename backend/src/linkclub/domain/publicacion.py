@@ -21,3 +21,8 @@ class Publicacion:
     # en vez de crear una jerarquía de clases nueva, para que el resto del
     # sistema (repositorio, endpoints, casos de uso) no necesite conocer el tipo.
     opciones: list[str] | None = None
+
+class TipoPublicacion(str, Enum):
+    AVISO = "aviso"
+    ENCUESTA = "encuesta"
+    NOTICIA = "noticia"

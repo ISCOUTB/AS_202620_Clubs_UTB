@@ -2,3 +2,5 @@
 uvicorn[standard]
 pytest
 httpx
+pyyaml
+jsonschema
