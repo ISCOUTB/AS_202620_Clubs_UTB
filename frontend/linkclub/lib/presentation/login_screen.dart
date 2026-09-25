@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:linkclub/core/theme/theme_controller.dart';
 import 'package:linkclub/presentation/signup_screen.dart';
 import 'package:linkclub/presentation/clubs_page.dart';
 
@@ -13,13 +14,11 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // Método de autenticación con Supabase
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -28,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Petición directa a Supabase Auth
       final response = await Supabase.instance.client.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -87,8 +85,23 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final scaffoldBg = theme.scaffoldBackgroundColor;
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: colorScheme.onSurface,
+            ),
+            onPressed: () => ThemeController.toggle(),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -105,11 +118,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 90,
                       padding: const EdgeInsets.all(1),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDarkMode
+                            ? colorScheme.surfaceContainerHighest
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(25),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: isDarkMode
+                                ? Colors.black.withOpacity(0.3)
+                                : Colors.black.withOpacity(0.08),
                             blurRadius: 10,
                             offset: const Offset(0, 2),
                           ),
@@ -122,7 +139,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
                   Text(
                     'Bienvenido a LinkClub',
                     textAlign: TextAlign.center,
@@ -138,8 +154,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Campo de Correo Electrónico
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -147,7 +161,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'Correo institucional',
                       prefixIcon: const Icon(Icons.email_outlined),
                       filled: true,
-                      fillColor: Colors.transparent,
+                      fillColor: scaffoldBg,
+                      focusColor: scaffoldBg,
+                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -157,23 +173,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (email == null || email.isEmpty) {
                         return 'Por favor ingresa tu correo.';
                       }
-
-                      // Validación de formato de correo
                       final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                       if (!emailRegex.hasMatch(email)) {
                         return 'Ingresa un formato de correo válido.';
                       }
-
                       if (!email.endsWith('@utb.edu.co')) {
                         return 'Debes usar tu correo institucional (@utb.edu.co).';
                       }
-
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Campo de Contraseña
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -181,7 +191,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'Contraseña',
                       prefixIcon: const Icon(Icons.lock_outline),
                       filled: true,
-                      fillColor: Colors.transparent,
+                      fillColor: scaffoldBg,
+                      focusColor: scaffoldBg,
+                      hoverColor: scaffoldBg,
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -209,8 +221,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-
-                  // Botón de Inicio de Sesión
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(

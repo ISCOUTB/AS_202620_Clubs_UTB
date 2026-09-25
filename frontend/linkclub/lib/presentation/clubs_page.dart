@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:linkclub/core/theme/theme_controller.dart';
 import 'package:linkclub/presentation/login_screen.dart';
 
 class ClubsPage extends StatefulWidget {
@@ -10,8 +11,6 @@ class ClubsPage extends StatefulWidget {
 }
 
 class _ClubsPageState extends State<ClubsPage> {
-  bool _isDarkMode = false;
-
   final List<Map<String, String>> clubs = const [
     {
       'name': 'Club de Programación',
@@ -46,12 +45,6 @@ class _ClubsPageState extends State<ClubsPage> {
       'icon': '📷',
     },
   ];
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _isDarkMode = Theme.of(context).brightness == Brightness.dark;
-  }
 
   Future<void> _signOut() async {
     await Supabase.instance.client.auth.signOut();
@@ -102,15 +95,16 @@ class _ClubsPageState extends State<ClubsPage> {
             ),
 
             // Switch de Modo Oscuro / Claro
-            SwitchListTile(
-              secondary: const Icon(Icons.dark_mode_outlined),
-              title: const Text('Modo oscuro'),
-              activeColor: colorScheme.primary,
-              value: _isDarkMode,
-              onChanged: (bool value) {
-                setState(() {
-                  _isDarkMode = value;
-                });
+            ValueListenableBuilder<ThemeMode>(
+              valueListenable: ThemeController.mode,
+              builder: (context, mode, _) {
+                return SwitchListTile(
+                  secondary: const Icon(Icons.dark_mode_outlined),
+                  title: const Text('Modo oscuro'),
+                  activeColor: colorScheme.primary,
+                  value: mode == ThemeMode.dark,
+                  onChanged: (bool value) => ThemeController.toggle(),
+                );
               },
             ),
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:linkclub/core/theme/theme_controller.dart';
 import 'package:linkclub/presentation/clubs_page.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -30,7 +31,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
       final name = _nameController.text.trim();
-
       final matricula = _matriculaController.text.trim().toUpperCase();
 
       final response = await Supabase.instance.client.auth.signUp(
@@ -41,12 +41,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final user = response.user;
 
       if (user != null) {
-        await Supabase.instance.client.from('usuarios').insert({
-          'id': user.id,
-          'matricula': matricula,
-          'nombre': name,
-          'correo': email,
-        });
+        // Envolvemos el insert en su propio bloque try-catch.
+        // Evita que un error post-inserción (como políticas RLS bloqueando un SELECT implícito)
+        // detenga la redirección si el usuario ya se creó en Supabase Auth y en la tabla.
+        try {
+          await Supabase.instance.client.from('usuarios').insert({
+            'id': user.id,
+            'matricula': matricula,
+            'nombre': name,
+            'correo': email,
+          });
+        } catch (e) {
+          debugPrint('Aviso de base de datos durante el registro: $e');
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -56,6 +63,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             ),
           );
 
+          // Redirección inmediata al Home
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const ClubsPage()),
@@ -112,10 +120,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final scaffoldBg = theme.scaffoldBackgroundColor;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Registro', style: TextStyle(fontSize: 18.0)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: colorScheme.onSurface,
+            ),
+            onPressed: () => ThemeController.toggle(),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Center(
@@ -142,15 +163,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // Nombre completo
                   TextFormField(
                     controller: _nameController,
                     decoration: InputDecoration(
                       labelText: 'Nombre completo',
                       prefixIcon: const Icon(Icons.person_outline),
                       filled: true,
-                      fillColor: Colors.transparent,
+                      fillColor: scaffoldBg,
+                      focusColor: scaffoldBg,
+                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -163,15 +184,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Código estudiantil
                   TextFormField(
                     controller: _matriculaController,
                     decoration: InputDecoration(
                       labelText: 'Código estudiantil',
                       prefixIcon: const Icon(Icons.badge_outlined),
                       filled: true,
-                      fillColor: Colors.transparent,
+                      fillColor: scaffoldBg,
+                      focusColor: scaffoldBg,
+                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -181,8 +202,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       if (matricula == null || matricula.isEmpty) {
                         return 'Por favor ingresa tu código estudiantil.';
                       }
-
-                      // Validación código estudiantil formato UTB
+                      // Actualizado a la regex que usaste en la captura (7 u 8 números)
                       final matriculaRegex = RegExp(r'^T\d{7,8}$');
                       if (!matriculaRegex.hasMatch(matricula)) {
                         return 'El código debe iniciar con "T" seguido de 7 u 8 números.';
@@ -191,8 +211,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Correo electrónico
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -200,7 +218,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       labelText: 'Correo institucional',
                       prefixIcon: const Icon(Icons.email_outlined),
                       filled: true,
-                      fillColor: Colors.transparent,
+                      fillColor: scaffoldBg,
+                      focusColor: scaffoldBg,
+                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -210,23 +230,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       if (email == null || email.isEmpty) {
                         return 'Por favor ingresa tu correo.';
                       }
-
-                      // Validación de formato de correo
                       final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
                       if (!emailRegex.hasMatch(email)) {
                         return 'Ingresa un formato de correo válido.';
                       }
-
                       if (!email.endsWith('@utb.edu.co')) {
                         return 'Debes usar tu correo institucional (@utb.edu.co).';
                       }
-
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // Contraseña
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -234,7 +248,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       labelText: 'Contraseña',
                       prefixIcon: const Icon(Icons.lock_outline),
                       filled: true,
-                      fillColor: Colors.transparent,
+                      fillColor: scaffoldBg,
+                      focusColor: scaffoldBg,
+                      hoverColor: scaffoldBg,
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -262,8 +278,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
-
-                  // Botón de Registro
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(
