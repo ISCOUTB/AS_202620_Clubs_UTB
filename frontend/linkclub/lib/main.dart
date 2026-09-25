@@ -1,7 +1,22 @@
 import 'package:flutter/material.dart';
-import 'clubs_page.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:linkclub/core/theme/app_theme.dart';
+import 'package:linkclub/presentation/clubs_page.dart';
+import 'package:linkclub/presentation/login_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Carga de credenciales desde archivo seguro
+  await dotenv.load(fileName: ".env");
+
+  // Inicialización de Supabase inyectando variables de entorno
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    publishableKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
+
   runApp(const LinkClubApp());
 }
 
@@ -10,10 +25,16 @@ class LinkClubApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isUserLoggedIn =
+        Supabase.instance.client.auth.currentSession != null;
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'LinkClub',
-      home: const ClubsPage(),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
+      home: isUserLoggedIn ? const ClubsPage() : const LoginScreen(),
     );
   }
 }

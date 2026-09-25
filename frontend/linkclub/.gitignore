@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Archivos de error de Java / Gradle
+hs_err_pid*.log
+*.log
+
+# Secretos y variables de entorno
+.env
