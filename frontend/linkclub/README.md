@@ -1,38 +1,58 @@
-# LinkClub - Frontend (Módulo Móvil / Web)
+# LinkClub — Frontend (Aplicación Móvil)
 
-Repositorio oficial del frontend de **LinkClub**, plataforma centralizada para la gestión de avisos, eventos y noticias de los clubes estudiantiles de la **Universidad Tecnológica de Bolívar (UTB)**. 
-
-Este módulo forma parte del proyecto integrador del curso **Arquitecturas de Software (NRC: 1495, 2026-2)** de la Facultad de Ingeniería de Sistemas y Computación.
+Aplicación móvil desarrollada en **Flutter** para la plataforma centralizada de gestión de clubes estudiantiles de la **Universidad Tecnológica de Bolívar (UTB)**. Este módulo constituye la interfaz de usuario (capa de presentación) del sistema integrado bajo el curso de **Arquitectura de Software (2026-2)**.
 
 ---
 
-## Estado Actual (Lo realizado)
+## 🚀 Características Principales
 
-El frontend está desarrollado en **Flutter**, implementando una arquitectura modular basada en vistas y componentes reutilizables con soporte nativo para **Material 3** y adaptabilidad a temas claros y oscuros.
-
-*   **Autenticación y Seguridad con Supabase Auth:**
-    *   `LoginScreen`: Pantalla de inicio de sesión con validación de credenciales en tiempo real, manejo de estados de carga y encriptación de errores del servidor a mensajes claros en español.
-    *   `SignUpScreen`: Registro de nuevos usuarios estudiantes con validaciones estrictas (formato de correo institucional `@utb.edu.co` y contraseñas seguras de al menos 8 caracteres).
-    *   Gestión de variables de entorno mediante `flutter_dotenv` para aislar las credenciales públicas (`publishableKey`) del repositorio.
-*   **Interfaz de Usuario Principal (`ClubsPage`):**
-    *   Vista interactiva de exploración de clubes universitarios (Programación, Robótica, Música, Deportes, Fotografía) con buscador dinámico y tarjetas adaptativas.
-    *   **Drawer de Navegación Integrado:** Panel lateral limpio que incluye el logotipo institucional, control de cambio rápido de modo oscuro/claro, accesos directos a configuraciones y botón de cierre de sesión seguro conectado a la sesión de Supabase.
+* **Autenticación Segura con Supabase Auth:** Módulos de inicio de sesión (`LoginScreen`) y registro (`SignUpScreen`) conectados de forma asíncrona a Supabase.
+* **Validación de Identidad Institucional:** Validación estricta en formularios para correos institucionales (`@utb.edu.co`) y códigos estudiantiles (formato `T` seguido de 7 u 8 dígitos).
+* **Catálogo e Interfaz de Clubes (`ClubsPage`):** Visualización interactiva de los clubes disponibles con buscador en tiempo real.
+* **Menú Lateral (Drawer) Adaptativo:** Acceso rápido al perfil, configuraciones, interruptor de modo oscuro/claro y cierre de sesión seguro.
+* **Diseño Material 3:** Interfaz limpia, optimizada tanto para modo claro como para modo oscuro, con inputs y componentes adaptativos.
 
 ---
 
-## 🛠️ Tecnologías y Herramientas
+## 📁 Estructura del Directorio (`lib/`)
 
-*   **Framework:** Flutter (compatible con Web y dispositivos móviles).
-*   **Lenguaje:** Dart.
-*   **Backend as a Service (BaaS):** Supabase (Autenticación y Base de Datos).
-*   **Gestión de Estado y Estilos:** StatefulWidget local, Material 3 Design System.
+```text
+lib/
+├── core/
+│   └── theme/          # Definición de temas claro y oscuro (AppTheme)
+├── presentation/       # Pantallas y vistas de la aplicación
+│   ├── clubs_page.dart # Vista principal del catálogo de clubes y Drawer
+│   ├── login_screen.dart # Autenticación de usuarios existentes
+│   └── signup_screen.dart # Registro y persistencia inicial en base de datos
+└── main.dart           # Punto de entrada, inicialización de Supabase y rutas
+```
 
 ---
 
-## ⚙️ Configuración y Ejecución Local
+## ⚙️ Configuración y Ejecución
 
-Para levantar este entorno de desarrollo localmente de forma segura, sigue estos pasos:
+### Requisitos Previos
+* Tener instalado **Flutter SDK** (versión compatible con Dart 3+).
+* Configurar las variables de entorno para la conexión con Supabase.
 
-1. **Clonar el repositorio principal y navegar a la ruta del frontend:**
-   ```bash
-   cd frontend/linkclub
+### 1. Variables de Entorno (`.env`)
+Crea un archivo `.env` en la raíz del proyecto (`frontend/linkclub/.env`) especificando tus credenciales (asegúrate de que este archivo no se suba al control de versiones por seguridad):
+
+```env
+SUPABASE_URL=tu_url_de_supabase
+SUPABASE_ANON_KEY=tu_clave_anonima_de_supabase
+```
+
+### 2. Instalación de Dependencias
+Ejecuta el siguiente comando en tu terminal dentro de la ruta `frontend/linkclub/`:
+
+```bash
+flutter pub get
+```
+
+### 3. Ejecución de la Aplicación
+Con tu emulador activo o dispositivo físico conectado, ejecuta:
+
+```bash
+flutter run
+```
