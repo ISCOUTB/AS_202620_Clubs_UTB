@@ -4,7 +4,7 @@ Aplicación móvil desarrollada en **Flutter** para la plataforma centralizada d
 
 ---
 
-## 🚀 Características Principales
+## Características Principales
 
 * **Autenticación Segura con Supabase Auth:** Módulos de inicio de sesión (`LoginScreen`) y registro (`SignUpScreen`) conectados de forma asíncrona a Supabase.
 * **Validación de Identidad Institucional:** Validación estricta en formularios para correos institucionales (`@utb.edu.co`) y códigos estudiantiles (formato `T` seguido de 7 u 8 dígitos).
@@ -14,7 +14,7 @@ Aplicación móvil desarrollada en **Flutter** para la plataforma centralizada d
 
 ---
 
-## 📁 Estructura del Directorio (`lib/`)
+## Estructura del Directorio (`lib/`)
 
 ```text
 lib/
@@ -29,7 +29,7 @@ lib/
 
 ---
 
-## ⚙️ Configuración y Ejecución
+## Configuración y Ejecución
 
 ### Requisitos Previos
 * Tener instalado **Flutter SDK** (versión compatible con Dart 3+).
