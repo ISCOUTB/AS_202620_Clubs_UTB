@@ -26,7 +26,14 @@ Las siguientes restricciones limitan el espacio de decisiones de arquitectura di
 | C1 | El proyecto debe avanzar por **entregas incrementales calificadas**, cada una usada como línea base para la siguiente ("reto de corte"). | Obliga a que cada entrega sea autocontenida y coherente con el repositorio en el momento de la evaluación, en lugar de dejar decisiones de arquitectura a medio documentar entre cortes. |
 | C2 | El cronograma del curso **no contempla tiempo para adoptar tecnologías nuevas fuera de las ya conocidas por el equipo** (Flutter, FastAPI, PostgreSQL). | Justifica directamente las restricciones técnicas T1-T3: la prioridad es entregar dentro del tiempo del semestre, no explorar el stack óptimo en abstracto. |
 
-## 2.4 Convenciones
+## 2.4. Restricciones financieras
+
+| # | Restricción | Justificación |
+|---|---|---|
+| F1 | **Costo Cero Mensual:** El sistema debe operar en producción a un costo de $0 mensuales. | Condición del proyecto académico, no se cuenta con presupuesto para infraestructura en la nube. |
+| F2 | **Sin tarjeta de crédito obligatoria:** Al menos una alternativa de despliegue para cualquier pieza del sistema debe ser realizable sin registrar una tarjeta de crédito personal. | Requisito explícito de las rúbricas de evaluación del curso para evitar riesgos financieros del equipo. |
+
+## 2.5. Convenciones
 
 | # | Convención | Justificación |
 |---|---|---|
