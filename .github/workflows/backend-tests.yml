@@ -21,7 +21,7 @@ jobs:
 
       - name: Instalar dependencias
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: pip install --only-binary :all: -r requirements.txt
 
       - name: Correr pruebas
         working-directory: backend
