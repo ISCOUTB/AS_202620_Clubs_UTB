@@ -50,6 +50,9 @@ def a_respuesta(publicacion) -> PublicacionResponse:
     "/clubes/{club_id}/publicaciones",
     response_model=PublicacionResponse,
     status_code=201,
+    responses={
+        422: {"description": "Error de validación en la regla de negocio o datos de la publicación"}
+    },
 )
 def crear_publicacion(club_id: str, payload: CrearPublicacionRequest):
     try:
