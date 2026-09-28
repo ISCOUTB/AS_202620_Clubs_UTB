@@ -1,0 +1,7 @@
+﻿# Terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/*.tfvars
+infra/terraform/access-token
+infra/terraform/crash.log
