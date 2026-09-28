@@ -5,3 +5,4 @@ infra/terraform/*.tfstate.*
 infra/terraform/*.tfvars
 infra/terraform/access-token
 infra/terraform/crash.log
+infra/terraform/tfplan
