@@ -14,8 +14,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Instalar spectral
+        run: npm install -g @stoplight/spectral-cli@6.11.0
       - name: Validar openapi.yaml con spectral
-        run: npx --yes @stoplight/spectral-cli@6.11.0 lint docs/api/openapi.yaml
+        run: spectral lint docs/api/openapi.yaml
 
   prueba-contrato:
     runs-on: ubuntu-latest
@@ -26,7 +28,7 @@ jobs:
           python-version: "3.12"
       - name: Instalar dependencias
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: pip install --only-binary :all: -r requirements.txt
       - name: Probar que el codigo cumple el contrato
         working-directory: backend
         env:
@@ -40,8 +42,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Instalar oasdiff
-        run: curl -fsSL https://raw.githubusercontent.com/oasdiff/oasdiff/main/install.sh | sh
+      - name: Instalar oasdiff de forma segura
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/oasdiff/oasdiff/main/install.sh -o /tmp/install_oasdiff.sh
+          sh /tmp/install_oasdiff.sh
+          rm /tmp/install_oasdiff.sh
       - name: Comparar contra master
         run: |
           if git cat-file -e origin/master:docs/api/openapi.yaml 2>/dev/null; then
