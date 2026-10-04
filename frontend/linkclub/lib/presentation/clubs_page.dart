@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:linkclub/core/theme/theme_controller.dart';
 import 'package:linkclub/presentation/login_screen.dart';
+import 'package:linkclub/presentation/clubs_details.dart';
 
 class ClubsPage extends StatefulWidget {
   const ClubsPage({super.key});
@@ -17,12 +18,29 @@ class _ClubsPageState extends State<ClubsPage> {
       'category': 'Tecnología',
       'description': 'Aprende programación y desarrolla proyectos de software.',
       'icon': '💻',
+      'fullDescription':
+          'El Club de Programación es un espacio para estudiantes interesados '
+          'en aprender y mejorar sus habilidades de desarrollo de software. '
+          'Los integrantes trabajan en proyectos, practican programación y '
+          'comparten conocimientos con otros estudiantes.',
+      'members': '25 miembros',
+      'leader': 'Juan Pérez',
+      'schedule': 'Martes y jueves - 4:00 PM',
+      'location': 'Laboratorio de Sistemas',
     },
     {
       'name': 'Club de Robótica',
       'category': 'Tecnología',
       'description': 'Diseña, construye y programa robots.',
       'icon': '🤖',
+      'fullDescription':
+          'El Club de Robótica reúne estudiantes interesados en electrónica, '
+          'programación y diseño de robots. Los miembros desarrollan proyectos '
+          'prácticos y participan en actividades relacionadas con robótica.',
+      'members': '18 miembros',
+      'leader': 'María González',
+      'schedule': 'Miércoles - 3:00 PM',
+      'location': 'Laboratorio de Electrónica',
     },
     {
       'name': 'Club de Música',
@@ -30,6 +48,15 @@ class _ClubsPageState extends State<ClubsPage> {
       'description':
           'Un espacio para compartir y desarrollar talentos musicales.',
       'icon': '🎵',
+      'fullDescription':
+          'El Club de Música es un espacio para estudiantes que disfrutan '
+          'de la música. Los integrantes pueden practicar instrumentos, '
+          'compartir conocimientos y participar en presentaciones y eventos '
+          'de la universidad.',
+      'members': '32 miembros',
+      'leader': 'Carlos Rodríguez',
+      'schedule': 'Viernes - 2:00 PM',
+      'location': 'Salón de Música',
     },
     {
       'name': 'Club de Deportes',
@@ -37,12 +64,29 @@ class _ClubsPageState extends State<ClubsPage> {
       'description':
           'Participa en actividades deportivas y conoce nuevos compañeros.',
       'icon': '⚽',
+      'fullDescription':
+          'El Club de Deportes promueve la actividad física y la integración '
+          'entre estudiantes. Se realizan entrenamientos y actividades '
+          'deportivas para diferentes niveles de experiencia.',
+      'members': '40 miembros',
+      'leader': 'Andrés Martínez',
+      'schedule': 'Lunes y miércoles - 5:00 PM',
+      'location': 'Cancha deportiva',
     },
     {
       'name': 'Club de Fotografía',
       'category': 'Arte y cultura',
       'description': 'Explora la fotografía y aprende nuevas técnicas.',
       'icon': '📷',
+      ('fullDescription'):
+          'El Club de Fotografía permite a los estudiantes aprender y '
+          'experimentar con diferentes técnicas fotográficas. Se realizan '
+          'salidas, sesiones prácticas y actividades para mejorar las '
+          'habilidades de los integrantes.',
+      'members': '15 miembros',
+      'leader': 'Laura Torres',
+      'schedule': 'Sábados - 10:00 AM',
+      'location': 'Edificio de Arte y Cultura',
     },
   ];
 
@@ -239,7 +283,15 @@ class _ClubsPageState extends State<ClubsPage> {
                                 SizedBox(
                                   height: 38,
                                   child: ElevatedButton(
-                                    onPressed: () {},
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              ClubDetailPage(club: club),
+                                        ),
+                                      );
+                                    },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: colorScheme
                                           .primary, // Botón con color de marca
