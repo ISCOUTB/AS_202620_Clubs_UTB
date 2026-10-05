@@ -73,7 +73,7 @@ info:
     Este documento describe el contrato TAL COMO DEBE SER, no necesariamente
     lo que ya está implementado; ver la tabla de estado de implementación en
     el documento que acompaña este archivo.
-  version: 1.0.0
+  version: 1.1.0
 servers:
   - url: http://localhost:8000
     description: Entorno local de desarrollo
@@ -494,6 +494,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         club_id: { type: string }
+        autor_id: { type: string}
         titulo: { type: string }
         contenido: { type: string }
         tipo: { $ref: "#/components/schemas/TipoPublicacion" }

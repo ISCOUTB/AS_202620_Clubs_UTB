@@ -7,6 +7,7 @@ Esta sección resume las decisiones arquitectónicas de LinkClub y remite al Reg
 | 1 | Adoptar arquitectura hexagonal (puertos y adaptadores) para el backend | Escenario **U2**: Disponibilidad ante fallo de conexión con la base de datos (ver [Sección 10](./10_requisitos_de_calidad.md)) | [`docs/adr/0001-hexagonal.md`](../adr/0001-hexagonal.md) | [Sección 5 — Vista de bloques](./05_vista_de_bloques.md) |
 | 2 | Fusionar Actividades y Notificaciones en el contexto Publicaciones | Regla de dueño único de datos ([Sección 8](./08_conceptos_transversales.md)) | [`docs/adr/0002-ajuste-contextos-publicaciones.md`](../adr/0002-ajuste-contextos-publicaciones.md) | [`tabla_modulo.md`](./tabla_modulo.md) |
 | 3 | Integración REST síncrona con contrato OpenAPI verificado en el pipeline | Escenarios **U3** y **C1** (ver [Sección 10](./10_requisitos_de_calidad.md)) | [`docs/adr/0003-integracion-rest-openapi.md`](../adr/0003-integracion-rest-openapi.md) | [`docs/api/openapi.yaml`](../api/openapi.yaml) y `.github/workflows/contrato.yml` |
+| 4 | Validar tokens con JWT asimétrico (JWKS) en el backend | Escenario **U3** | [`docs/adr/0005-validacion-token-jwt-supabase.md`](../adr/0005-validacion-token-jwt-supabase.md) | `adapters/outbound/auth/` y `adapters/inbound/api/auth_dependency.py` |
 
 ## Estado de las decisiones
 

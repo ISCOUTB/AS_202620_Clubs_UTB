@@ -9,7 +9,7 @@ info:
     Este archivo describe el contrato TAL COMO DEBE SER, no necesariamente lo
     que ya está implementado; el estado de implementación por endpoint está en
     docs/api/contrato_api.md (sección 5).
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: Equipo LinkClub
     url: https://github.com/ISCOUTB/AS_202620_Clubs_UTB
@@ -442,6 +442,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         club_id: { type: string }
+        autor_id: { type: string }
         titulo: { type: string }
         contenido: { type: string }
         tipo: { $ref: "#/components/schemas/TipoPublicacion" }

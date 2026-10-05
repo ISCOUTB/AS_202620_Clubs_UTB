@@ -3,10 +3,6 @@ from pathlib import Path
 import yaml
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 from linkclub.main import app
 
@@ -29,11 +25,11 @@ def test_health_cumple_contrato():
     validar(r.json(), "HealthStatus")
 
 
-
-def test_crear_publicacion_cumple_contrato():
+def test_crear_publicacion_cumple_contrato(headers_auth):
     r = client.post(
         "/clubes/club-1/publicaciones",
         json={"titulo": "Hola", "contenido": "Reunion el lunes", "tipo": "aviso"},
+        headers=headers_auth,
     )
     assert r.status_code == 201
     validar(r.json(), "Publicacion")
@@ -43,16 +39,31 @@ def test_rutas_del_codigo_existen_en_el_contrato():
     for ruta in app.openapi()["paths"]:
         assert ruta in contrato["paths"], f"{ruta} no esta en el contrato"
 
-def test_noticia_cumple_contrato():
+
+def test_noticia_cumple_contrato(headers_auth):
     r = client.post(
         "/clubes/club-2/publicaciones",
         json={"titulo": "Ganamos", "contenido": "Torneo interno", "tipo": "noticia"},
+        headers=headers_auth,
     )
     assert r.status_code == 201
     validar(r.json(), "Publicacion")
 
 
-def test_error_422_cumple_contrato():
-    r = client.post("/clubes/club-3/publicaciones", json={"contenido": "sin titulo"})
+def test_error_422_cumple_contrato(headers_auth):
+    r = client.post(
+        "/clubes/club-3/publicaciones",
+        json={"contenido": "sin titulo"},
+        headers=headers_auth,
+    )
     assert r.status_code == 422
+    validar(r.json(), "ErrorResponse")
+
+
+def test_error_401_cumple_contrato():
+    r = client.post(
+        "/clubes/club-3/publicaciones",
+        json={"titulo": "x", "contenido": "y"},
+    )
+    assert r.status_code == 401
     validar(r.json(), "ErrorResponse")

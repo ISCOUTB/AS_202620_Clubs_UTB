@@ -1,8 +1,9 @@
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
+from linkclub.adapters.inbound.api.auth_dependency import require_auth
 from linkclub.adapters.outbound.persistence.in_memory_publicacion_adapter import (
     InMemoryPublicacionAdapter,
 )
@@ -27,6 +28,7 @@ class CrearPublicacionRequest(BaseModel):
 class PublicacionResponse(BaseModel):
     id: str
     club_id: str
+    autor_id: str
     titulo: str
     contenido: str
     tipo: str
@@ -38,6 +40,7 @@ def a_respuesta(publicacion) -> PublicacionResponse:
     return PublicacionResponse(
         id=str(publicacion.id),
         club_id=publicacion.club_id,
+        autor_id=publicacion.autor_id,
         titulo=publicacion.titulo,
         contenido=publicacion.contenido,
         tipo=publicacion.tipo.value,
@@ -54,10 +57,15 @@ def a_respuesta(publicacion) -> PublicacionResponse:
         422: {"description": "Error de validación en la regla de negocio o datos de la publicación"}
     },
 )
-def crear_publicacion(club_id: str, payload: CrearPublicacionRequest):
+def crear_publicacion(
+    club_id: str,
+    payload: CrearPublicacionRequest,
+    autor_id: str = Depends(require_auth),
+):
     try:
         publicacion = use_case.ejecutar(
             club_id=club_id,
+            autor_id=autor_id,
             titulo=payload.titulo,
             contenido=payload.contenido,
             tipo=payload.tipo,
