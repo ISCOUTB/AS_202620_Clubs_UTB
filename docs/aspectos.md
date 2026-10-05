@@ -9,11 +9,11 @@ En la Universidad Tecnológica de Bolívar, existen gran variedad de clubes abie
 ## Tecnologías
 
 - Framework: Flutter
-- Base de datos: PostgreSQL, con Supabase
+- Base de datos: Supabase, con PostgreSQL
 - API: FastAPI
 
 ## Estado del proyecto
-En etapa inicial 
+En etapa de desarrollo bajo arquitectura 
 
 ## Autores
 - Josh Robinson Ortega Castellón, T00082929  
@@ -23,10 +23,12 @@ En etapa inicial
 ## Aspectos de calidad
 
 
-| ID | Aspecto de calidad | Escenario | Requisito (resumen) | C4 | ADR | Código | Pruebas |
+# Aspectos de Calidad y Trazabilidad
+
+| ID | Aspecto de calidad | Escenario Relacionado | Requisito (Decisión/Táctica) | Componente C4 | ADR Relacionado | Archivo de Código | Pruebas y Evidencia |
 |---|---|---|---|---|---|---|---|
-| U1 | Rendimiento | [Escenario de uso U1](arc42/10_requisitos_de_calidad.md#escenarios-de-uso) | Latencia ≤ 800 ms en el camino crítico de búsqueda (red + FastAPI + Supabase) | [C4 — contexto y contenedores](c4/contexto.md) | — (pendiente; módulo de búsqueda aún no diseñado) | Pendiente | Pendiente |
-| U2 | Disponibilidad | [Escenario de uso U2](arc42/10_requisitos_de_calidad.md#escenarios-de-uso) | Manejo explícito de errores de conexión a BD en el 100% de los endpoints, sin excepciones no controladas | [C4 — contexto y contenedores](c4/contexto.md) | [0001-hexagonal](adr/0001-hexagonal.md) — la separación de puertos/adaptadores aísla los fallos del proveedor externo | `backend/src/linkclub/adapters/inbound/api/health_router.py`, `application/use_cases/check_health.py`, `adapters/outbound/persistence/in_memory_status_adapter.py` | `backend/tests/test_health.py` |
-| U3 | Seguridad | [Escenario de uso U3](arc42/10_requisitos_de_calidad.md#escenarios-de-uso) | Validación de token en el 100% de los endpoints protegidos | [C4 — contexto y contenedores](c4/contexto.md) | — (pendiente; depende de qué proveedor de auth se confirme, restricción T4) | Pendiente | Pendiente |
-| C1 | Modificabilidad | [Escenario de cambio C1](arc42/10_requisitos_de_calidad.md#escenarios-de-cambio) | Agregar un nuevo tipo de publicación modificando ≤ 3 módulos, sin afectar auth/clubes/eventos | [C4 — contexto y contenedores](c4/contexto.md) | [0001-hexagonal](adr/0001-hexagonal.md) — la arquitectura hexagonal es la decisión que habilita este escenario | Pendiente | Pendiente |
-| C2 | Portabilidad | [Escenario de cambio C3](arc42/10_requisitos_de_calidad.md#escenarios-de-cambio) | Cambio de proveedor de BD/auth limitado al módulo de acceso a datos; ≤ 2 módulos fuera de esa capa | [C4 — contexto y contenedores](c4/contexto.md) | [0001-hexagonal](adr/0001-hexagonal.md) — motiva explícitamente este escenario (ver [Contexto](adr/0001-hexagonal.md#contexto)) | Pendiente | Pendiente |
+| U1 | Rendimiento | [Escenario U1](arc42/10_requisitos_de_calidad.md#escenarios-de-uso) | Latencia ≤ 800 ms en el camino crítico de búsqueda. | [C4 - Contexto](c4/contexto.md) | Pendiente | Pendiente | Pendiente |
+| U2 | Disponibilidad | [Escenario U2](arc42/10_requisitos_de_calidad.md#escenarios-de-uso) | Manejo de errores de conexión y Health Check activo. | [C4 - Contexto](c4/contexto.md) | [0001-hexagonal](adr/0001-hexagonal.md) y [0004-supabase](adr/0004-supabase.md) | `health_router.py`, `check_health.py` | `test_health.py`. *Mutación S9:* Se alteró el status a "caido_por_error" y la prueba falló (`AssertionError`), demostrando cobertura real. |
+| U3 | Seguridad | [Escenario U3](arc42/10_requisitos_de_calidad.md#escenarios-de-uso) | Validación de token en el 100% de los endpoints protegidos. | [C4 - Contexto](c4/contexto.md) | [0004-supabase](adr/0004-supabase.md) | Pendiente | Pendiente |
+| C1 | Modificabilidad | [Escenario C1](arc42/10_requisitos_de_calidad.md#escenarios-de-cambio) | Agregar nuevo tipo de publicación afectando ≤ 3 módulos. | [C4 - Contexto](c4/contexto.md) | [0001-hexagonal](adr/0001-hexagonal.md) | Pendiente | Pendiente |
+| C2 | Portabilidad | [Escenario C3](arc42/10_requisitos_de_calidad.md#escenarios-de-cambio) | Cambio de proveedor de BD limitado al adaptador de salida. | [C4 - Contexto](c4/contexto.md) | [0001-hexagonal](adr/0001-hexagonal.md) | Pendiente | Pendiente |

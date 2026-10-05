@@ -1,7 +1,7 @@
 # ADR 0004: Usar Supabase como servicio gestionado de base de datos
 
 ## Estado
-Propuesto
+aceptado
 
 ## Fecha
 27/09/2026
@@ -22,7 +22,7 @@ Descripción breve: Usar el servicio en la nube de Supabase en su región US Eas
 ### B. Contenedor PostgreSQL en el Servidor del Laboratorio
 Descripción breve: Levantar nuestra propia imagen de Docker con PostgreSQL en el servidor físico provisto por la UTB.
 **A favor:** Sin límites de almacenamiento ni usuarios artificiales; control total sobre la instancia; cumple al 100% con la restricción de costo cero infinito.
-**En contra:** Alta carga operativa; el equipo debe gestionar copias de seguridad a mano; si el servidor de la universidad se reinicia, requiere intervención humana para recuperar el servicio; incrementa el riesgo descrito en la sección 11 (Operabilidad dependiente de una sola persona).
+**En contra:** Alta carga operativa; el equipo debe gestionar copias de seguridad a mano; si el servidor de la universidad se reinicia, requiere intervención humana para recuperar el servicio; concentra la operación en pocas personas del equipo.
 
 ## Decisión
 
@@ -30,7 +30,7 @@ Se elige **Supabase (Alternativa A)**, porque garantiza nuestro escenario de cal
 
 ## Consecuencias
 
-- **Positivas:** Reducción drástica del tiempo de operaciones; ganamos la gestión de usuarios (Auth) sin codificarla desde cero; despliegues rápidos.
+- **Positivas:** Reducción drástica del tiempo de operaciones; ganamos la gestión de usuarios (Auth) sin codificarla desde cero; despliegues rápidos. El proyecto queda descrito como código en infra/terraform/.
 - **Negativas / costos asumidos:** Dependencia de la política de precios de un proveedor externo (Vendor Lock-in moderado).
 - **Riesgos y qué los dispararía:** Agotar el número de conexiones simultáneas si hay un pico de tráfico, lo cual tumbara la base de datos.
 - **Qué habría que revisar si cambia Y:** Si Supabase elimina su plan gratuito, ejecutaremos el plan de reversión exportando los datos migrando a un contenedor PostgreSQL estándar en el servidor del laboratorio.
