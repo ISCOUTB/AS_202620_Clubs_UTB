@@ -25,6 +25,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
 
         publicacion = Publicacion(
             club_id=club_id,
+            autor_id=autor_id,
             titulo=titulo,
             contenido=contenido,
             tipo=tipo_publicacion,
