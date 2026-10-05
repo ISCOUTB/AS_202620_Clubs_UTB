@@ -1,4 +1,4 @@
-# ADR 0005: Validación de tokens de sesión con JWT asimétrico (JWKS) en el backend
+# ADR 0006: Validación de tokens de sesión con JWT asimétrico (JWKS) en el backend
 
 ## Estado
 Propuesto
