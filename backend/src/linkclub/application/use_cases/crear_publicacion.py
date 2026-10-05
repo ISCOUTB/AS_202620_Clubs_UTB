@@ -10,6 +10,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
     def ejecutar(
         self,
         club_id: str,
+        autor_id: str,
         titulo: str,
         contenido: str,
         tipo: str = TipoPublicacion.AVISO.value,
