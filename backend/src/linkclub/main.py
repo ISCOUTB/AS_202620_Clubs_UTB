@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 
 from linkclub.adapters.inbound.api.health_router import router as health_router
 from linkclub.adapters.inbound.api.publicacion_router import router as publicacion_router
-
+from linkclub.adapters.inbound.api.club_router import router as club_router
 app = FastAPI(title="LinkClub API")
 
 
@@ -18,3 +18,4 @@ async def manejar_validacion(request: Request, exc: RequestValidationError):
 
 app.include_router(health_router)
 app.include_router(publicacion_router)
+app.include_router(club_router)
