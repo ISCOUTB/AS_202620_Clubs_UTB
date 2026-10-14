@@ -8,8 +8,8 @@ info:
     contexto: Estudiante interesado, Miembro de club y Administrador de club.
     Este archivo describe el contrato TAL COMO DEBE SER, no necesariamente lo
     que ya está implementado; el estado de implementación por endpoint está en
-    docs/api/contrato_api.md (sección 5).
-  version: 1.1.0
+    docs/api/contrato_api.md (sección 4).
+  version: 1.2.0
   contact:
     name: Equipo LinkClub
     url: https://github.com/ISCOUTB/AS_202620_Clubs_UTB
@@ -20,8 +20,12 @@ servers:
 tags:
   - name: health
     description: Estado del servicio.
+  - name: auth
+    description: Registro e inicio de sesión.
+  - name: usuarios
+    description: Perfil de usuario.
   - name: clubes
-    description: Consulta y búsqueda de clubes.
+    description: Consulta, búsqueda y creación de clubes.
   - name: membresias
     description: Inscripción y gestión de miembros de un club.
   - name: eventos
@@ -45,6 +49,70 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
+
+  /usuarios:
+    post:
+      operationId: registrarUsuario
+      tags: [usuarios]
+      summary: Registra un usuario nuevo.
+      description: >
+        Crea la cuenta. El id lo genera el backend. El correo debe ser
+        institucional (@utb.edu.co) y la matrícula tener formato T + 7 u 8 dígitos.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CrearUsuarioRequest" }
+      responses:
+        "201":
+          description: Usuario creado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "409":
+          description: El correo o la matrícula ya están registrados.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
+
+  /usuarios/me:
+    get:
+      operationId: obtenerMiPerfil
+      tags: [usuarios]
+      summary: Perfil del usuario autenticado.
+      responses:
+        "200":
+          description: Perfil del usuario.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+
+  /auth/login:
+    post:
+      operationId: iniciarSesion
+      tags: [auth]
+      summary: Inicia sesión y devuelve un token de acceso.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Credenciales válidas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
 
   /clubes:
     get:
@@ -70,6 +138,31 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Club" }
+    post:
+      operationId: crearClub
+      tags: [clubes]
+      summary: Crea un club.
+      description: Requiere sesión. Quien lo crea queda como administrador del club.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CrearClubRequest" }
+      responses:
+        "201":
+          description: Club creado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Club" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "409":
+          description: Ya existe un club con ese nombre.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
 
   /clubes/{club_id}:
     get:
@@ -114,7 +207,7 @@ paths:
       operationId: unirseAClub
       tags: [membresias]
       summary: Un estudiante autenticado se inscribe en un club.
-      description: Crea una membresía con rol "miembro". Requiere sesión (Supabase Auth).
+      description: Crea una membresía con rol "miembro". Requiere sesión.
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
@@ -277,7 +370,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token de sesión emitido por Supabase Auth (restricción T4).
+      description: Token de acceso emitido por POST /auth/login (JWT firmado por el propio backend).
 
   parameters:
     ClubId:
@@ -301,7 +394,7 @@ components:
 
   responses:
     NoAutenticado:
-      description: Falta un token válido de Supabase Auth.
+      description: Falta un token válido, o las credenciales son incorrectas.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -336,6 +429,65 @@ components:
         detail: { type: string }
       additionalProperties: false
 
+    Usuario:
+      type: object
+      required: [id, nombre, matricula, correo, rol, creado_en]
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string }
+        matricula: { type: string, example: T00012345 }
+        correo: { type: string }
+        rol: { type: string, example: estudiante }
+        creado_en: { type: string, format: date-time }
+      additionalProperties: false
+
+    CrearUsuarioRequest:
+      type: object
+      required: [nombre, matricula, correo, password]
+      properties:
+        nombre: { type: string, minLength: 1 }
+        matricula: { type: string, pattern: "^T[0-9]{7,8}$" }
+        correo: { type: string, description: "Debe terminar en @utb.edu.co." }
+        password: { type: string, minLength: 8 }
+      additionalProperties: false
+
+    LoginRequest:
+      type: object
+      required: [correo, password]
+      properties:
+        correo: { type: string }
+        password: { type: string }
+      additionalProperties: false
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+      additionalProperties: false
+
+    AdministradorClub:
+      type: object
+      required: [usuario_id, nombre]
+      properties:
+        usuario_id: { type: string }
+        nombre: { type: string }
+      additionalProperties: false
+
+    CrearClubRequest:
+      type: object
+      required: [nombre, descripcion, categoria]
+      properties:
+        nombre: { type: string, minLength: 1 }
+        descripcion: { type: string, minLength: 1 }
+        categoria: { type: string, minLength: 1 }
+        descripcion_completa: { type: [string, "null"] }
+        icono: { type: [string, "null"] }
+        horario: { type: [string, "null"] }
+        lugar: { type: [string, "null"] }
+      additionalProperties: false
+
     Club:
       type: object
       required: [id, nombre, descripcion, categoria, creado_en]
@@ -344,6 +496,18 @@ components:
         nombre: { type: string }
         descripcion: { type: string }
         categoria: { type: string, example: deportes }
+        descripcion_completa: { type: [string, "null"] }
+        icono: { type: [string, "null"] }
+        horario: { type: [string, "null"] }
+        lugar: { type: [string, "null"] }
+        total_miembros:
+          type: integer
+          minimum: 0
+          description: Calculado a partir de las membresías; no se almacena.
+        administradores:
+          type: array
+          description: Resuelto por referencia al contexto Usuarios; no se copian sus datos.
+          items: { $ref: "#/components/schemas/AdministradorClub" }
         creado_en: { type: string, format: date-time }
       additionalProperties: false
 
