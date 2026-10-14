@@ -1,0 +1,44 @@
+# deploy/compose.lab.yaml
+# Despliegue en Dokploy (servidor del laboratorio). Variables definidas en la
+# pestaña "Environment" del servicio en Dokploy; nunca se versionan.
+#   POSTGRES_PASSWORD  contraseña del usuario de la BD
+#   JWT_SECRET         secreto de firma de los tokens (>= 32 caracteres aleatorios)
+#   CORS_ORIGINS       orígenes web permitidos, separados por coma (puede ir vacío)
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: linkclub
+      POSTGRES_USER: linkclub
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir POSTGRES_PASSWORD}
+    volumes:
+      - linkclub_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkclub -d linkclub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Sin "ports": la BD solo es alcanzable desde la red interna del compose.
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://linkclub:${POSTGRES_PASSWORD}@db:5432/linkclub
+      JWT_SECRET: ${JWT_SECRET:?definir JWT_SECRET}
+      JWT_EXPIRES_DAYS: "7"
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    expose:
+      - "8000"
+    # El dominio HTTPS se asigna en Dokploy (pestaña Domains) apuntando al
+    # servicio "backend", puerto 8000.
+
+volumes:
+  linkclub_pgdata:
