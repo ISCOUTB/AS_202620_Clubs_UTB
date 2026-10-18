@@ -7,22 +7,21 @@
 > define primero, en formato ejecutable, y el código se implementa y se prueba
 > contra él — no al revés.
 >
-> **Qué NO es:** una descripción de lo que ya está codificado en `backend/`.
-> Hoy solo existe implementado un subconjunto (`GET /health`,
-> `POST /publicaciones`, `GET /publicaciones/{club_id}`, y solo con
-> `tipo ∈ {aviso, encuesta}`). La tabla de la sección 5 marca, endpoint por
-> endpoint, qué está implementado y qué es la meta a construir.
+> **Qué NO es:** una descripción estática. Este contrato evoluciona. 
+> La tabla de la sección 5 marca, endpoint por endpoint, qué está implementado 
+> y qué es la meta a construir.
 
 ## 1. Alcance: de las personas del C4 a las operaciones
 
 | Persona (C4 contexto) | Necesita poder... | Operaciones de este contrato |
 |---|---|---|
 | Estudiante interesado | Buscar y consultar clubes y eventos | `GET /clubes`, `GET /clubes/{club_id}`, `GET /clubes/{club_id}/eventos`, `GET /eventos/{evento_id}` |
+| Estudiante interesado | Registrarse en la plataforma | `POST /auth/registro` |
 | Estudiante interesado | Inscribirse en un club | `POST /clubes/{club_id}/miembros` |
 | Miembro de club | Consultar el calendario y confirmar asistencia | `GET /clubes/{club_id}/eventos`, `POST /eventos/{evento_id}/asistencia` |
 | Miembro / Administrador de club | Publicar avisos, eventos y noticias | `POST /clubes/{club_id}/eventos`, `POST /clubes/{club_id}/publicaciones` |
 | Administrador de club | Ver y gestionar los miembros de su club | `GET /clubes/{club_id}/miembros` |
-| (Todos) Autenticación | Verificar credenciales de usuario | `Authorization: Bearer <token de Supabase Auth>` en cada operación que lo requiera |
+| (Todos) Autenticación | Iniciar sesión y obtener token JWT | `POST /auth/login` y `Authorization: Bearer <token JWT local>` en cada operación privada |
 
 **Decisión de modelado:** *evento* y *publicación* son recursos separados, no
 un mismo `tipo` reutilizado. Un evento tiene fecha y lugar (campos que no
@@ -35,29 +34,11 @@ tipo nuevo de publicación sin tocar clubes ni eventos.
 
 ## 2. Convenciones del contrato
 
-- **Autenticación:** Bearer JWT emitido por Supabase Auth (restricción **T4**).
-  Las operaciones de solo lectura son públicas (un interesado no necesita
-  sesión para explorar clubes); toda escritura requiere sesión, y algunas
-  además requieren un rol específico dentro de ese club (escenario **U3**).
-- **Formato de error uniforme:** toda respuesta de error usa
-  `{"detail": "mensaje legible"}`, igual en `401`, `403`, `404` y `422`, para
-  que el cliente maneje errores con un único shape.
-- **Identificadores:** `string` con formato `uuid` en las respuestas. En la
-  URL se aceptan como `string` simple para no acoplar el contrato a que el
-  proveedor de base de datos actual (Supabase/Postgres) seguirá siendo el
-  mismo (escenario de cambio **C3** — portabilidad).
-- **Versionado:** `info.version` sigue SemVer sobre el propio contrato,
-  independiente de la versión del código. Un cambio es:
-  - **Aditivo (no rompe, sube versión menor):** nuevo endpoint, nuevo campo
-    opcional en una respuesta, nuevo valor de un enum que el cliente ya trata
-    como lista abierta.
-  - **Incompatible (rompe, sube versión mayor y requiere ADR):** eliminar o
-    renombrar un campo, volver requerido un campo antes opcional, quitar un
-    valor de un enum, cambiar un tipo de dato, cambiar un código de estado
-    ya documentado.
-  - Ver [ADR 0003](../adr/0003-integracion-rest-openapi.md) para la
-    decisión de la estrategia de integración (REST síncrono con contrato
-    OpenAPI).
+- **Autenticación:** Bearer JWT nativo, emitido por el propio backend (FastAPI), validado contra PostgreSQL (Supabase fue descartado). Las operaciones de solo lectura son públicas (un interesado no necesita sesión para explorar clubes); toda escritura requiere sesión, y algunas además requieren un rol específico dentro de ese club (escenario **U3**).
+- **Idempotencia:** Las operaciones críticas de escritura (ej. crear publicaciones) exigen una cabecera `Idempotency-Key` (UUID v4 generado por el cliente) para mitigar fallos parciales de red y evitar registros duplicados.
+- **Formato de error uniforme:** toda respuesta de error usa `{"detail": "mensaje legible"}`, igual en `401`, `403`, `404`, `409` y `422`, para que el cliente maneje errores con un único shape.
+- **Identificadores:** `string` con formato `uuid` en las respuestas. En la URL se aceptan como `string` simple.
+- **Versionado:** `info.version` sigue SemVer sobre el propio contrato, independiente de la versión del código.
 
 ## 3. Contrato síncrono (REST) — OpenAPI 3.1
 
@@ -65,21 +46,21 @@ tipo nuevo de publicación sin tocar clubes ni eventos.
 openapi: 3.1.0
 info:
   title: LinkClub API
-  summary: Contrato objetivo de la API de LinkClub (diseño API-first, previo a la implementación completa).
+  summary: Contrato objetivo de la API de LinkClub (diseño API-first).
   description: >
     Fuente única de verdad del contrato entre el backend de LinkClub y sus
     consumidores (app Flutter). Cubre las tres personas descritas en el C4 de
-    contexto: Estudiante interesado, Miembro de club y Administrador de club.
-    Este documento describe el contrato TAL COMO DEBE SER, no necesariamente
-    lo que ya está implementado; ver la tabla de estado de implementación en
-    el documento que acompaña este archivo.
-  version: 1.1.0
+    contexto. Se gestiona de forma autónoma sin depender de BaaS externos.
+  version: 1.2.0
 servers:
+  - url: [https://api-linkclub.iscoutb.dev](https://api-linkclub.iscoutb.dev)
+    description: Entorno de Producción (Dokploy)
   - url: http://localhost:8000
     description: Entorno local de desarrollo
 
 tags:
   - name: health
+  - name: auth
   - name: clubes
   - name: membresias
   - name: eventos
@@ -102,12 +83,69 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
 
+  /auth/login:
+    post:
+      operationId: loginUsuario
+      tags: [auth]
+      summary: Iniciar sesión y obtener token JWT.
+      description: Implementa el estándar OAuth2 usando Form Data.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, description: "Correo del usuario" }
+                password: { type: string }
+      responses:
+        "200":
+          description: Token JWT emitido.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, example: "bearer" }
+        "401":
+          $ref: "#/components/responses/CredencialesInvalidas"
+
+  /auth/registro:
+    post:
+      operationId: registrarUsuario
+      tags: [auth]
+      summary: Crear una nueva cuenta de usuario.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, matricula, email, password]
+              properties:
+                nombre: { type: string }
+                matricula: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "201":
+          description: Cuenta creada (opcionalmente devuelve token).
+        "409":
+          description: El correo o la matrícula ya existen.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
   /clubes:
     get:
       operationId: listarClubes
       tags: [clubes]
       summary: Lista y busca clubes.
-      description: Consulta abierta al público objetivo (Estudiante interesado no requiere sesión).
+      description: Consulta abierta al público objetivo.
       security: []
       parameters:
         - name: q
@@ -148,9 +186,6 @@ paths:
       operationId: listarMiembros
       tags: [membresias]
       summary: Lista los miembros de un club.
-      description: >
-        Solo el administrador del club puede ver el listado completo de
-        miembros (escenario U3 — permisos por rol).
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
@@ -169,7 +204,6 @@ paths:
       operationId: unirseAClub
       tags: [membresias]
       summary: Un estudiante autenticado se inscribe en un club.
-      description: Crea una membresía con rol "miembro". Requiere sesión (Supabase Auth).
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
@@ -206,7 +240,6 @@ paths:
       operationId: crearEvento
       tags: [eventos]
       summary: Publica un nuevo evento del club.
-      description: Requiere rol "miembro" o "administrador" en ese club.
       parameters:
         - $ref: "#/components/parameters/ClubId"
       requestBody:
@@ -249,7 +282,6 @@ paths:
       operationId: confirmarAsistencia
       tags: [eventos]
       summary: Confirma o cancela la asistencia a un evento.
-      description: Cualquier usuario autenticado (miembro o interesado) puede confirmar asistencia.
       parameters:
         - $ref: "#/components/parameters/EventoId"
       requestBody:
@@ -288,9 +320,13 @@ paths:
       operationId: crearPublicacion
       tags: [publicaciones]
       summary: Crea un aviso, una encuesta o una noticia para el club.
-      description: Requiere rol "miembro" o "administrador" en ese club.
       parameters:
         - $ref: "#/components/parameters/ClubId"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+          description: Llave única para mitigar fallos parciales de red (Idempotencia).
       requestBody:
         required: true
         content:
@@ -306,6 +342,11 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "403":
           $ref: "#/components/responses/SinPermiso"
+        "409":
+          description: Conflicto - Petición duplicada interceptada por Idempotencia.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -332,7 +373,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token de sesión emitido por Supabase Auth (restricción T4).
+      description: Token de sesión nativo emitido por FastAPI (Reemplaza a Supabase).
 
   parameters:
     ClubId:
@@ -353,7 +394,12 @@ components:
 
   responses:
     NoAutenticado:
-      description: Falta un token válido de Supabase Auth.
+      description: Falta un token JWT válido.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    CredencialesInvalidas:
+      description: Correo o contraseña incorrectos.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -505,19 +551,17 @@ components:
       additionalProperties: false
 ```
 
-
 ## 4. Estado de implementación (a la fecha de este contrato)
 
 | Operación | En el contrato | Implementado en `backend/` |
-|---|---|---|
+| --- | --- | --- |
 | `GET /health` | ✅ | ✅ |
-| `POST /clubes/{club_id}/publicaciones` (`tipo: aviso`, `encuesta`) | ✅ | ✅ como `POST /publicaciones` (ruta plana, sin anidar bajo `/clubes`) |
-| `GET /clubes/{club_id}/publicaciones` | ✅ | ✅ como `GET /publicaciones/{club_id}` |
+| Autenticación (`bearerAuth`) nativa | ✅ | ✅ Completamente migrado a FastAPI nativo (Supabase eliminado). |
+| `POST /auth/login`, `POST /auth/registro` | ✅ | ✅ Rutas implementadas conectadas a BD propia. |
+| `POST /clubes/{club_id}/publicaciones` (`tipo: aviso`, `encuesta`) | ✅ | ✅ Implementado, con diseño de Idempotencia activo. |
+| `GET /clubes/{club_id}/publicaciones` | ✅ | ✅ Implementado y anidado correctamente. |
 | `tipo: noticia` | ✅ | ❌ pendiente (enum actual solo tiene `aviso`, `encuesta`) |
-| Autenticación (`bearerAuth`) en cualquier endpoint | ✅ | ❌ pendiente — restricción T4 aún sin proveedor confirmado |
 | `GET /clubes`, `GET /clubes/{club_id}` | ✅ | ❌ pendiente |
 | `POST /clubes/{club_id}/miembros`, `GET .../miembros` | ✅ | ❌ pendiente |
 | `GET/POST /clubes/{club_id}/eventos`, `GET /eventos/{evento_id}` | ✅ | ❌ pendiente |
 | `POST /eventos/{evento_id}/asistencia` | ✅ | ❌ pendiente |
-
-
