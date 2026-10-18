@@ -21,3 +21,4 @@ class Publicacion:
     creada_en: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     # Solo se usa cuando tipo == ENCUESTA.
     opciones: list[str] | None = None
+    idempotency_key: str | None = None
