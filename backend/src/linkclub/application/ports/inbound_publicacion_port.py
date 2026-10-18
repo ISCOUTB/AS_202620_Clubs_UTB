@@ -13,5 +13,6 @@ class CrearPublicacionPort(ABC):
         contenido: str,
         tipo: str,
         opciones: list[str] | None = None,
+        idempotency_key: str | None = None,
     ) -> Publicacion:
         ...
