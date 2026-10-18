@@ -1,19 +1,18 @@
 openapi: 3.1.0
 info:
   title: LinkClub API
-  summary: Contrato objetivo de la API de LinkClub (diseño API-first, previo a la implementación completa).
+  summary: Contrato objetivo de la API de LinkClub (diseño API-first, con backend nativo).
   description: >
     Fuente única de verdad del contrato entre el backend de LinkClub y sus
     consumidores (app Flutter). Cubre las tres personas descritas en el C4 de
-    contexto: Estudiante interesado, Miembro de club y Administrador de club.
-    Este archivo describe el contrato TAL COMO DEBE SER, no necesariamente lo
-    que ya está implementado; el estado de implementación por endpoint está en
-    docs/api/contrato_api.md (sección 4).
-  version: 1.2.0
+    contexto. Se gestiona de forma autónoma sin depender de Supabase.
+  version: 1.3.0
   contact:
     name: Equipo LinkClub
     url: https://github.com/ISCOUTB/AS_202620_Clubs_UTB
 servers:
+  - url: https://api-linkclub.iscoutb.dev
+    description: Entorno de Producción (Dokploy)
   - url: http://localhost:8000
     description: Entorno local de desarrollo
 
@@ -21,7 +20,7 @@ tags:
   - name: health
     description: Estado del servicio.
   - name: auth
-    description: Registro e inicio de sesión.
+    description: Registro e inicio de sesión local.
   - name: usuarios
     description: Perfil de usuario.
   - name: clubes
@@ -50,13 +49,13 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
 
-  /usuarios:
+  /auth/registro:
     post:
       operationId: registrarUsuario
-      tags: [usuarios]
-      summary: Registra un usuario nuevo.
+      tags: [auth]
+      summary: Registra un usuario nuevo en la plataforma.
       description: >
-        Crea la cuenta. El id lo genera el backend. El correo debe ser
+        Crea la cuenta de forma nativa. El id lo genera el backend. El correo debe ser
         institucional (@utb.edu.co) y la matrícula tener formato T + 7 u 8 dígitos.
       security: []
       requestBody:
@@ -66,7 +65,7 @@ paths:
             schema: { $ref: "#/components/schemas/CrearUsuarioRequest" }
       responses:
         "201":
-          description: Usuario creado.
+          description: Usuario creado exitosamente.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Usuario" }
@@ -75,6 +74,29 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
+
+  /auth/login:
+    post:
+      operationId: iniciarSesion
+      tags: [auth]
+      summary: Inicia sesión y devuelve un token JWT propio.
+      description: Implementa el estándar OAuth2 usando Form Data.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Credenciales válidas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -91,28 +113,6 @@ paths:
               schema: { $ref: "#/components/schemas/Usuario" }
         "401":
           $ref: "#/components/responses/NoAutenticado"
-
-  /auth/login:
-    post:
-      operationId: iniciarSesion
-      tags: [auth]
-      summary: Inicia sesión y devuelve un token de acceso.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/LoginRequest" }
-      responses:
-        "200":
-          description: Credenciales válidas.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TokenResponse" }
-        "401":
-          $ref: "#/components/responses/NoAutenticado"
-        "422":
-          $ref: "#/components/responses/DatosInvalidos"
 
   /clubes:
     get:
@@ -207,7 +207,7 @@ paths:
       operationId: unirseAClub
       tags: [membresias]
       summary: Un estudiante autenticado se inscribe en un club.
-      description: Crea una membresía con rol "miembro". Requiere sesión.
+      description: Crea una membresía con rol "miembro". Requiere sesión nativa.
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
@@ -329,6 +329,11 @@ paths:
       description: Requiere rol "miembro" o "administrador" en ese club.
       parameters:
         - $ref: "#/components/parameters/ClubId"
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+          description: Llave generada por el cliente para evitar publicaciones duplicadas (S11).
       requestBody:
         required: true
         content:
@@ -344,6 +349,11 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "403":
           $ref: "#/components/responses/SinPermiso"
+        "409":
+          description: Conflicto - Petición bloqueada por Idempotencia para evitar duplicados.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -370,31 +380,28 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token de acceso emitido por POST /auth/login (JWT firmado por el propio backend).
+      description: Token de acceso emitido nativamente por la API en /auth/login.
 
   parameters:
     ClubId:
       name: club_id
       in: path
       required: true
-      description: Identificador del club.
       schema: { type: string }
     EventoId:
       name: evento_id
       in: path
       required: true
-      description: Identificador del evento.
       schema: { type: string }
     PublicacionId:
       name: publicacion_id
       in: path
       required: true
-      description: Identificador de la publicación.
       schema: { type: string }
 
   responses:
     NoAutenticado:
-      description: Falta un token válido, o las credenciales son incorrectas.
+      description: Falta un token válido o las credenciales son incorrectas.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -453,9 +460,9 @@ components:
 
     LoginRequest:
       type: object
-      required: [correo, password]
+      required: [username, password]
       properties:
-        correo: { type: string }
+        username: { type: string, description: "Correo electrónico del usuario" }
         password: { type: string }
       additionalProperties: false
 
@@ -503,10 +510,8 @@ components:
         total_miembros:
           type: integer
           minimum: 0
-          description: Calculado a partir de las membresías; no se almacena.
         administradores:
           type: array
-          description: Resuelto por referencia al contexto Usuarios; no se copian sus datos.
           items: { $ref: "#/components/schemas/AdministradorClub" }
         creado_en: { type: string, format: date-time }
       additionalProperties: false
@@ -573,9 +578,6 @@ components:
 
     TipoPublicacion:
       type: string
-      description: >
-        Enum extensible: agregar un nuevo tipo no debe requerir modificar más
-        de 3 módulos (escenario de cambio C1).
       enum: [aviso, encuesta, noticia]
 
     CrearPublicacionRequest:
@@ -590,7 +592,6 @@ components:
         opciones:
           type: [array, "null"]
           items: { type: string }
-          description: Obligatorio y no vacío cuando tipo = "encuesta".
       additionalProperties: false
       if:
         properties: { tipo: { const: encuesta } }
