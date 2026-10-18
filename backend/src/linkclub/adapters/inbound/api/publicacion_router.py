@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, ConfigDict
 
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
@@ -54,13 +54,15 @@ def a_respuesta(publicacion) -> PublicacionResponse:
     response_model=PublicacionResponse,
     status_code=201,
     responses={
-        422: {"description": "Error de validación en la regla de negocio o datos de la publicación"}
+        422: {"description": "Error de validación en la regla de negocio o datos de la publicación"},
+        409: {"description": "Conflicto: Petición duplicada interceptada por Idempotencia"}
     },
 )
 def crear_publicacion(
     club_id: str,
     payload: CrearPublicacionRequest,
     autor_id: str = Depends(require_auth),
+    idempotency_key: str = Header(..., alias="Idempotency-Key", description="Llave única generada por el cliente para evitar duplicados"),
 ):
     try:
         publicacion = use_case.ejecutar(
@@ -70,6 +72,7 @@ def crear_publicacion(
             contenido=payload.contenido,
             tipo=payload.tipo,
             opciones=payload.opciones,
+            idempotency_key=idempotency_key,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error))
