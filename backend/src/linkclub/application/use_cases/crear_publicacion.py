@@ -32,6 +32,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
             contenido=contenido,
             tipo=tipo_publicacion,
             opciones=opciones,
+            idempotency_key=idempotency_key,
         )
         
         return self.repository.guardar(publicacion)
