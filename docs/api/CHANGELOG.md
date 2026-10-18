@@ -2,6 +2,13 @@
 
 Versionado SemVer sobre `openapi.yaml` (campo `info.version`).
 
+## 1.3.0 - 2026-10-18
+Cambios de resiliencia y refactorización arquitectónica (Evidencia S11):
+- **Idempotencia:** Se añade la cabecera obligatoria `Idempotency-Key` en `POST /clubes/{club_id}/publicaciones` para mitigar fallos parciales de red y evitar registros duplicados.
+- Se agrega el código de error `409 Conflict` en `POST /clubes/{club_id}/publicaciones` para interceptar reintentos con la misma llave de idempotencia.
+- **Refactorización de Auth:** Se renombra el endpoint de registro de `POST /usuarios` a `POST /auth/registro` para centralizar los dominios de seguridad.
+- **Desacoplamiento:** Se actualiza la descripción del esquema `bearerAuth` confirmando la erradicación definitiva de Supabase.
+
 ## 1.2.0 - 2026-10-13
 Cambios aditivos (no rompen clientes existentes):
 - Nuevo `POST /usuarios`: registro de usuario (el `id` lo genera el backend).
