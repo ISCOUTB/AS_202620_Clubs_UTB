@@ -15,6 +15,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
         contenido: str,
         tipo: str = TipoPublicacion.AVISO.value,
         opciones: list[str] | None = None,
+        idempotency_key: str | None = None,
     ) -> Publicacion:
         try:
             tipo_publicacion = TipoPublicacion(tipo)
@@ -32,4 +33,5 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
             tipo=tipo_publicacion,
             opciones=opciones,
         )
+        
         return self.repository.guardar(publicacion)
