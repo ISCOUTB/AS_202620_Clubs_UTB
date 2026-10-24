@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, ConfigDict
+from typing import Annotated
 
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
 from linkclub.adapters.outbound.persistence.in_memory_publicacion_adapter import (
@@ -57,8 +58,8 @@ def a_respuesta(publicacion) -> PublicacionResponse:
 def crear_publicacion(
     club_id: str,
     payload: CrearPublicacionRequest,
-    autor_id: str = Depends(require_auth),
-    idempotency_key: str = Header(..., alias="Idempotency-Key", description="Llave única generada por el cliente para evitar duplicados"),
+    autor_id: Annotated[str, Depends(require_auth)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", description="Llave única generada por el cliente")],
 ):
     try:
         publicacion = use_case.ejecutar(
