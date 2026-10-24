@@ -41,7 +41,10 @@ def crear_token_acceso(data: dict, expires_delta: timedelta) -> str:
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-@router.post("/auth/registro", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/auth/registro", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED, responses={
+        409: {"description": "El correo ya está registrado"}
+    }
+)
 def registrar_usuario(payload: CrearUsuarioRequest):
     if any(u["correo"] == payload.correo for u in db_usuarios_memoria.values()):
         raise HTTPException(status_code=409, detail="El correo ya está registrado")
