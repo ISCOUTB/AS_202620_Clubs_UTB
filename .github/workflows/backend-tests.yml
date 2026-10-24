@@ -7,13 +7,16 @@ on:
     branches: [master]
 
 jobs:
-  test:
+  test-and-analyze:
+    name: Test and SonarCloud Scan
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
-
+        with:
+          fetch-depth: 0
+          
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
@@ -28,3 +31,9 @@ jobs:
         env:
           PYTHONPATH: src
         run: pytest tests/ -v
+
+      - name: Análisis de SonarCloud
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
