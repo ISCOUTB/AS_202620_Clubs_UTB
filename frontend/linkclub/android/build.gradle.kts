@@ -20,6 +20,8 @@ subprojects {
 }
 
 tasks.register<Delete>("clean") {
+    group = "build"
+    description = "Elimina el directorio de construcción (build) del proyecto raíz."
     delete(rootProject.layout.buildDirectory)
 }
 
