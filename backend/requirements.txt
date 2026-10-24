@@ -4,6 +4,5 @@ pytest
 httpx
 pyyaml
 jsonschema
-supabase
 prometheus-fastapi-instrumentator==6.1.0
 pyjwt[crypto]
