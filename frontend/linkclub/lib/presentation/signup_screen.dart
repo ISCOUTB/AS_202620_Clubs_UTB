@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dio/dio.dart';
 import 'package:linkclub/core/theme/theme_controller.dart';
+import 'package:linkclub/data/auth_repository.dart';
 import 'package:linkclub/presentation/clubs_page.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -17,6 +18,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
+  final _authRepo = AuthRepository();
+
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -28,75 +31,37 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
 
     try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
-      final name = _nameController.text.trim();
-      final matricula = _matriculaController.text.trim().toUpperCase();
-
-      final response = await Supabase.instance.client.auth.signUp(
-        email: email,
-        password: password,
+      await _authRepo.signup(
+        _nameController.text.trim(),
+        _matriculaController.text.trim().toUpperCase(),
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
 
-      final user = response.user;
-
-      if (user != null) {
-        // Envolvemos el insert en su propio bloque try-catch.
-        // Evita que un error post-inserción (como políticas RLS bloqueando un SELECT implícito)
-        // detenga la redirección si el usuario ya se creó en Supabase Auth y en la tabla.
-        try {
-          await Supabase.instance.client.from('usuarios').insert({
-            'id': user.id,
-            'matricula': matricula,
-            'nombre': name,
-            'correo': email,
-          });
-        } catch (e) {
-          debugPrint('Aviso de base de datos durante el registro: $e');
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('¡Cuenta creada con éxito! Bienvenido a LinkClub.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Redirección inmediata al Home
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const ClubsPage()),
-          );
-        }
-      }
-    } on AuthException catch (error) {
-      String errorMessage = 'Error al crear la cuenta. Verifica tus datos.';
-      final supabaseMsg = error.message.toLowerCase();
-
-      if (supabaseMsg.contains('already registered') ||
-          supabaseMsg.contains('user already exists')) {
-        errorMessage = 'Este correo ya está registrado.';
-      } else if (supabaseMsg.contains('weak password')) {
-        errorMessage = 'La contraseña es muy débil. Usa al menos 8 caracteres.';
-      } else if (supabaseMsg.contains('rate limit')) {
-        errorMessage = 'Demasiados intentos. Intenta más tarde.';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Ocurrió un error de red o de sistema. Intenta de nuevo.',
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Cuenta creada con éxito! Bienvenido a LinkClub.'),
+            backgroundColor: Colors.green,
           ),
-          backgroundColor: Colors.redAccent,
-        ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ClubsPage()),
+        );
+      }
+    } on DioException catch (error) {
+      String errorMessage = 'Error al crear la cuenta. Verifica tus datos.';
+      if (error.response?.statusCode == 409) {
+        errorMessage = 'Este correo ya está registrado.';
+      } else if (error.response?.statusCode == 422) {
+        errorMessage = 'Datos inválidos en el formulario.';
+      }
+      _showErrorSnackBar(errorMessage);
+    } catch (error) {
+      _showErrorSnackBar(
+        'Ocurrió un error de red o de sistema. Intenta de nuevo.',
       );
     } finally {
       if (mounted) {
@@ -105,6 +70,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
         });
       }
     }
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -170,18 +146,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       prefixIcon: const Icon(Icons.person_outline),
                       filled: true,
                       fillColor: scaffoldBg,
-                      focusColor: scaffoldBg,
-                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Por favor ingresa tu nombre.';
-                      }
-                      return null;
-                    },
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Por favor ingresa tu nombre.'
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -191,22 +162,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       prefixIcon: const Icon(Icons.badge_outlined),
                       filled: true,
                       fillColor: scaffoldBg,
-                      focusColor: scaffoldBg,
-                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     validator: (value) {
                       final matricula = value?.trim().toUpperCase();
-                      if (matricula == null || matricula.isEmpty) {
+                      if (matricula == null || matricula.isEmpty)
                         return 'Por favor ingresa tu código estudiantil.';
-                      }
-                      // Actualizado a la regex que usaste en la captura (7 u 8 números)
-                      final matriculaRegex = RegExp(r'^T\d{7,8}$');
-                      if (!matriculaRegex.hasMatch(matricula)) {
+                      if (!RegExp(r'^T\d{7,8}$').hasMatch(matricula))
                         return 'El código debe iniciar con "T" seguido de 7 u 8 números.';
-                      }
                       return null;
                     },
                   ),
@@ -219,24 +184,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       prefixIcon: const Icon(Icons.email_outlined),
                       filled: true,
                       fillColor: scaffoldBg,
-                      focusColor: scaffoldBg,
-                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     validator: (value) {
                       final email = value?.trim();
-                      if (email == null || email.isEmpty) {
+                      if (email == null || email.isEmpty)
                         return 'Por favor ingresa tu correo.';
-                      }
-                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                      if (!emailRegex.hasMatch(email)) {
-                        return 'Ingresa un formato de correo válido.';
-                      }
-                      if (!email.endsWith('@utb.edu.co')) {
+                      if (!email.endsWith('@utb.edu.co'))
                         return 'Debes usar tu correo institucional (@utb.edu.co).';
-                      }
                       return null;
                     },
                   ),
@@ -249,8 +206,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       filled: true,
                       fillColor: scaffoldBg,
-                      focusColor: scaffoldBg,
-                      hoverColor: scaffoldBg,
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -268,12 +223,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
+                      if (value == null || value.isEmpty)
                         return 'Por favor ingresa una contraseña.';
-                      }
-                      if (value.length < 8) {
+                      if (value.length < 8)
                         return 'La contraseña debe tener al menos 8 caracteres.';
-                      }
                       return null;
                     },
                   ),

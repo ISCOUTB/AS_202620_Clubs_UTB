@@ -23,7 +23,6 @@ class ClubDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ICONO
             Center(
               child: Container(
                 width: 110,
@@ -43,7 +42,6 @@ class ClubDetailPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // NOMBRE
             Text(
               club['name']!,
               style: theme.textTheme.headlineMedium?.copyWith(
@@ -53,7 +51,6 @@ class ClubDetailPage extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            // CATEGORÍA
             Text(
               club['category']!,
               style: TextStyle(
@@ -65,7 +62,6 @@ class ClubDetailPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // DESCRIPCIÓN
             Text(
               'Descripción',
               style: theme.textTheme.titleLarge?.copyWith(
@@ -86,7 +82,6 @@ class ClubDetailPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // INFORMACIÓN
             Text(
               'Información',
               style: theme.textTheme.titleLarge?.copyWith(
@@ -96,7 +91,6 @@ class ClubDetailPage extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // MIEMBROS
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.people_outline, color: colorScheme.primary),
@@ -107,7 +101,6 @@ class ClubDetailPage extends StatelessWidget {
               subtitle: Text(club['members']!),
             ),
 
-            // LÍDER
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.person_outline, color: colorScheme.primary),
@@ -118,7 +111,6 @@ class ClubDetailPage extends StatelessWidget {
               subtitle: Text(club['leader']!),
             ),
 
-            // HORARIO
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(
@@ -132,7 +124,6 @@ class ClubDetailPage extends StatelessWidget {
               subtitle: Text(club['schedule']!),
             ),
 
-            // LUGAR
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(

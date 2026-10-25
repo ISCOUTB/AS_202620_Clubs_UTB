@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:dio/dio.dart';
 import 'package:linkclub/core/theme/theme_controller.dart';
+import 'package:linkclub/data/auth_repository.dart';
 import 'package:linkclub/presentation/signup_screen.dart';
 import 'package:linkclub/presentation/clubs_page.dart';
 
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _authRepo = AuthRepository();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -27,43 +29,31 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      await _authRepo.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
 
-      if (response.session != null && mounted) {
+      if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ClubsPage()),
         );
       }
-    } on AuthException catch (error) {
+    } on DioException catch (error) {
       String errorMessage = 'Error de autenticación. Verifica tus datos.';
-      final supabaseMsg = error.message.toLowerCase();
-
-      if (supabaseMsg.contains('invalid login credentials')) {
+      if (error.response?.statusCode == 401 ||
+          error.response?.statusCode == 403) {
         errorMessage = 'Correo o contraseña incorrectos.';
-      } else if (supabaseMsg.contains('rate limit')) {
-        errorMessage = 'Demasiados intentos. Intenta más tarde.';
-      } else if (supabaseMsg.contains('email not confirmed')) {
-        errorMessage = 'Debes confirmar tu correo electrónico primero.';
+      } else if (error.response?.statusCode == 422) {
+        errorMessage = 'Datos incompletos o inválidos.';
+      } else if (error.response?.statusCode == 404) {
+        errorMessage = 'Servidor no encontrado. Verifica tu conexión.';
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      _showErrorSnackBar(errorMessage);
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Ocurrió un error de red o de sistema. Intenta de nuevo.',
-          ),
-          backgroundColor: Colors.redAccent,
-        ),
+      _showErrorSnackBar(
+        'Ocurrió un error de red o de sistema. Intenta de nuevo.',
       );
     } finally {
       if (mounted) {
@@ -72,6 +62,17 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -162,24 +163,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: const Icon(Icons.email_outlined),
                       filled: true,
                       fillColor: scaffoldBg,
-                      focusColor: scaffoldBg,
-                      hoverColor: scaffoldBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     validator: (value) {
                       final email = value?.trim();
-                      if (email == null || email.isEmpty) {
+                      if (email == null || email.isEmpty)
                         return 'Por favor ingresa tu correo.';
-                      }
-                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                      if (!emailRegex.hasMatch(email)) {
-                        return 'Ingresa un formato de correo válido.';
-                      }
-                      if (!email.endsWith('@utb.edu.co')) {
+                      if (!email.endsWith('@utb.edu.co'))
                         return 'Debes usar tu correo institucional (@utb.edu.co).';
-                      }
                       return null;
                     },
                   ),
@@ -192,8 +185,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       filled: true,
                       fillColor: scaffoldBg,
-                      focusColor: scaffoldBg,
-                      hoverColor: scaffoldBg,
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
@@ -211,12 +202,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
+                      if (value == null || value.isEmpty)
                         return 'Por favor ingresa tu contraseña.';
-                      }
-                      if (value.length < 8) {
-                        return 'La contraseña debe tener al menos 8 caracteres.';
-                      }
                       return null;
                     },
                   ),

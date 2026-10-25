@@ -8,7 +8,6 @@ class ThemeController {
 
   static const _prefsKey = 'theme_mode';
 
-  /// Debe llamarse una vez al iniciar la app, antes de runApp().
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_prefsKey);

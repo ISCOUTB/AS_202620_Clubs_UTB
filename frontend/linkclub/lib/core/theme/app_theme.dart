@@ -7,7 +7,7 @@ class AppTheme {
   static const Color brandPurple = Color(0xFF7C3AED);
 
   // Colores del Modo Claro (Light Theme)
-  static const Color backgroundLight = Color(0xFFF7F6F2);
+  static const Color backgroundLight = Color.fromARGB(255, 227, 226, 222);
   static const Color surfaceLight = Colors.white;
   static const Color textMainLight = Color(0xFF1F2937);
 
