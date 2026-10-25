@@ -7,13 +7,15 @@ from linkclub.adapters.inbound.api.publicacion_router import router as publicaci
 from linkclub.adapters.inbound.api.club_router import router as club_router
 from linkclub.adapters.inbound.api.auth_router import router as auth_router
 
-from linkclub.adapters.outbound.postgres.database import Base, engine
-
 app = FastAPI(title="LinkClub API")
 
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
+    try:
+        from linkclub.adapters.outbound.postgres.database import Base, engine
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Advertencia en startup de BD: {e}")
 
 @app.exception_handler(RequestValidationError)
 async def manejar_validacion(request: Request, exc: RequestValidationError):
