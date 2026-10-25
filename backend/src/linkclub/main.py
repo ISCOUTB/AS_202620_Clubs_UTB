@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from linkclub.adapters.inbound.api.health_router import router as health_router
 from linkclub.adapters.inbound.api.publicacion_router import router as publicacion_router
@@ -9,13 +10,19 @@ from linkclub.adapters.inbound.api.auth_router import router as auth_router
 
 app = FastAPI(title="LinkClub API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.on_event("startup")
 def on_startup():
-    try:
-        from linkclub.adapters.outbound.postgres.database import Base, engine
-        Base.metadata.create_all(bind=engine)
-    except Exception as e:
-        print(f"Advertencia en startup de BD: {e}")
+    from linkclub.adapters.outbound.postgres.database import Base, engine
+    from linkclub.adapters.outbound.postgres.models import usuario_model 
+    Base.metadata.create_all(bind=engine)
 
 @app.exception_handler(RequestValidationError)
 async def manejar_validacion(request: Request, exc: RequestValidationError):
