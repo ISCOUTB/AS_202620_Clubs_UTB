@@ -131,7 +131,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Únete a la plataforma centralizada de clubes de la UTB',
+                    'Únete a la plataforma de los clubes de la UTB',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -244,12 +244,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
+                          ? const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
                               ),
                             )
                           : const Text(
