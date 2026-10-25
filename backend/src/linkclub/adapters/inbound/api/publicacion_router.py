@@ -12,7 +12,6 @@ from linkclub.adapters.outbound.postgres.database import get_db, Base
 
 router = APIRouter(tags=["publicaciones"])
 
-# Modelo SQLAlchemy alineado exactamente con el esquema real de Dokploy
 class PublicacionModel(Base):
     __tablename__ = "publicaciones"
 
@@ -22,13 +21,13 @@ class PublicacionModel(Base):
     titulo = Column(String, nullable=False)
     contenido = Column(Text, nullable=False)
     tipo = Column(String, nullable=False, default="aviso")
-    opciones = Column(Text, nullable=True) # Almacena JSON string para opciones e imagen_url
+    opciones = Column(Text, nullable=True)
     creado_en = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class CrearPublicacionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    club_id: Optional[int] = 1 # Club por defecto para publicaciones generales del feed
+    club_id: Optional[int] = 1
     titulo: Optional[str] = "Publicación"
     contenido: str
     tipo: str = "aviso"
@@ -99,7 +98,7 @@ def crear_publicacion_por_club(
 
         nueva_pub = PublicacionModel(
             club_id=club_id,
-            autor_matricula=autor_id, # Usamos la matrícula devuelta por require_auth
+            autor_matricula=autor_id,
             titulo=payload.titulo,
             contenido=payload.contenido,
             tipo=payload.tipo,
@@ -132,12 +131,12 @@ def crear_publicacion_general(
         }
 
         nueva_pub = PublicacionModel(
-            club_id=payload.club_id ?? 1,
+            club_id=payload.club_id or 1,
             autor_matricula=autor_id,
             titulo=payload.titulo,
             contenido=payload.contenido,
             tipo=payload.tipo,
-            opciones=json.dumps(meta_data),
+            opciones=meta_data,
         )
 
         db.add(nueva_pub)
@@ -166,7 +165,6 @@ def listar_publicaciones_por_club(club_id: int, db: Session = Depends(get_db)):
     response_model=list[PublicacionResponse],
 )
 def listar_todas_las_publicaciones(db: Session = Depends(get_db)):
-    # Orden cronológico inverso estricto: Lo más reciente primero para el feed
     pubs = (
         db.query(PublicacionModel)
         .order_by(PublicacionModel.creado_en.desc())
