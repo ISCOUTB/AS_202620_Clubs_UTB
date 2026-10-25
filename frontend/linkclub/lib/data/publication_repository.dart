@@ -48,4 +48,49 @@ class PublicacionRepository {
       data: {'contenido': contenido, 'imagen_url': imagenUrl},
     );
   }
+
+  Future<void> crearPublicacionConArchivo(
+    String contenido, {
+    String? imagenUrl,
+    dynamic archivoLocal,
+  }) async {
+    String? urlFinal = imagenUrl;
+
+    if (archivoLocal != null) {
+      try {
+        String filePath = '';
+        String fileName = 'imagen_subida.jpg';
+
+        if (archivoLocal.runtimeType.toString().contains('PlatformFile')) {
+          filePath = archivoLocal.path ?? '';
+          fileName = archivoLocal.name;
+        } else {
+          filePath = archivoLocal.path;
+          fileName = filePath.split('/').last;
+        }
+
+        if (filePath.isNotEmpty) {
+          FormData formData = FormData.fromMap({
+            'file': await MultipartFile.fromFile(filePath, filename: fileName),
+          });
+
+          final responseUpload = await _dio.post(
+            '/recursos/upload',
+            data: formData,
+          );
+
+          if (responseUpload.statusCode == 201) {
+            urlFinal = responseUpload.data['url'];
+          }
+        }
+      } catch (e) {
+        throw Exception('Error al subir la imagen local: $e');
+      }
+    }
+
+    await _dio.post(
+      '/publicaciones',
+      data: {'contenido': contenido, 'imagen_url': urlFinal},
+    );
+  }
 }

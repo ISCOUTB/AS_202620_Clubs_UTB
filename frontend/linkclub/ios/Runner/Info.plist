@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Linkclub</string>
+	<string>LinkClub</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>LinkClub necesita acceso a tu galería para adjuntar imágenes y afiches a las publicaciones.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>LinkClub necesita acceso a la cámara para tomar fotos directamente desde la app.</string>
 </dict>
 </plist>

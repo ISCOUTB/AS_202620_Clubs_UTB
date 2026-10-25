@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 
 class ApiClient {
   static final Dio dio = _crearDio();
@@ -19,11 +20,28 @@ class ApiClient {
         onRequest: (options, handler) async {
           const storage = FlutterSecureStorage();
           final token = await storage.read(key: 'jwt_token');
+
           if (token != null && !options.path.contains('/auth/')) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+
+          if (options.method.toUpperCase() == 'POST') {
+            if (!options.headers.containsKey('Idempotency-Key')) {
+              options.headers['Idempotency-Key'] = const Uuid().v4();
+            }
+          }
+
           return handler.next(options);
         },
+      ),
+    );
+
+    dio.interceptors.add(
+      LogInterceptor(
+        request: true,
+        requestBody: true,
+        responseBody: true,
+        error: true,
       ),
     );
 
