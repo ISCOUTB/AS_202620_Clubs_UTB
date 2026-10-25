@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from linkclub.adapters.inbound.api.health_router import router as health_router
 from linkclub.adapters.inbound.api.publicacion_router import router as publicacion_router
@@ -21,8 +23,17 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     from linkclub.adapters.outbound.postgres.database import Base, engine
-    from linkclub.adapters.outbound.postgres.models import usuario_model 
+    from linkclub.adapters.outbound.postgres.models import usuario_model, publicacion_model
+    
     Base.metadata.create_all(bind=engine)
+
+    with Session(engine) as session:
+        session.execute(text("""
+            INSERT INTO clubes (id, nombre, descripcion, categoria)
+            VALUES (1, 'General UTB', 'Canal oficial de noticias y publicaciones generales', 'General')
+            ON CONFLICT (id) DO NOTHING;
+        """))
+        session.commit()
 
 @app.exception_handler(RequestValidationError)
 async def manejar_validacion(request: Request, exc: RequestValidationError):

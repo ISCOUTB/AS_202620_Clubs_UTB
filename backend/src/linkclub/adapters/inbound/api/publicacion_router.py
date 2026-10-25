@@ -1,28 +1,15 @@
 from datetime import datetime
 from typing import Annotated, Optional, List
-import json
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, Integer, String, Text, DateTime
-from sqlalchemy.sql import func
 
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
-from linkclub.adapters.outbound.postgres.database import get_db, Base
+from linkclub.adapters.outbound.postgres.database import get_db
+from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
 
 router = APIRouter(tags=["publicaciones"])
 
-class PublicacionModel(Base):
-    __tablename__ = "publicaciones"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    club_id = Column(Integer, nullable=False, index=True)
-    autor_matricula = Column(String, nullable=False)
-    titulo = Column(String, nullable=False)
-    contenido = Column(Text, nullable=False)
-    tipo = Column(String, nullable=False, default="aviso")
-    opciones = Column(Text, nullable=True)
-    creado_en = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class CrearPublicacionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -34,10 +21,12 @@ class CrearPublicacionRequest(BaseModel):
     opciones: list[str] | None = None
     imagen_url: Optional[str] = None
 
+
 class PublicacionResponse(BaseModel):
     id: int
     club_id: int
     autor_id: str
+    autor_nombre: Optional[str] = None
     titulo: str
     contenido: str
     tipo: str
@@ -47,32 +36,35 @@ class PublicacionResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 def a_respuesta(pub: PublicacionModel) -> PublicacionResponse:
     opciones_val = None
     imagen_url_val = None
-    
+
     if pub.opciones:
-        try:
-            parsed = json.loads(pub.opciones) if isinstance(pub.opciones, str) else pub.opciones
-            if isinstance(parsed, dict):
-                opciones_val = parsed.get("opciones")
-                imagen_url_val = parsed.get("imagen_url")
-            elif isinstance(parsed, list):
-                opciones_val = parsed
-        except Exception:
-            pass
+        parsed = pub.opciones
+        if isinstance(parsed, dict):
+            opciones_val = parsed.get("opciones")
+            imagen_url_val = parsed.get("imagen_url")
+        elif isinstance(parsed, list):
+            opciones_val = parsed
+
+    # Extrae el nombre real del usuario desde la relación con UsuarioModel si existe
+    nombre_autor = pub.autor.nombre if (hasattr(pub, 'autor') and pub.autor) else pub.autor_matricula
 
     return PublicacionResponse(
         id=pub.id,
         club_id=pub.club_id,
         autor_id=pub.autor_matricula,
-        titulo=pub.titulo,
+        autor_nombre=nombre_autor,
+        titulo=pub.titulo or "Publicación",
         contenido=pub.contenido,
-        tipo=pub.tipo,
+        tipo=str(pub.tipo),
         opciones=opciones_val,
         imagen_url=imagen_url_val,
         creado_en=pub.creado_en,
     )
+
 
 @router.post(
     "/clubes/{club_id}/publicaciones",
@@ -99,10 +91,10 @@ def crear_publicacion_por_club(
         nueva_pub = PublicacionModel(
             club_id=club_id,
             autor_matricula=autor_id,
-            titulo=payload.titulo,
+            titulo=payload.titulo or "Publicación",
             contenido=payload.contenido,
-            tipo=payload.tipo,
-            opciones=json.dumps(meta_data),
+            tipo=payload.tipo or "aviso",
+            opciones=meta_data,
         )
 
         db.add(nueva_pub)
@@ -111,7 +103,11 @@ def crear_publicacion_por_club(
         return a_respuesta(nueva_pub)
     except Exception as error:
         db.rollback()
-        raise HTTPException(status_code=422, detail=str(error))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Error al guardar publicación: {str(error)}"
+        )
+
 
 @router.post(
     "/publicaciones",
@@ -133,9 +129,9 @@ def crear_publicacion_general(
         nueva_pub = PublicacionModel(
             club_id=payload.club_id or 1,
             autor_matricula=autor_id,
-            titulo=payload.titulo,
+            titulo=payload.titulo or "Publicación",
             contenido=payload.contenido,
-            tipo=payload.tipo,
+            tipo=payload.tipo or "aviso",
             opciones=meta_data,
         )
 
@@ -145,11 +141,15 @@ def crear_publicacion_general(
         return a_respuesta(nueva_pub)
     except Exception as error:
         db.rollback()
-        raise HTTPException(status_code=422, detail=str(error))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Error al guardar publicación: {str(error)}"
+        )
+
 
 @router.get(
     "/clubes/{club_id}/publicaciones",
-    response_model=list[PublicacionResponse],
+    response_model=List[PublicacionResponse],
 )
 def listar_publicaciones_por_club(club_id: int, db: Session = Depends(get_db)):
     pubs = (
@@ -160,9 +160,10 @@ def listar_publicaciones_por_club(club_id: int, db: Session = Depends(get_db)):
     )
     return [a_respuesta(p) for p in pubs]
 
+
 @router.get(
     "/publicaciones",
-    response_model=list[PublicacionResponse],
+    response_model=List[PublicacionResponse],
 )
 def listar_todas_las_publicaciones(db: Session = Depends(get_db)):
     pubs = (
