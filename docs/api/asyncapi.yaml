@@ -1,0 +1,35 @@
+asyncapi: 3.0.0
+info:
+  title: LinkClub eventos
+  version: 1.0.0
+channels:
+  publicacion.creada.v1:
+    address: publicacion.creada.v1
+    messages:
+      PublicacionCreada: { $ref: "#/components/messages/PublicacionCreada" }
+operations:
+  publicarPublicacionCreada:
+    action: send
+    channel: { $ref: "#/channels/publicacion.creada.v1" }
+components:
+  messages:
+    PublicacionCreada:
+      name: publicacion.creada
+      payload:
+        type: object
+        required: [message_id, type, version, correlation_id, occurred_at, data]
+        properties:
+          message_id:     { type: string, format: uuid, description: Clave de idempotencia }
+          type:           { type: string, const: publicacion.creada }
+          version:        { type: string, example: "1.0" }
+          correlation_id: { type: string, description: Mismo id durante todo el recorrido }
+          occurred_at:    { type: string, format: date-time }
+          data:
+            type: object
+            required: [publicacion_id, club_id, autor_id, tipo, titulo]
+            properties:
+              publicacion_id: { type: string }
+              club_id:        { type: string }
+              autor_id:       { type: string }
+              tipo:           { type: string, enum: [aviso, encuesta, noticia] }
+              titulo:         { type: string }
