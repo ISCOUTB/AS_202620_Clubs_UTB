@@ -5,6 +5,10 @@ from linkclub.application.ports.outbound_publicacion_repository_port import Publ
 from linkclub.domain.publicacion import Publicacion, TipoPublicacion
 from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
 
+from linkclub.adapters.outbound.postgres.models.club_model import ClubModel
+from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
+from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
+
 class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
     def __init__(self, db: Session):
         self.db = db

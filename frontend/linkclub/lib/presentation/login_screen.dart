@@ -147,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Ingresa con tu cuenta institucional para explorar la vida de los clubes',
+                    'Ingresa con tu cuenta institucional para explorar la vida en los clubes',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
