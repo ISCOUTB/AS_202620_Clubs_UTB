@@ -20,21 +20,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def on_startup():
-    from linkclub.adapters.outbound.postgres.database import Base, engine
-    from linkclub.adapters.outbound.postgres.models import usuario_model, publicacion_model
-    
-    Base.metadata.create_all(bind=engine)
-
-    with Session(engine) as session:
-        session.execute(text("""
-            INSERT INTO clubes (id, nombre, descripcion, categoria)
-            VALUES (1, 'General UTB', 'Canal oficial de noticias y publicaciones generales', 'General')
-            ON CONFLICT (id) DO NOTHING;
-        """))
-        session.commit()
-
 @app.exception_handler(RequestValidationError)
 async def manejar_validacion(request: Request, exc: RequestValidationError):
     primero = exc.errors()[0]

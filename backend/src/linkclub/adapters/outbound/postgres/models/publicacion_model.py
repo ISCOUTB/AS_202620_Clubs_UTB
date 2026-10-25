@@ -1,18 +1,18 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from linkclub.adapters.outbound.postgres.database import Base
 
 class PublicacionModel(Base):
     __tablename__ = "publicaciones"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    club_id = Column(Integer, ForeignKey("clubes.id", ondelete="CASCADE"), nullable=False, default=1)
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    club_id = Column(Integer, ForeignKey("clubes.id", ondelete="CASCADE"), nullable=False)
     autor_matricula = Column(String, ForeignKey("usuarios.matricula", ondelete="CASCADE"), nullable=False)
-    titulo = Column(String, nullable=False, default="Aviso")
+    titulo = Column(String, nullable=False)
     contenido = Column(Text, nullable=False)
-    tipo = Column(String, nullable=False, default="aviso")
-    opciones = Column(JSON, nullable=True)
+    tipo = Column(String, nullable=False, server_default='aviso')
+    opciones = Column(JSONB, nullable=True)
     creado_en = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-    autor = relationship("UsuarioModel", foreign_keys=[autor_matricula], lazy="joined")
+    
+    idempotency_key = Column(String, unique=True, nullable=True)

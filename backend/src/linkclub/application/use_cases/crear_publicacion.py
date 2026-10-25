@@ -9,14 +9,19 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
 
     def ejecutar(
         self,
-        club_id: str,
-        autor_id: str,
+        club_id: int,
+        autor_matricula: str,
         titulo: str,
         contenido: str,
         tipo: str = TipoPublicacion.AVISO.value,
         opciones: list[str] | None = None,
         idempotency_key: str | None = None,
     ) -> Publicacion:
+        if idempotency_key:
+            publicacion_existente = self.repository.obtener_por_idempotencia(idempotency_key)
+            if publicacion_existente:
+                return publicacion_existente
+
         try:
             tipo_publicacion = TipoPublicacion(tipo)
         except ValueError as error:
@@ -27,7 +32,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
 
         publicacion = Publicacion(
             club_id=club_id,
-            autor_id=autor_id,
+            autor_id=autor_matricula,
             titulo=titulo,
             contenido=contenido,
             tipo=tipo_publicacion,

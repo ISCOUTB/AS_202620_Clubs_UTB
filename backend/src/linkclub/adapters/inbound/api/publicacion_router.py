@@ -9,6 +9,10 @@ from linkclub.adapters.outbound.postgres.database import get_db
 from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 
+# Integración del Caso de Uso y Repositorio Hexagonal
+from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
+from linkclub.adapters.outbound.postgres.publicacion_repository import PublicacionRepositoryPostgres
+
 router = APIRouter(tags=["publicaciones"])
 
 
@@ -69,7 +73,6 @@ def a_respuesta(pub: PublicacionModel) -> PublicacionResponse:
         elif isinstance(parsed, list):
             opciones_val = parsed
 
-    # Extrae el nombre real del usuario desde la relación con UsuarioModel si existe
     nombre_autor = pub.autor.nombre if (hasattr(pub, 'autor') and pub.autor) else pub.autor_matricula
 
     return PublicacionResponse(
@@ -110,21 +113,26 @@ def crear_publicacion_por_club(
             "imagen_url": payload.imagen_url
         }
 
-        nueva_pub = PublicacionModel(
+        repository = PublicacionRepositoryPostgres(db)
+        use_case = CrearPublicacionUseCase(repository)
+
+        pub_guardada = use_case.ejecutar(
             club_id=club_id,
             autor_matricula=autor_matricula,
             titulo=payload.titulo or "Publicación",
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
             opciones=meta_data,
+            idempotency_key=idempotency_key
         )
 
-        db.add(nueva_pub)
-        db.commit()
-        db.refresh(nueva_pub)
-        return a_respuesta(nueva_pub)
+        return a_respuesta(pub_guardada)
+    except ValueError as val_error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(val_error)
+        )
     except Exception as error:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Error al guardar publicación: {str(error)}"
@@ -150,21 +158,26 @@ def crear_publicacion_general(
             "imagen_url": payload.imagen_url
         }
 
-        nueva_pub = PublicacionModel(
+        repository = PublicacionRepositoryPostgres(db)
+        use_case = CrearPublicacionUseCase(repository)
+
+        pub_guardada = use_case.ejecutar(
             club_id=payload.club_id or 1,
             autor_matricula=autor_matricula,
             titulo=payload.titulo or "Publicación",
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
             opciones=meta_data,
+            idempotency_key=idempotency_key
         )
 
-        db.add(nueva_pub)
-        db.commit()
-        db.refresh(nueva_pub)
-        return a_respuesta(nueva_pub)
+        return a_respuesta(pub_guardada)
+    except ValueError as val_error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(val_error)
+        )
     except Exception as error:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Error al guardar publicación: {str(error)}"
