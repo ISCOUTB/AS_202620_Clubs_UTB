@@ -61,7 +61,7 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
     return usuario.matricula
 
 
-def a_respuesta(pub: PublicacionModel) -> PublicacionResponse:
+def a_respuesta(pub) -> PublicacionResponse:
     opciones_val = None
     imagen_url_val = None
 
@@ -73,19 +73,28 @@ def a_respuesta(pub: PublicacionModel) -> PublicacionResponse:
         elif isinstance(parsed, list):
             opciones_val = parsed
 
-    nombre_autor = pub.autor.nombre if (hasattr(pub, 'autor') and pub.autor) else pub.autor_matricula
+    if hasattr(pub, "autor_matricula"):
+        autor_identity = pub.autor_matricula
+        nombre_autor = pub.autor.nombre if (hasattr(pub, 'autor') and pub.autor) else pub.autor_matricula
+        tipo_str = str(pub.tipo)
+        creado_en_val = pub.creado_en
+    else:
+        autor_identity = pub.autor_id
+        nombre_autor = pub.autor_id 
+        tipo_str = pub.tipo.value if hasattr(pub.tipo, 'value') else str(pub.tipo)
+        creado_en_val = getattr(pub, "creado_en", datetime.now()) 
 
     return PublicacionResponse(
         id=pub.id,
         club_id=pub.club_id,
-        autor_id=pub.autor_matricula,
+        autor_id=autor_identity,
         autor_nombre=nombre_autor,
         titulo=pub.titulo or "Publicación",
         contenido=pub.contenido,
-        tipo=str(pub.tipo),
+        tipo=tipo_str,
         opciones=opciones_val,
         imagen_url=imagen_url_val,
-        creado_en=pub.creado_en,
+        creado_en=creado_en_val,
     )
 
 
@@ -98,6 +107,7 @@ def a_respuesta(pub: PublicacionModel) -> PublicacionResponse:
         409: {"description": "Conflicto de idempotencia"}
     },
 )
+
 def crear_publicacion_por_club(
     club_id: int,
     payload: CrearPublicacionRequest,
