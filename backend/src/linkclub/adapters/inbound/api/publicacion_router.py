@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
 from linkclub.adapters.outbound.postgres.database import get_db
 from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
+from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 
 router = APIRouter(tags=["publicaciones"])
 
@@ -35,6 +36,25 @@ class PublicacionResponse(BaseModel):
     creado_en: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
+    """Resuelve el usuario por correo o matrícula para asegurar la FK exacta."""
+    usuario = (
+        db.query(UsuarioModel)
+        .filter(
+            (UsuarioModel.correo == autor_identity) | (UsuarioModel.matricula == autor_identity)
+        )
+        .first()
+    )
+
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuario con identidad '{autor_identity}' no existe en la base de datos."
+        )
+
+    return usuario.matricula
 
 
 def a_respuesta(pub: PublicacionModel) -> PublicacionResponse:
@@ -82,6 +102,8 @@ def crear_publicacion_por_club(
     db: Session = Depends(get_db),
     idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
 ):
+    autor_matricula = _obtener_matricula_usuario(db, autor_id)
+
     try:
         meta_data = {
             "opciones": payload.opciones,
@@ -90,7 +112,7 @@ def crear_publicacion_por_club(
 
         nueva_pub = PublicacionModel(
             club_id=club_id,
-            autor_matricula=autor_id,
+            autor_matricula=autor_matricula,
             titulo=payload.titulo or "Publicación",
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
@@ -120,6 +142,8 @@ def crear_publicacion_general(
     db: Session = Depends(get_db),
     idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
 ):
+    autor_matricula = _obtener_matricula_usuario(db, autor_id)
+
     try:
         meta_data = {
             "opciones": payload.opciones,
@@ -128,7 +152,7 @@ def crear_publicacion_general(
 
         nueva_pub = PublicacionModel(
             club_id=payload.club_id or 1,
-            autor_matricula=autor_id,
+            autor_matricula=autor_matricula,
             titulo=payload.titulo or "Publicación",
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
