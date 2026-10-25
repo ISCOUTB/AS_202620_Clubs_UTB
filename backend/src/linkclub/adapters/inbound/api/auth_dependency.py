@@ -4,7 +4,7 @@ from functools import lru_cache
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from linkclub.adapters.outbound.auth.supabase_jwt_adapter import SupabaseJwtAuthAdapter
+from linkclub.adapters.outbound.auth.local_jwt_adapter import LocalJwtAuthAdapter
 from linkclub.application.ports.outbound_auth_port import (
     AuthNoDisponible,
     AuthPort,
@@ -16,7 +16,8 @@ bearer = HTTPBearer(auto_error=False)
 
 @lru_cache
 def get_auth_port() -> AuthPort:
-    return SupabaseJwtAuthAdapter(os.environ["SUPABASE_URL"])
+    secret_key = os.environ.get("JWT_SECRET", "secreto-desarrollo-local-super-seguro")
+    return LocalJwtAuthAdapter(secret_key)
 
 
 def require_auth(
@@ -31,3 +32,4 @@ def require_auth(
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
     except AuthNoDisponible:
         raise HTTPException(status_code=503, detail="Servicio de autenticación no disponible")
+        

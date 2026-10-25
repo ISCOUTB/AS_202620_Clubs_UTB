@@ -2,19 +2,19 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, ConfigDict
+from typing import Annotated
 
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
 from linkclub.adapters.outbound.persistence.in_memory_publicacion_adapter import (
     InMemoryPublicacionAdapter,
 )
 from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
-from linkclub.domain.publicacion import TipoPublicacion
+from linkclub.domain.publicacion import TipoPublicacion, PublicacionDuplicada
 
 router = APIRouter(tags=["publicaciones"])
 
 repository = InMemoryPublicacionAdapter()
 use_case = CrearPublicacionUseCase(repository=repository)
-
 
 class CrearPublicacionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -23,7 +23,6 @@ class CrearPublicacionRequest(BaseModel):
     contenido: str
     tipo: str = TipoPublicacion.AVISO.value
     opciones: list[str] | None = None
-
 
 class PublicacionResponse(BaseModel):
     id: str
@@ -34,7 +33,6 @@ class PublicacionResponse(BaseModel):
     tipo: str
     opciones: list[str] | None = None
     creado_en: datetime
-
 
 def a_respuesta(publicacion) -> PublicacionResponse:
     return PublicacionResponse(
@@ -48,7 +46,6 @@ def a_respuesta(publicacion) -> PublicacionResponse:
         creado_en=publicacion.creada_en,
     )
 
-
 @router.post(
     "/clubes/{club_id}/publicaciones",
     response_model=PublicacionResponse,
@@ -61,8 +58,8 @@ def a_respuesta(publicacion) -> PublicacionResponse:
 def crear_publicacion(
     club_id: str,
     payload: CrearPublicacionRequest,
-    autor_id: str = Depends(require_auth),
-    idempotency_key: str = Header(..., alias="Idempotency-Key", description="Llave única generada por el cliente para evitar duplicados"),
+    autor_id: Annotated[str, Depends(require_auth)],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", description="Llave única generada por el cliente")],
 ):
     try:
         publicacion = use_case.ejecutar(
@@ -76,9 +73,10 @@ def crear_publicacion(
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error))
+    except PublicacionDuplicada:
+        raise HTTPException(status_code=409, detail="Petición duplicada interceptada por Idempotencia")
 
     return a_respuesta(publicacion)
-
 
 @router.get(
     "/clubes/{club_id}/publicaciones",
