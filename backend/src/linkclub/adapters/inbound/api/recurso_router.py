@@ -1,5 +1,6 @@
 import uuid
 import shutil
+import os
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException, status
 
@@ -7,6 +8,10 @@ router = APIRouter(prefix="/recursos", tags=["Recursos"])
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    os.chmod(UPLOAD_DIR, 0o777)
+except Exception:
+    pass
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "svg"}
 
@@ -32,6 +37,7 @@ def subir_imagen(file: UploadFile = File(...)):
     try:
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        os.chmod(file_path, 0o666)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:linkclub/data/publication_repository.dart';
-import 'package:linkclub/presentation/create_publication_screen.dart'; // Importa tu nueva pantalla
+import 'package:linkclub/presentation/create_publication_screen.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -155,10 +156,20 @@ class _FeedScreenState extends State<FeedScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            Text(
-              pub.contenido,
-              style: const TextStyle(fontSize: 15, height: 1.4),
+            MarkdownBody(
+              data: pub.contenido,
+              selectable: true,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(fontSize: 15, height: 1.4),
+                strong: const TextStyle(fontWeight: FontWeight.bold),
+                em: const TextStyle(fontStyle: FontStyle.italic),
+                a: const TextStyle(
+                  color: Colors.blueAccent,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
+
             if (pub.imagenUrl != null && pub.imagenUrl!.isNotEmpty) ...[
               const SizedBox(height: 12),
               ClipRRect(
