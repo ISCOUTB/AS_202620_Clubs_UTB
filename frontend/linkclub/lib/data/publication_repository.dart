@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:linkclub/core/network/api_client.dart';
+import 'package:flutter/foundation.dart';
+import '/core/network/api_client.dart';
 
 class PublicacionModel {
   final String id;
@@ -58,30 +59,29 @@ class PublicacionRepository {
 
     if (archivoLocal != null) {
       try {
-        String filePath = '';
-        String fileName = 'imagen_subida.jpg';
+        FormData formData;
 
-        if (archivoLocal.runtimeType.toString().contains('PlatformFile')) {
-          filePath = archivoLocal.path ?? '';
-          fileName = archivoLocal.name;
+        if (kIsWeb) {
+          final bytes = await archivoLocal.readAsBytes();
+          formData = FormData.fromMap({
+            'file': MultipartFile.fromBytes(bytes, filename: archivoLocal.name),
+          });
         } else {
-          filePath = archivoLocal.path;
-          fileName = filePath.split('/').last;
+          formData = FormData.fromMap({
+            'file': await MultipartFile.fromFile(
+              archivoLocal.path,
+              filename: archivoLocal.path.split('/').last,
+            ),
+          });
         }
 
-        if (filePath.isNotEmpty) {
-          FormData formData = FormData.fromMap({
-            'file': await MultipartFile.fromFile(filePath, filename: fileName),
-          });
+        final responseUpload = await _dio.post(
+          '/recursos/upload',
+          data: formData,
+        );
 
-          final responseUpload = await _dio.post(
-            '/recursos/upload',
-            data: formData,
-          );
-
-          if (responseUpload.statusCode == 201) {
-            urlFinal = responseUpload.data['url'];
-          }
+        if (responseUpload.statusCode == 201) {
+          urlFinal = responseUpload.data['url'];
         }
       } catch (e) {
         throw Exception('Error al subir la imagen local: $e');

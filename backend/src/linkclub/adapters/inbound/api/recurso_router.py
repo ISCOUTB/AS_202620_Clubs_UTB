@@ -12,6 +12,12 @@ ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "svg"}
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 def subir_imagen(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo no contiene un nombre válido."
+        )
+
     ext = file.filename.split('.')[-1].lower()
     
     if ext not in ALLOWED_EXTENSIONS:

@@ -2,13 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+from fastapi.staticfiles import StaticFiles
+import os
 
 from linkclub.adapters.inbound.api.health_router import router as health_router
 from linkclub.adapters.inbound.api.publicacion_router import router as publicacion_router
 from linkclub.adapters.inbound.api.club_router import router as club_router
 from linkclub.adapters.inbound.api.auth_router import router as auth_router
+from linkclub.adapters.inbound.api.recurso_router import router as recurso_router
 
 app = FastAPI(title="LinkClub API")
 
@@ -24,10 +25,15 @@ app.add_middleware(
 async def manejar_validacion(request: Request, exc: RequestValidationError):
     primero = exc.errors()[0]
     campo = ".".join(str(p) for p in primero["loc"] if p != "body")
-    mensaje = f"{campo}: {primero['msg']}" if campo else primero["msg"]
+    mensaje = f"{campo}: {primero['msg']}" if campo else primeiro["msg"]
     return JSONResponse(status_code=422, content={"detail": mensaje})
+
+os.makedirs("uploads", exist_ok=True)
+
+app.mount("/static", StaticFiles(directory="uploads"), name="static")
 
 app.include_router(health_router)
 app.include_router(publicacion_router)
 app.include_router(club_router)
 app.include_router(auth_router)
+app.include_router(recurso_router)
