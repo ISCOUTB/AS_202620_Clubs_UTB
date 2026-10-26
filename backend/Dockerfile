@@ -13,7 +13,12 @@ RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt
 COPY src/ ./src/
 COPY migrations/ ./migrations/
 
+
+RUN mkdir -p /app/uploads
 RUN chown -R appuser:appuser /app
+
+RUN chmod 777 /app/uploads 
+
 USER appuser
 
 EXPOSE 8000

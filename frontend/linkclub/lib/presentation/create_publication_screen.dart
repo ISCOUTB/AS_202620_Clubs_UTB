@@ -28,6 +28,13 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    _tabController.addListener(() {
+      if (_tabController.index == 1) {
+        FocusScope.of(context).unfocus();
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -53,7 +60,6 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     }
   }
 
-  // Función unificada y limpia (sin duplicados)
   void _aplicarFormato(String wrapper, {String prefix = ''}) {
     final text = _contenidoController.text;
     final selection = _contenidoController.selection;
@@ -66,6 +72,14 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
         '$prefix$wrapper$selectedText$wrapper',
       );
       _contenidoController.text = newText;
+      _contenidoController.selection = TextSelection.collapsed(
+        offset:
+            selection.start +
+            prefix.length +
+            wrapper.length +
+            selectedText.length +
+            wrapper.length,
+      );
     } else {
       final pos = _contenidoController.selection.baseOffset;
       final insertIndex = pos < 0 ? text.length : pos;
@@ -75,15 +89,58 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
         '$prefix$wrapper texto $wrapper',
       );
       _contenidoController.text = newText;
+      _contenidoController.selection = TextSelection.collapsed(
+        offset:
+            insertIndex + prefix.length + wrapper.length + 6 + wrapper.length,
+      );
+    }
+  }
+
+  void _insertarEnlaceTexto(String textoVisible, String url) {
+    final text = _contenidoController.text;
+    final selection = _contenidoController.selection;
+    final enlaceMarkdown = '[$textoVisible]($url)';
+
+    if (selection.isValid && !selection.isCollapsed) {
+      final newText = text.replaceRange(
+        selection.start,
+        selection.end,
+        enlaceMarkdown,
+      );
+      _contenidoController.text = newText;
+      _contenidoController.selection = TextSelection.collapsed(
+        offset: selection.start + enlaceMarkdown.length,
+      );
+    } else {
+      final pos = _contenidoController.selection.baseOffset;
+      final insertIndex = pos < 0 ? text.length : pos;
+      final newText = text.replaceRange(
+        insertIndex,
+        insertIndex,
+        enlaceMarkdown,
+      );
+      _contenidoController.text = newText;
+      _contenidoController.selection = TextSelection.collapsed(
+        offset: insertIndex + enlaceMarkdown.length,
+      );
     }
   }
 
   void _insertarEnlace() {
+    final selection = _contenidoController.selection;
+    final text = _contenidoController.text;
+
+    String textoPreseleccionado = 'enlace';
+    if (selection.isValid && !selection.isCollapsed) {
+      textoPreseleccionado = text.substring(selection.start, selection.end);
+    }
+
+    final linkController = TextEditingController();
+    final textController = TextEditingController(text: textoPreseleccionado);
+
     showDialog(
       context: context,
       builder: (context) {
-        final linkController = TextEditingController();
-        final textController = TextEditingController(text: 'enlace');
         return AlertDialog(
           title: const Text('Insertar Hipervínculo'),
           content: Column(
@@ -99,6 +156,7 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                 decoration: const InputDecoration(
                   labelText: 'URL (https://...)',
                 ),
+                keyboardType: TextInputType.url,
               ),
             ],
           ),
@@ -110,10 +168,10 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
             FilledButton(
               onPressed: () {
                 if (linkController.text.isNotEmpty) {
-                  _aplicarFormato(
-                    '](${linkController.text.trim()})',
-                    prefix: '[',
-                  );
+                  final texto = textController.text.trim().isNotEmpty
+                      ? textController.text.trim()
+                      : 'enlace';
+                  _insertarEnlaceTexto(texto, linkController.text.trim());
                 }
                 Navigator.pop(context);
               },
@@ -181,32 +239,76 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Crear Publicación', style: TextStyle(fontSize: 18)),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.edit_note, size: 20), text: 'Editor'),
-            Tab(icon: Icon(Icons.visibility, size: 20), text: 'Vista Previa'),
-          ],
+        toolbarHeight: 60,
+        title: const Text(
+          'Crear Publicación',
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+        ),
+
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: TabBar(
+              controller: _tabController,
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              indicator: BoxDecoration(
+                borderRadius: BorderRadius.circular(50),
+                color: colorScheme.primaryContainer.withOpacity(0.5),
+              ),
+              labelColor: colorScheme.onPrimaryContainer,
+              unselectedLabelColor: colorScheme.onSurfaceVariant,
+              labelPadding: EdgeInsets.zero,
+              tabs: const [
+                Tab(
+                  height: 36,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.edit_note, size: 18),
+                      SizedBox(width: 6),
+                      Text('Editor'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  height: 36,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.visibility, size: 18),
+                      SizedBox(width: 6),
+                      Text('Vista Previa'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.only(right: 16),
             child: IconButton.filled(
               onPressed: _isLoading ? null : _publicar,
               icon: _isLoading
                   ? const SizedBox(
-                      width: 16,
-                      height: 16,
+                      width: 20,
+                      height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.send_rounded, size: 18),
+                  : const Icon(Icons.send_rounded, size: 20),
               style: IconButton.styleFrom(
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
+                minimumSize: const Size(44, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
               ),
               tooltip: 'Enviar',
             ),
@@ -221,54 +323,65 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Wrap(
-                    spacing: 4,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.format_bold, size: 20),
-                        onPressed: () => _aplicarFormato('**'),
-                        tooltip: 'Negrita',
+                Align(
+                  alignment: Alignment.center,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withOpacity(
+                        0.4,
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.format_italic, size: 20),
-                        onPressed: () => _aplicarFormato('*'),
-                        tooltip: 'Cursiva',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.title, size: 20),
-                        onPressed: () => _aplicarFormato('', prefix: '### '),
-                        tooltip: 'Título',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.link, size: 20),
-                        onPressed: _insertarEnlace,
-                        tooltip: 'Enlace',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.format_list_bulleted, size: 20),
-                        onPressed: () => _aplicarFormato('', prefix: '- '),
-                        tooltip: 'Lista',
-                      ),
-                    ],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Wrap(
+                      spacing: 4,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.format_bold, size: 20),
+                          onPressed: () => _aplicarFormato('**'),
+                          tooltip: 'Negrita',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.format_italic, size: 20),
+                          onPressed: () => _aplicarFormato('*'),
+                          tooltip: 'Cursiva',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.title, size: 20),
+                          onPressed: () => _aplicarFormato('', prefix: '### '),
+                          tooltip: 'Título',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.link, size: 20),
+                          onPressed: _insertarEnlace,
+                          tooltip: 'Enlace',
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.format_list_bulleted,
+                            size: 20,
+                          ),
+                          onPressed: () => _aplicarFormato('', prefix: '- '),
+                          tooltip: 'Lista',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 TextField(
                   controller: _contenidoController,
                   maxLines: 8,
                   maxLength: 1000,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    hintText: 'Escribe tu anuncio aquí con formato...',
+                    hintText:
+                        'Escribe tu anuncio aquí con formato... \n\n(Usa doble espacio o doble Enter para separar párrafos)',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -330,13 +443,13 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                               child: kIsWeb
                                   ? Image.network(
                                       _imagenSeleccionada!.path,
-                                      height: 160,
+                                      height: 180,
                                       width: double.infinity,
                                       fit: BoxFit.cover,
                                     )
                                   : Image.file(
                                       File(_imagenSeleccionada!.path),
-                                      height: 160,
+                                      height: 180,
                                       width: double.infinity,
                                       fit: BoxFit.cover,
                                     ),
@@ -376,68 +489,169 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
             ),
           ),
 
-          Padding(
+          SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: Card(
-              elevation: 1,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Así se verá tu publicación:',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
-                      const Divider(),
-                      const SizedBox(height: 10),
-                      MarkdownBody(
-                        data: _contenidoController.text.isEmpty
-                            ? '*Escribe algo en la pestaña Editor...*'
-                            : _contenidoController.text,
-                        selectable: true,
-                      ),
-                      if (_imagenSeleccionada != null ||
-                          _urlController.text.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: _usarUrlExterna
-                              ? Image.network(
-                                  _urlController.text,
-                                  height: 180,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Text('URL de imagen no disponible'),
-                                )
-                              : (kIsWeb
-                                    ? Image.network(
-                                        _imagenSeleccionada!.path,
-                                        height: 180,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : Image.file(
-                                        File(_imagenSeleccionada!.path),
-                                        height: 180,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                      )),
-                        ),
-                      ],
-                    ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12, left: 4),
+                  child: Text(
+                    'Previsualización en el Feed:',
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: colorScheme.primaryContainer,
+                              radius: 20,
+                              child: Text(
+                                'U',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Tu Nombre',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Hace 0 min',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurface.withOpacity(
+                                        0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        MarkdownBody(
+                          data: _contenidoController.text.isEmpty
+                              ? '*Tu publicación aparecerá aquí...*'
+                              : _contenidoController.text,
+                          selectable: true,
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(fontSize: 15, height: 1.4),
+                            strong: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            em: const TextStyle(fontStyle: FontStyle.italic),
+
+                            a: const TextStyle(
+                              color: Colors.blueAccent,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+
+                        if (_imagenSeleccionada != null ||
+                            _urlController.text.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: _usarUrlExterna
+                                ? Image.network(
+                                    _urlController.text,
+                                    width: double.infinity,
+                                    height: 200,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const SizedBox.shrink(),
+                                  )
+                                : (kIsWeb
+                                      ? Image.network(
+                                          _imagenSeleccionada!.path,
+                                          width: double.infinity,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.file(
+                                          File(_imagenSeleccionada!.path),
+                                          width: double.infinity,
+                                          height: 200,
+                                          fit: BoxFit.cover,
+                                        )),
+                          ),
+                        ],
+
+                        const SizedBox(height: 14),
+                        Divider(
+                          color: colorScheme.outlineVariant.withOpacity(0.3),
+                          height: 1,
+                        ),
+                        const SizedBox(height: 10),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildDummyAction(
+                              Icons.favorite_border_rounded,
+                              'Me gusta',
+                            ),
+                            _buildDummyAction(
+                              Icons.chat_bubble_outline_rounded,
+                              'Comentar',
+                            ),
+                            _buildDummyAction(
+                              Icons.share_outlined,
+                              'Compartir',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDummyAction(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.grey),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
