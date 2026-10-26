@@ -1,6 +1,6 @@
 # 2. Restricciones
 
-Las siguientes restricciones limitan el espacio de decisiones de arquitectura disponible para **LinkClub**. Se agrupan por origen: técnicas, organizacionales y de tiempo.
+Las siguientes restricciones limitan el espacio de decisiones de arquitectura disponible para **LinkClub**. Se agrupan por origen: técnicas, organizacionales, de tiempo y financieras, además de las convenciones de documentación.
 
 ## 2.1. Restricciones técnicas
 
@@ -9,14 +9,15 @@ Las siguientes restricciones limitan el espacio de decisiones de arquitectura di
 | T1 | El frontend/app móvil debe implementarse en **Flutter**. | Es requisito del curso y continuidad directa de la materia de desarrollo móvil inmediatamente anterior, donde el equipo ya adquirió experiencia práctica con el framework. |
 | T2 | El backend debe implementarse como una **API con FastAPI**. | Mismo motivo que T1: continuidad con la experiencia previa del equipo, lo que reduce la curva de aprendizaje dentro del tiempo limitado del curso. |
 | T3 | La persistencia de datos debe basarse en **PostgreSQL**. | Ya declarado como decisión en los [aspectos de calidad](../aspectos.md); es la base de datos con la que el equipo tiene experiencia previa. |
-| T4 | La solución de base de datos gestionada y autenticación está con **Supabase**, compatible con PostgreSQL. | El equipo tiene experiencia previa con Supabase. |
+| T4 | La persistencia y la autenticación son **propias del sistema**: PostgreSQL en contenedor y tokens JWT emitidos por la API, sin proveedor BaaS externo. | Reemplaza la restricción original, que fijaba Supabase. Se descartó por la deriva detectada entre documentación y código, la latencia de red hacia un tercero y el riesgo de límites de capa gratuita (ver [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md)). |
+| T5 | El backend y la base de datos se despliegan como **contenedores Docker en el servidor del laboratorio, administrado con Dokploy**, y deben ser accesibles por una URL pública con HTTPS. | El curso exige una URL pública para la sustentación y el servidor del laboratorio es la alternativa sin tarjeta de crédito (F2). Ver [Sección 7](./07_vista_de_despliegue.md) y [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md). |
 
 ## 2.2. Restricciones organizacionales
 
 | # | Restricción | Justificación |
 |---|---|---|
 | O1 | El equipo de desarrollo está compuesto por **4 integrantes**. | Limita la cantidad de trabajo paralelo posible y obliga a una arquitectura con módulos claramente separables para permitir división de tareas sin bloqueos entre integrantes. |
-| O2 | El desarrollo de código **no puede iniciar formalmente hasta recibir autorización del docente del curso**. | El proyecto se encuentra en fase de planeación por instrucción explícita de la materia; toda esta entrega corresponde a documentación de arquitectura, no a implementación. |
+| O2 | La documentación de arquitectura debe **corresponder con el código del commit evaluado** en cada entrega. | El proyecto avanza por entregas calificadas sobre el repositorio; cuando documentación y código divergen, se registra la deriva y se corrige (ver [Sección 11](./11_riesgos_y_deuda_tecnica.md)). Esta restricción reemplaza a la original, que condicionaba el inicio del desarrollo a la autorización del docente y quedó superada. |
 | O3 | El proyecto se desarrolla bajo la organización de GitHub **ISCOUTB**, en el repositorio **AS_202620_Clubs_UTB**, con una convención de nombre de repositorio fija impuesta por el curso. | El nombre del repositorio no responde a decisiones de producto (de ahí que el nombre comercial de la app, **LinkClub**, sea independiente del nombre del repositorio). |
 
 ## 2.3. Restricciones de tiempo
@@ -38,3 +39,9 @@ Las siguientes restricciones limitan el espacio de decisiones de arquitectura di
 | # | Convención | Justificación |
 |---|---|---|
 | CV1 | Toda la documentación de arquitectura se organiza bajo [`/docs/arc42/`](./), [`/docs/c4/`](../c4/) y [`/docs/adr/`](../adr/), siguiendo la plantilla arc42 académica entregada en el curso. | Para mantener consistencia con lo ya montado en las entregas previas y con lo que el docente espera encontrar al evaluar la correspondencia entre documentación y repositorio. |
+
+## 2.6. Historial de cambios
+
+| Fecha | Cambio |
+|---|---|
+| 2026-10-25 | T4 reemplazada (de Supabase a persistencia y autenticación propias). Se agrega T5. O2 reformulada. Se actualiza la introducción. |

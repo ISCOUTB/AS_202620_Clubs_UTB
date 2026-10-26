@@ -6,6 +6,8 @@ En la Universidad Tecnológica de Bolívar existe una amplia variedad de clubes 
 
 El sistema **LinkClub** busca resolver este problema mediante una aplicación móvil que centraliza la gestión de avisos, eventos, grupos y noticias de los clubes estudiantiles, permitiendo tanto a los miembros como a los interesados externos mantenerse informados desde un solo lugar.
 
+El sistema se compone de una aplicación móvil (Flutter) y una API propia (FastAPI) con base de datos PostgreSQL y autenticación por tokens JWT, desplegadas en el servidor del laboratorio de la universidad. No depende de proveedores externos de datos ni de identidad (ver [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md)).
+
 ## 1.2 Metas de calidad
 
 Con base en los [aspectos de calidad](../aspectos.md) declarados, las siguientes son las metas de calidad prioritarias para la arquitectura del sistema, ordenadas de mayor a menor prioridad:
@@ -17,6 +19,8 @@ Con base en los [aspectos de calidad](../aspectos.md) declarados, las siguientes
 | 3 | Usabilidad | El público objetivo incluye estudiantes que no pertenecen aún a ningún club y que solo exploran por interés; una interfaz poco intuitiva reduce la probabilidad de que ese público descubra y se sume a un grupo. |
 | 4 | Mantenibilidad | El sistema se desarrolla en el marco de un curso académico con integrantes rotativos por semestre; la arquitectura debe permitir que futuros equipos comprendan y extiendan el sistema sin depender del conocimiento tácito del equipo original. |
 
+La seguridad no figura entre las cuatro metas priorizadas, pero se trata como aspecto transversal con su propio escenario de calidad (U3, [Sección 10](./10_requisitos_de_calidad.md)), porque el sistema gestiona cuentas de usuarios.
+
 ## 1.3 Stakeholders
 
 | Rol | Descripción | Expectativa frente a la arquitectura |
@@ -24,5 +28,16 @@ Con base en los [aspectos de calidad](../aspectos.md) declarados, las siguientes
 | Estudiante interesado | Estudiante que no pertenece a un club pero desea informarse o unirse a uno | Encontrar información actualizada y accesible sin fricción |
 | Miembro de club | Estudiante ya vinculado a un club o grupo | Poder publicar avisos, eventos y noticias de su grupo de forma sencilla |
 | Administrador de club | Estudiante o encargado con permisos para gestionar la información de un club específico | Control sobre el contenido publicado en nombre de su grupo |
-| Equipo de desarrollo | Los 4 integrantes del proyecto | Una arquitectura documentada, coherente y mantenible a lo largo del curso |
+| Equipo de desarrollo y operación | Los 4 integrantes del proyecto | Una arquitectura documentada, coherente y mantenible a lo largo del curso, y un despliegue que cualquier integrante pueda reproducir |
 | Docente del curso | Evaluador del proyecto | Correspondencia clara entre la documentación de arquitectura y el repositorio entregado |
+
+## 1.4 Alcance funcional actual
+
+| Capacidad | Estado |
+|---|---|
+| Registro con correo institucional y matrícula, e inicio de sesión | Implementada |
+| Consulta de publicaciones (feed) y creación de avisos, encuestas y noticias, con imagen opcional | Implementada |
+| Catálogo de clubes con búsqueda y filtro por categoría en la API | Implementada con datos en memoria; la aplicación móvil aún muestra datos locales |
+| Inscripción a clubes y gestión de miembros | Definida en el contrato, pendiente |
+| Eventos y confirmación de asistencia | Definidos en el contrato y en el esquema de datos, pendientes |
+| Notificaciones | Diferidas ([ADR 0003](../adr/0003-%20integacion%20rest%20openapi.md)); existe un prototipo de mensajería verificado solo por pruebas |

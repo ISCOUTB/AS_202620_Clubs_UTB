@@ -21,83 +21,76 @@ Este repositorio documenta el diseño y la evolución arquitectónica del proyec
 
 | Componente | Tecnología | Estado |
 |---|---|---|
-| Frontend / App móvil | Flutter (Material 3, Adaptativo) | Implementado y funcional |
-| Backend / API | FastAPI (Python) | Implementado (Esqueleto y Health Check) |
-| Base de datos & BaaS | Supabase (PostgreSQL) | Configurado y conectado |
-| Autenticación | Supabase Auth | Implementado (Login, SignUp y validación institucional) |
-| Estilo arquitectónico | Hexagonal (Ports & Adapters) | En aplicación en módulos clave |
+| Frontend / App móvil | Flutter (Material 3), Dio, almacenamiento seguro del token | Operativo: registro, inicio de sesión, feed y creación de publicaciones con imagen. El catálogo de clubes usa datos locales. |
+| Backend / API | FastAPI (Python 3.12) | Operativo: salud, autenticación, publicaciones, carga de imágenes y consulta de clubes (datos en memoria) |
+| Base de datos | PostgreSQL en contenedor | Operativa para usuarios y publicaciones; esquema aplicado desde `backend/migrations/` |
+| Autenticación | Tokens JWT emitidos por la propia API | Operativa; la protección de contraseñas con hash está pendiente |
+| Despliegue | Docker y Dokploy en el servidor del laboratorio | Operativo, con dominio HTTPS |
+| Integración continua | GitHub Actions y SonarCloud | Pruebas, validación del contrato OpenAPI y análisis estático |
+| Estilo arquitectónico | Hexagonal (puertos y adaptadores) | Aplicado en el backend, con desviaciones declaradas |
+
+La decisión de reemplazar Supabase por infraestructura propia está en el [ADR 0007](docs/adr/0007-migracion-dokploy-postgresql.md).
 
 ## 4. Estructura del repositorio
 
 ```text
-/docs
-  aspectos.md              # Aspectos de calidad, tabla de 8 columnas
-  ficha_problema.md
-  ia.md                    # Registro de uso de IA en el proyecto
-  /api
-    CHANGELOG.md
-    contrato_api.md
-    openapi.yaml
-
-  /arc42
-    01_introduccion_y_metas.md
-    02_restricciones.md
-    03_contexto_y_alcance.md
-    04_estrategia_de_solucion.md
-    05_vista_de_bloques.md
-    06_vista_de_ejecucion.md
-    07_vista_de_despliegue.md
-    08_conceptos_transversales.md
-    09_decisiones_de_diseno.md
-    10_requisitos_de_calidad.md     # Árbol de utilidad + escenarios de calidad
-    11_riesgos_y_deuda_tecnica.md
-    12_glosario.md          # Listado de terminologías y conceptos usados dentro del proyecto
-    lista_errores.md
-    mapa-contextos-fundamentacion.md
-    matriz_comparativa_estilos.md
-    tabla_modulo.md
-  /c4
-    contexto.md            # Diagrama C4: contexto y contenedores
-  /adr
-    0001-hexagonal.md      # Decisión de estilo arquitectónico
-    0002-ajuste-contextos-publicaciones.md
-    0003- integacion rest openapi.md
-    0003-API.md
-    0004-despliegue-base-de-datos.md    
-
-/backend
-  requirements.txt
+.github/workflows/
+  backend-tests.yml
+  contrato.yml
+backend/
   Dockerfile
-  /src/linkclub
+  requirements.txt
+  migrations/
+    001_esquema_inicial.sql
+  src/linkclub/
     main.py
-    /adapters/inbound/api
-      health_router.py     # Endpoint /health
-    /adapters/outbound/persistence
-      in_memory_status_adapter.py
-    /application/ports
-      inbound_health_port.py
-      outbound_status_port.py
-    /application/use_cases
-      check_health.py
-  /tests
-    test_health.py
-
-/frontend
-  /linkclub
-    pubspec.yaml
-    .env.example
-    /lib
-      main.dart
-      /core/theme
-        theme_controller.dart
-      /presentation
-        clubs_page.dart
-        login_screen.dart
-        signup_screen.dart
-
+    domain/
+    application/
+      messaging/
+      ports/
+      use_cases/
+    adapters/
+      inbound/api/
+      outbound/
+        auth/
+        messaging/
+        persistence/
+        postgres/
+  tests/
+deploy/
+  compose.lab.yaml
+docs/
+  aspectos.md
+  ficha_problema.md
+  ia.md
+  adr/
+  api/
+  arc42/
+  c4/
+  resilience/
+frontend/linkclub/
+  pubspec.yaml
+  lib/
+    main.dart
+    core/
+      network/
+      theme/
+    data/
+    presentation/
+  windows/
 README.md
-
 ```
+
+| Ruta | Contenido |
+|---|---|
+| `docs/aspectos.md` | Aspectos de calidad y trazabilidad hasta la evidencia |
+| `docs/ia.md` | Registro de uso de IA en el proyecto |
+| `docs/api/` | Contrato OpenAPI (`openapi.yaml`), AsyncAPI, guía del contrato y registro de cambios |
+| `docs/arc42/` | Documentación arc42 (secciones 1 a 12), mapa de contextos, tablas de fallos y de garantías de consistencia, lista de no conformidades |
+| `docs/c4/contexto.md` | Diagramas C4 de contexto, contenedores y componentes |
+| `docs/adr/` | Registros de decisiones de arquitectura (0001 a 0009) |
+| `docs/resilience/idempotencia.md` | Diseño de idempotencia en la creación de publicaciones |
+| `deploy/compose.lab.yaml` | Definición de despliegue para el servidor del laboratorio |
 
 ## 5. Equipo
 
@@ -112,7 +105,7 @@ README.md
 
 ## 6. Estado del proyecto
 
-**En fase activa de desarrollo, integración y despliegue.** Se han consolidado los módulos de autenticación segura en Flutter conectados a Supabase Auth, el catálogo de clubes (hardoceado, por ahora) con menú lateral (Drawer) adaptativo, el bloqueo de dependencias en Android para pipelines limpios en SonarCloud, y los adaptadores base en FastAPI.
+**En fase activa de desarrollo, integración y despliegue.** El sistema está desplegado en el servidor del laboratorio con dominio HTTPS. Están operativos el registro y el inicio de sesión con tokens propios, el feed de publicaciones con imágenes y la consulta de clubes en la API. Siguen pendientes la persistencia del catálogo de clubes, las membresías, los eventos y la asistencia, la protección de contraseñas con hash y la autorización por rol. El detalle está en la [Sección 11 de arc42](docs/arc42/11_riesgos_y_deuda_tecnica.md).
 
 ---
 
@@ -120,57 +113,89 @@ README.md
 
 ## 7. Cómo arrancar
 
-### 7.1. Backend (FastAPI)
+### 7.1. Base de datos
 
-Requisitos previos: Python 3.10+
+Requisitos previos: PostgreSQL accesible y una base vacía. Aplicar el esquema:
+
+```bash
+psql "$DATABASE_URL" -f backend/migrations/001_esquema_inicial.sql
+```
+
+### 7.2. Backend (FastAPI)
+
+Requisitos previos: Python 3.12 y las variables de entorno `DATABASE_URL` y `JWT_SECRET`. No se versionan; defínelas en tu entorno local.
 
 ```bash
 cd backend
 python -m venv venv
-
-# Activar el entorno virtual
-source venv/bin/activate     # macOS / Linux
-venv\Scripts\activate        # Windows
-
 pip install -r requirements.txt
-uvicorn linkclub.main:app --app-dir src
-
 ```
 
-Verifica en [http://localhost:8000/health](http://localhost:8000/health?utm_source=gemini) — debe responder `{"status": "ok"}`.
+Activar el entorno virtual en macOS o Linux:
 
-### 7.2. Frontend (Flutter)
+```bash
+source venv/bin/activate
+```
 
-Requisitos previos: Flutter SDK (Dart 3+)
+Activar el entorno virtual en Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+Definir las variables y arrancar en macOS o Linux:
+
+```bash
+export DATABASE_URL="postgresql://usuario:clave@localhost:5432/linkclub"
+export JWT_SECRET="valor-largo-y-aleatorio"
+uvicorn linkclub.main:app --app-dir src
+```
+
+Verifica en [http://localhost:8000/health](http://localhost:8000/health): debe responder `{"status": "ok"}`.
+
+### 7.3. Pruebas del backend
+
+```bash
+cd backend
+PYTHONPATH=src pytest tests/ -v
+```
+
+### 7.4. Frontend (Flutter)
+
+Requisitos previos: Flutter SDK (Dart 3+). La aplicación declara un archivo `.env` como recurso, por lo que debe existir en `frontend/linkclub/`. Define en él la variable `API_URL`; si se omite, la aplicación usa la API publicada.
 
 ```bash
 cd frontend/linkclub
-# Configura tu archivo .env basado en .env.example con tus credenciales de Supabase
 flutter pub get
 flutter run
-
 ```
+
+### 7.5. Limitaciones conocidas
+
+El esquema de la migración y los modelos del backend, la suite de pruebas y el contrato de inicio de sesión tienen divergencias registradas como deuda técnica en la [Sección 11 de arc42](docs/arc42/11_riesgos_y_deuda_tecnica.md).
 
 ---
 
 ## 8. Estimación de Costo Mensual y Supuestos
 
-Con base en la estructura de precios oficial de **Supabase** y servicios de infraestructura cloud asociados para la operación del sistema, se presenta la siguiente estimación financiera y técnica:
+El sistema opera sobre el servidor del laboratorio de la universidad y repositorios públicos, sin proveedores de pago ni tarjeta de crédito.
 
 ### 8.1. Desglose de Costos (Fase Académica / Beta / Producción Inicial)
 
-| Componente / Servicio | Proveedor / Plan | Costo Estimado (USD / mes) | Supuestos Operativos |
+| Componente / Servicio | Plataforma | Costo Estimado (USD / mes) | Supuestos Operativos |
 | --- | --- | --- | --- |
-| **Base de Datos y BaaS** | Supabase (Free Tier) | **$0.00** | Hasta 500 MB de base de datos relacional, 1 GB de almacenamiento de archivos, y un límite de 50,000 usuarios activos mensuales (MAU). |
-| **Autenticación y Seguridad** | Supabase Auth | **$0.00** | Incluido dentro de las cuotas del plan gratuito del ecosistema BaaS con políticas RLS (Row Level Security) activas. |
-| **Backend API (FastAPI)** | Render / Railway (Free Tier) | **$0.00** | Despliegue mediante contenedor Docker en capa gratuita con restricciones de inactividad temporal (*spin-down*) ante ausencia de peticiones. |
-| **Dominio y DNS** | GitHub Pages / Vercel | **$0.00** | Uso de subdominios predeterminados provistos por las plataformas de integración continua. |
-| **TOTAL ESTIMADO** | — | **$0.00 USD / mes** | **Viabilidad óptima para fases de desarrollo, pruebas y despliegue académico.** |
+| **Backend API (FastAPI)** | Contenedor Docker en Dokploy, servidor del laboratorio | **$0.00** | Una réplica con 1 GB de memoria y 2 CPU, sin arranque en frío. |
+| **Base de datos** | Contenedor PostgreSQL en el mismo servidor | **$0.00** | Estimación de 2.000 estudiantes activos, unas 160.000 consultas al mes y unos 50 MB de datos mensuales. |
+| **Autenticación** | Implementada en la propia API | **$0.00** | Tokens JWT propios; sin cuotas de terceros. |
+| **Imágenes subidas** | Volumen Docker en el mismo servidor | **$0.00** | Limitado por el disco asignado. |
+| **Dominio y HTTPS** | Subdominio institucional con certificado automático | **$0.00** | Provisto por la plataforma de despliegue. |
+| **Integración continua** | GitHub Actions y SonarCloud | **$0.00** | Repositorio público, sin consumo de cuota de minutos. |
+| **TOTAL ESTIMADO** | — | **$0.00 USD / mes** | Viable para desarrollo, pruebas y operación académica. |
 
-### 8.2. Supuestos de Escalabilidad a Plan Pro (Escenario de Producción Masiva Institucional)
+### 8.2. Punto de quiebre y escalabilidad
 
-Si el sistema se despliega a nivel general para toda la comunidad de la Universidad Tecnológica de Bolívar (superando las métricas del plan gratuito), los costos proyectados según la tabla oficial de Supabase y servicios cloud estándar ascienden a:
+No existen cuotas de terceros que se agoten. El límite lo marcan los recursos asignados al servidor (memoria, CPU y disco) y su disponibilidad.
 
-* **Supabase Pro Plan:** **$25.00 USD / mes** (Base que incluye hasta 8 GB de base de datos, 100 GB de almacenamiento, respaldos diarios automáticos y hasta 100,000 MAU).
-* **Hosting Backend Escalado:** **$7.00 USD / mes** (Instancia dedicada pequeña para mantener el servicio de FastAPI activo 24/7 sin latencia de arranque).
-* **Costo Proyectado en Escala:** **~$32.00 USD / mes**.
+* **Si se superan los recursos asignados:** solicitar al laboratorio mayor memoria, CPU o disco; el despliegue en contenedores permite ajustar los límites sin cambiar el código.
+* **Si se necesita otro entorno:** el backend y la base de datos son portables a cualquier host con Docker; basta reconstruir los contenedores y restaurar un volcado de la base. La migración desde Supabase está justificada en el [ADR 0007](docs/adr/0007-migracion-dokploy-postgresql.md).
+* **Costos no monetarios:** operación manual del despliegue y de los respaldos, y dependencia de un servidor único (ver la [Sección 11 de arc42](docs/arc42/11_riesgos_y_deuda_tecnica.md)).
