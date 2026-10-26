@@ -15,7 +15,6 @@ from linkclub.adapters.outbound.postgres.publicacion_repository import Publicaci
 
 router = APIRouter(tags=["publicaciones"])
 
-
 class CrearPublicacionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -25,7 +24,6 @@ class CrearPublicacionRequest(BaseModel):
     tipo: str = "aviso"
     opciones: list[str] | None = None
     imagen_url: Optional[str] = None
-
 
 class PublicacionResponse(BaseModel):
     id: int
@@ -40,7 +38,6 @@ class PublicacionResponse(BaseModel):
     creado_en: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
 
 def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
     """Resuelve el usuario por correo o matrícula para asegurar la FK exacta."""
@@ -59,7 +56,6 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
         )
 
     return usuario.matricula
-
 
 def a_respuesta(pub) -> PublicacionResponse:
     opciones_val = None
@@ -97,6 +93,22 @@ def a_respuesta(pub) -> PublicacionResponse:
         creado_en=creado_en_val,
     )
 
+def _inyectar_nombres(db: Session, publicaciones: list) -> list[PublicacionResponse]:
+    """Inyecta los nombres reales resolviendo las matrículas en bloque para optimizar BD."""
+    respuestas = [a_respuesta(p) for p in publicaciones]
+    matriculas = {r.autor_id for r in respuestas if r.autor_id}
+    
+    if matriculas:
+        usuarios = db.query(UsuarioModel).filter(UsuarioModel.matricula.in_(matriculas)).all()
+        # Creamos un mapa de {matricula: nombre}
+        mapa_nombres = {u.matricula: getattr(u, "nombre", u.matricula) for u in usuarios}
+        
+        # Sobrescribimos el autor_nombre en cada respuesta
+        for r in respuestas:
+            if r.autor_id in mapa_nombres and mapa_nombres[r.autor_id]:
+                r.autor_nombre = mapa_nombres[r.autor_id]
+                
+    return respuestas
 
 @router.post(
     "/clubes/{club_id}/publicaciones",
@@ -107,7 +119,6 @@ def a_respuesta(pub) -> PublicacionResponse:
         409: {"description": "Conflicto de idempotencia"}
     },
 )
-
 def crear_publicacion_por_club(
     club_id: int,
     payload: CrearPublicacionRequest,
@@ -136,7 +147,13 @@ def crear_publicacion_por_club(
             idempotency_key=idempotency_key
         )
 
-        return a_respuesta(pub_guardada)
+        respuesta = a_respuesta(pub_guardada)
+        # Inyectar el nombre en la respuesta individual
+        usuario = db.query(UsuarioModel).filter(UsuarioModel.matricula == autor_matricula).first()
+        if usuario and hasattr(usuario, "nombre") and usuario.nombre:
+            respuesta.autor_nombre = usuario.nombre
+            
+        return respuesta
     except ValueError as val_error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -147,7 +164,6 @@ def crear_publicacion_por_club(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Error al guardar publicación: {str(error)}"
         )
-
 
 @router.post(
     "/publicaciones",
@@ -181,7 +197,13 @@ def crear_publicacion_general(
             idempotency_key=idempotency_key
         )
 
-        return a_respuesta(pub_guardada)
+        respuesta = a_respuesta(pub_guardada)
+        # Inyectar el nombre en la respuesta individual
+        usuario = db.query(UsuarioModel).filter(UsuarioModel.matricula == autor_matricula).first()
+        if usuario and hasattr(usuario, "nombre") and usuario.nombre:
+            respuesta.autor_nombre = usuario.nombre
+            
+        return respuesta
     except ValueError as val_error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -192,7 +214,6 @@ def crear_publicacion_general(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Error al guardar publicación: {str(error)}"
         )
-
 
 @router.get(
     "/clubes/{club_id}/publicaciones",
@@ -205,8 +226,7 @@ def listar_publicaciones_por_club(club_id: int, db: Session = Depends(get_db)):
         .order_by(PublicacionModel.creado_en.desc())
         .all()
     )
-    return [a_respuesta(p) for p in pubs]
-
+    return _inyectar_nombres(db, pubs)
 
 @router.get(
     "/publicaciones",
@@ -218,4 +238,4 @@ def listar_todas_las_publicaciones(db: Session = Depends(get_db)):
         .order_by(PublicacionModel.creado_en.desc())
         .all()
     )
-    return [a_respuesta(p) for p in pubs]
+    return _inyectar_nombres(db, pubs)

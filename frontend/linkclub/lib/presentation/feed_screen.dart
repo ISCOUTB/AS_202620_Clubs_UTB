@@ -166,6 +166,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 a: const TextStyle(
                   color: Colors.blueAccent,
                   decoration: TextDecoration.underline,
+                  decorationColor: Colors.blueAccent,
                 ),
               ),
             ),

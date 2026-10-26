@@ -305,9 +305,9 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
               style: IconButton.styleFrom(
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
-                minimumSize: const Size(44, 44),
+                minimumSize: const Size(40, 40),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(22),
                 ),
               ),
               tooltip: 'Enviar',
@@ -568,6 +568,7 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                             a: const TextStyle(
                               color: Colors.blueAccent,
                               decoration: TextDecoration.underline,
+                              decorationColor: Colors.blueAccent,
                             ),
                           ),
                         ),
