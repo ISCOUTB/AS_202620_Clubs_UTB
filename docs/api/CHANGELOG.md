@@ -2,6 +2,13 @@
 
 Versionado SemVer sobre `openapi.yaml` (campo `info.version`).
 
+## 2.0.0 - 2026-10-25
+Cambio incompatible: los identificadores de publicaciones y clubes de la BD pasan de `uuid` a entero (migración de esquema).
+- `Publicacion.id` y `Publicacion.club_id` pasan de `string` a `integer`; la ruta `/clubes/{club_id}/publicaciones` acepta `club_id` entero.
+- Nuevos `GET /publicaciones` (feed general) y `POST /publicaciones` (con `club_id` en el cuerpo).
+- `Publicacion` agrega `autor_nombre` e `imagen_url` (opcionales). `CrearPublicacionRequest`: `titulo` pasa a opcional, se agregan `club_id` e `imagen_url`.
+- `Idempotency-Key` pasa a opcional (si se envía, evita duplicados).
+
 ## 1.3.0 - 2026-10-18
 Cambios de resiliencia y refactorización arquitectónica (Evidencia S11):
 - **Idempotencia:** Se añade la cabecera obligatoria `Idempotency-Key` en `POST /clubes/{club_id}/publicaciones` para mitigar fallos parciales de red y evitar registros duplicados.

@@ -27,7 +27,7 @@ def test_health_cumple_contrato():
 
 def test_crear_publicacion_cumple_contrato(headers_auth):
     r = client.post(
-        "/clubes/club-1/publicaciones",
+        "/clubes/1/publicaciones",
         json={"titulo": "Hola", "contenido": "Reunion el lunes", "tipo": "aviso"},
         headers=headers_auth,
     )
@@ -42,7 +42,7 @@ def test_rutas_del_codigo_existen_en_el_contrato():
 
 def test_noticia_cumple_contrato(headers_auth):
     r = client.post(
-        "/clubes/club-2/publicaciones",
+        "/clubes/2/publicaciones",
         json={"titulo": "Ganamos", "contenido": "Torneo interno", "tipo": "noticia"},
         headers=headers_auth,
     )
@@ -52,8 +52,8 @@ def test_noticia_cumple_contrato(headers_auth):
 
 def test_error_422_cumple_contrato(headers_auth):
     r = client.post(
-        "/clubes/club-3/publicaciones",
-        json={"contenido": "sin titulo"},
+        "/clubes/3/publicaciones",
+        json={"titulo": "sin contenido"},
         headers=headers_auth,
     )
     assert r.status_code == 422
@@ -62,7 +62,7 @@ def test_error_422_cumple_contrato(headers_auth):
 
 def test_error_401_cumple_contrato():
     r = client.post(
-        "/clubes/club-3/publicaciones",
+        "/clubes/3/publicaciones",
         json={"titulo": "x", "contenido": "y"},
     )
     assert r.status_code == 401
