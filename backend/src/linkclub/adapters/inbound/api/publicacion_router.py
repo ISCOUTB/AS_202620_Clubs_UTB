@@ -9,17 +9,18 @@ from linkclub.adapters.outbound.postgres.database import get_db
 from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 
-# Integración del Caso de Uso y Repositorio Hexagonal
 from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
 from linkclub.adapters.outbound.postgres.publicacion_repository import PublicacionRepositoryPostgres
 
 router = APIRouter(tags=["publicaciones"])
 
+TITULO_POR_DEFECTO = "Publicación"
+
 class CrearPublicacionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     club_id: Optional[int] = 1
-    titulo: Optional[str] = "Publicación"
+    titulo: Optional[str] = TITULO_POR_DEFECTO
     contenido: str
     tipo: str = "aviso"
     opciones: list[str] | None = None
@@ -85,7 +86,7 @@ def a_respuesta(pub) -> PublicacionResponse:
         club_id=pub.club_id,
         autor_id=autor_identity,
         autor_nombre=nombre_autor,
-        titulo=pub.titulo or "Publicación",
+        titulo=pub.titulo or TITULO_POR_DEFECTO,
         contenido=pub.contenido,
         tipo=tipo_str,
         opciones=opciones_val,
@@ -100,10 +101,8 @@ def _inyectar_nombres(db: Session, publicaciones: list) -> list[PublicacionRespo
     
     if matriculas:
         usuarios = db.query(UsuarioModel).filter(UsuarioModel.matricula.in_(matriculas)).all()
-        # Creamos un mapa de {matricula: nombre}
         mapa_nombres = {u.matricula: getattr(u, "nombre", u.matricula) for u in usuarios}
         
-        # Sobrescribimos el autor_nombre en cada respuesta
         for r in respuestas:
             if r.autor_id in mapa_nombres and mapa_nombres[r.autor_id]:
                 r.autor_nombre = mapa_nombres[r.autor_id]
@@ -123,7 +122,7 @@ def crear_publicacion_por_club(
     club_id: int,
     payload: CrearPublicacionRequest,
     autor_id: Annotated[str, Depends(require_auth)],
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
     idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
 ):
     autor_matricula = _obtener_matricula_usuario(db, autor_id)
@@ -140,7 +139,7 @@ def crear_publicacion_por_club(
         pub_guardada = use_case.ejecutar(
             club_id=club_id,
             autor_matricula=autor_matricula,
-            titulo=payload.titulo or "Publicación",
+            titulo=payload.titulo or TITULO_POR_DEFECTO,
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
             opciones=meta_data,
@@ -148,7 +147,7 @@ def crear_publicacion_por_club(
         )
 
         respuesta = a_respuesta(pub_guardada)
-        # Inyectar el nombre en la respuesta individual
+        
         usuario = db.query(UsuarioModel).filter(UsuarioModel.matricula == autor_matricula).first()
         if usuario and hasattr(usuario, "nombre") and usuario.nombre:
             respuesta.autor_nombre = usuario.nombre
@@ -173,7 +172,7 @@ def crear_publicacion_por_club(
 def crear_publicacion_general(
     payload: CrearPublicacionRequest,
     autor_id: Annotated[str, Depends(require_auth)],
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
     idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
 ):
     autor_matricula = _obtener_matricula_usuario(db, autor_id)
@@ -190,7 +189,7 @@ def crear_publicacion_general(
         pub_guardada = use_case.ejecutar(
             club_id=payload.club_id or 1,
             autor_matricula=autor_matricula,
-            titulo=payload.titulo or "Publicación",
+            titulo=payload.titulo or TITULO_POR_DEFECTO,
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
             opciones=meta_data,
@@ -198,7 +197,7 @@ def crear_publicacion_general(
         )
 
         respuesta = a_respuesta(pub_guardada)
-        # Inyectar el nombre en la respuesta individual
+        
         usuario = db.query(UsuarioModel).filter(UsuarioModel.matricula == autor_matricula).first()
         if usuario and hasattr(usuario, "nombre") and usuario.nombre:
             respuesta.autor_nombre = usuario.nombre
@@ -219,7 +218,10 @@ def crear_publicacion_general(
     "/clubes/{club_id}/publicaciones",
     response_model=List[PublicacionResponse],
 )
-def listar_publicaciones_por_club(club_id: int, db: Session = Depends(get_db)):
+def listar_publicaciones_por_club(
+    club_id: int, 
+    db: Annotated[Session, Depends(get_db)]
+):
     pubs = (
         db.query(PublicacionModel)
         .filter(PublicacionModel.club_id == club_id)
@@ -232,7 +234,9 @@ def listar_publicaciones_por_club(club_id: int, db: Session = Depends(get_db)):
     "/publicaciones",
     response_model=List[PublicacionResponse],
 )
-def listar_todas_las_publicaciones(db: Session = Depends(get_db)):
+def listar_todas_las_publicaciones(
+    db: Annotated[Session, Depends(get_db)]
+):
     pubs = (
         db.query(PublicacionModel)
         .order_by(PublicacionModel.creado_en.desc())

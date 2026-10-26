@@ -41,4 +41,4 @@ class PostgresPublicacionAdapter:
         ]
 
     def listar_por_club(self, club_id: str) -> List[Publicacion]:
-        return self.listar_todas()
+        return [p for p in self.listar_todas() if p.club_id == club_id]
