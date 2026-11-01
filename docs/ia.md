@@ -6,6 +6,7 @@ Las herramientas de IA se usan con contexto del proyecto (problema, decisiones y
 
 | Semana | Integrante | Para qué | Herramienta | Cómo se usó | Motivo |
 |---|---|---|---|---|---|
+| S13 | Luis Salas |Redaccion y revision de la tabla de amenazas| chatgpt | Como apoyo para identificar posibles amenazas y proponer posibles soluciones| Para apoyar las posibles amenazas y proponer medidas para su mitigacion|
 | S12 | Luis Salas | Redaccion y revision de la tabla de garantia y consistencia | Chatgpt | Como apoyo para identificar posibles inconsistencia y proponer garantías, ademas de revision en la redaccion| Para apoyar los posibles riesgos de las operaciones y proponer medidas y tambien para mejorar la claridad en el documento|
 | S11 | Luis Salas | Redaccion y revision de la tabla de fallos y mitigacion | Chatgpt | Como apoyo para encontrar posibles causas de fallo y mitigacion, ademas de revision en la redaccion| Para apoyar la identificacion de riesgos tecnicos y mejorar la claridad en el documento|
 | S11 | Hollman De Orta | Redacción y revisión del ADR 0008 (no extraer Publicaciones). | Claude | Se incorporó con revisión manual y información complementaria | Se usó como apoyo de redacción y para revisar el borrador inicial,  los disparadores de reapertura se revisaron con el equipo. |
