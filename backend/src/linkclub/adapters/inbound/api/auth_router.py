@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4 # Quitamos Annotated si no se usa
+from typing import Annotated
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -50,7 +50,10 @@ def crear_token_acceso(data: dict, expires_delta: timedelta) -> str:
         409: {"description": "El correo ya está registrado"}
     }
 )
-def registrar_usuario(payload: CrearUsuarioRequest, db: Session = Depends(get_db)):
+def registrar_usuario(
+    payload: CrearUsuarioRequest, 
+    db: Annotated[Session, Depends(get_db)]
+):
     usuario_existente = db.query(UsuarioModel).filter(UsuarioModel.correo == payload.correo).first()
     if usuario_existente:
         raise HTTPException(status_code=409, detail="El correo ya está registrado")
@@ -75,7 +78,10 @@ def registrar_usuario(payload: CrearUsuarioRequest, db: Session = Depends(get_db
     )
 
 @router.post("/auth/login", response_model=TokenResponse)
-def iniciar_sesion(payload: LoginRequest, db: Session = Depends(get_db)):
+def iniciar_sesion(
+    payload: LoginRequest, 
+    db: Annotated[Session, Depends(get_db)]
+):
     usuario = db.query(UsuarioModel).filter(UsuarioModel.correo == payload.correo).first()
     
     if not usuario or usuario.password_hash != payload.password:

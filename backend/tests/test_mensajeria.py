@@ -66,8 +66,9 @@ def test_reintentos_agotados_van_a_dlq_y_se_pueden_reprocesar():
     broker, notif, m, _ = armar(fallos=99)
     broker.publicar(mensaje())
     broker.procesar_pendientes()
-    assert len(broker.dlq) == 1 and notif.enviados == []
-    notif.fallos = 0                            # el servicio se recuperó
+    assert len(broker.dlq) == 1
+    assert notif.enviados == []
+    notif.fallos = 0                           # el servicio se recuperó
     broker.reprocesar_dlq()
     assert len(notif.enviados) == 1 and broker.dlq == []
 

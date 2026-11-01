@@ -71,3 +71,14 @@ graph TB
 [#83-punto-abierto-alineación-con-la-tabla-de-módulos](#83-punto-abierto-alineación-con-la-tabla-de-módulos)
 
 `tabla_modulo.md` nombra los módulos como **Usuario, Clubes, Actividades, Notificaciones**, mientras que el mapa de contextos de esta sección usa **Usuarios, Clubes, Publicaciones**. "Actividades" y "Notificaciones" no están implementados en el código actual (solo existe la entidad `Publicacion`) y no tienen un contexto delimitado propio todavía. Este desajuste queda registrado aquí como pendiente: `tabla_modulo.md` debe actualizarse para usar los tres contextos de esta sección como única fuente de verdad, o bien justificarse por qué Actividades/Notificaciones ameritan ser un cuarto contexto — decisión que, de tomarse, debe documentarse en un ADR nuevo (ver evidencia S6).
+
+## 8.4. Estrategia de Caché y Política de Invalidación
+[#84-estrategia-cache-y-politica-invalidacion](#84-estrategia-cache-y-politica-invalidacion)
+
+Para optimizar el rendimiento en la lectura del feed y reducir la carga sobre la base de datos PostgreSQL, LinkClub implementa una estrategia de caché con las siguientes directrices:
+
+* **Alcance:** Se cachean las consultas de lectura frecuente (`GET /publicaciones`).
+* **Ubicación:** Capa intermedia en memoria / Redis (reflejada en el C4 Nivel 2).
+* **Invalidación:** 
+  - **Expiración por tiempo (TTL):** 300 segundos (5 minutos) para datos de baja volatilidad.
+  - **Invalidación por evento:** Limpieza inmediata de la caché ante escrituras exitosas (`POST /publicaciones`), garantizando consistencia eventual rápida (read-after-write con desfase mínimo controlado).
