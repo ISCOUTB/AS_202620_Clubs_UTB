@@ -4,8 +4,8 @@ pytest==9.1.1
 httpx==0.28.1
 PyYAML==6.0.3
 jsonschema==4.26.0
-PyJWT==2.9.0
-python-multipart==0.0.12
+PyJWT==2.15.0
+python-multipart==0.0.31
 prometheus-fastapi-instrumentator==6.1.0
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.23

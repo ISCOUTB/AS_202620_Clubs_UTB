@@ -2,7 +2,9 @@ import uuid
 import shutil
 from pathlib import Path
 from typing import Annotated
-from fastapi import APIRouter, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
+
+from linkclub.adapters.inbound.api.auth_dependency import require_auth
 
 router = APIRouter(prefix="/recursos", tags=["Recursos"])
 
@@ -12,7 +14,10 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "svg"}
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
-def subir_imagen(file: Annotated[UploadFile, File(...)]):
+def subir_imagen(
+    file: Annotated[UploadFile, File(...)],
+    autor_id: Annotated[str, Depends(require_auth)],
+):
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

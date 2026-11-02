@@ -86,7 +86,7 @@ README.md
 | `docs/aspectos.md` | Aspectos de calidad y trazabilidad hasta la evidencia |
 | `docs/ia.md` | Registro de uso de IA en el proyecto |
 | `docs/api/` | Contrato OpenAPI (`openapi.yaml`), AsyncAPI, guía del contrato y registro de cambios |
-| `docs/arc42/` | Documentación arc42 (secciones 1 a 12), mapa de contextos, tablas de fallos y de garantías de consistencia, lista de no conformidades |
+| `docs/arc42/` | Documentación arc42 (secciones 1 a 12), mapa de contextos, tablas de fallos, de garantías de consistencia y de amenazas, análisis de dependencias, privacidad y lista de no conformidades |
 | `docs/c4/contexto.md` | Diagramas C4 de contexto, contenedores y componentes |
 | `docs/adr/` | Registros de decisiones de arquitectura (0001 a 0009) |
 | `docs/resilience/idempotencia.md` | Diseño de idempotencia en la creación de publicaciones |

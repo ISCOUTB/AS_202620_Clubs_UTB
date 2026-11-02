@@ -14,6 +14,7 @@
 | **Idempotencia no verificada de extremo a extremo.** El reintento con la misma clave depende de que el repositorio reconstruya la publicación existente con el identificador correcto. | Medio. Un reintento podría responder con error en lugar de la publicación original. | Agregar una prueba de integración que repita la misma petición y unificar el código de estado documentado en [`idempotencia.md`](../resilience/idempotencia.md) y en el contrato. | Pendiente |
 | **Persistencia multimedia local.** Las imágenes viven en un volumen de un solo servidor y se sirven desde la propia API. | Medio. | Estrategia definida en el ADR 0009 (Evidencia S12). | En elaboración |
 | **Latencia y capacidad sin medir.** No hay medición real de los escenarios U1 y C2. | Medio. | Medición de atributos de calidad (Evidencia S14). | Pendiente |
+> El detalle de amenazas, responsables y estado está en [`tabla_amenazas.md`](./tabla_amenazas.md); el análisis de dependencias en [`analisis_dependencias.md`](./analisis_dependencias.md) y el tratamiento de datos personales en [`privacidad.md`](./privacidad.md).
 
 ## 11.2. Deuda Técnica Actual
 
