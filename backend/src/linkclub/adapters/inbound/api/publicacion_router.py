@@ -58,6 +58,14 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
 
     return usuario.matricula
 
+def _validar_encuesta(payload: CrearPublicacionRequest) -> None:
+    """El caso de uso recibe meta_data (siempre truthy), asi que se valida aqui."""
+    if payload.tipo == "encuesta" and not payload.opciones:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Una publicación de tipo encuesta requiere al menos una opción",
+        )
+
 def a_respuesta(pub) -> PublicacionResponse:
     opciones_val = None
     imagen_url_val = None
@@ -125,6 +133,7 @@ def crear_publicacion_por_club(
     db: Annotated[Session, Depends(get_db)],
     idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
 ):
+    _validar_encuesta(payload)
     autor_matricula = _obtener_matricula_usuario(db, autor_id)
 
     try:
@@ -175,6 +184,7 @@ def crear_publicacion_general(
     db: Annotated[Session, Depends(get_db)],
     idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
 ):
+    _validar_encuesta(payload)
     autor_matricula = _obtener_matricula_usuario(db, autor_id)
 
     try:
