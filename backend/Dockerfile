@@ -14,8 +14,8 @@ COPY src/ ./src/
 COPY migrations/ ./migrations/
 
 
-RUN mkdir -p /app/uploads
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/uploads && \
+    chown -R appuser:appuser /app && \
     chmod 777 /app/uploads # NOSONAR
 
 USER appuser
