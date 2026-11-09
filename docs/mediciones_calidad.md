@@ -1,4 +1,4 @@
-#Mediciones de calidad
+# Mediciones de calidad
 
 ## Objetivo
 
@@ -30,6 +30,7 @@ Las pruebas se realizaran usando las siguientes tegnologias.
 7. Comparar los resultados con el umbral establecido de 800 ms.
 
 ### Resultados
+Se hicieron 20 solicitudes de la api mediante Postman, utilizando la API desplegada en Dokploy. Se obtuvo un tiempo de respuesta promedio de 195.75 ms, inferior al umbral establecido de 800 ms. El resultado cumple con el objetivo de rendimiento.
 
 ## U2 – Disponibilidad
 ### Procedimiento
@@ -101,9 +102,9 @@ La siguiente tabla registrara el cumplimiento de los escenarios
 
 |Escenario|Umbral establecido|Resultado obtenido|
 | --- | --- | --- |
-|U1 – Rendimiento|Latencia ≤ 800 ms|Pendiente|
+|U1 – Rendimiento|Latencia ≤ 800 ms|Un tiempo de respuesta de 195.75.|
 |U2 – Disponibilidad|Manejo de errores en el 100 % de endpoints que consultan la BD|Parcial. Se identificó que /health no comprueba la conexión con PostgreSQL. Falta realizar pruebas de interrupción.|
-|U3 – Seguridad|Validación del token en el 100 % de rutas de escritura correspondientes|3 de 3 rutas protegidas (100 %). Pruebas con Postman pendientes.|
+|U3 – Seguridad|Validación del token en el 100 % de rutas de escritura correspondientes|3 de 3 rutas protegidas (100 %).|
 |C1 – Modificabilidad|Modificación de máximo 3 módulos|	Parcial. Se identificó reutilización de Publicacion, pero falta contabilizar los módulos modificados.|
-|C2 – Escalabilidad|Crecimiento de 5 veces y latencia ≤ 800 ms|Pendiente|
+|C2 – Escalabilidad|Crecimiento de 5 veces y latencia ≤ 800 ms|Pendiente.|
 |C3 – Portabilidad|Máximo 2 módulos fuera de la capa de adaptadores|Parcial. Se identificaron adaptadores para JWT y PostgreSQL, pero falta contabilizar los módulos modificados.|
