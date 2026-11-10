@@ -25,7 +25,7 @@ app.add_middleware(
 async def manejar_validacion(request: Request, exc: RequestValidationError):
     primero = exc.errors()[0]
     campo = ".".join(str(p) for p in primero["loc"] if p != "body")
-    mensaje = f"{campo}: {primero['msg']}" if campo else primeiro["msg"]
+    mensaje = f"{campo}: {primero['msg']}" if campo else primero["msg"]
     return JSONResponse(status_code=422, content={"detail": mensaje})
 
 os.makedirs("uploads", exist_ok=True)
