@@ -83,12 +83,12 @@ README.md
 
 | Ruta | Contenido |
 |---|---|
-| `docs/aspectos.md` | Aspectos de calidad y trazabilidad hasta la evidencia |
+| `docs/aspectos.md` | Aspectos de calidad y su trazabilidad hasta el código, las pruebas y la evidencia |
 | `docs/ia.md` | Registro de uso de IA en el proyecto |
 | `docs/api/` | Contrato OpenAPI (`openapi.yaml`), AsyncAPI, guía del contrato y registro de cambios |
 | `docs/arc42/` | Documentación arc42 (secciones 1 a 12), mapa de contextos, tablas de fallos, de garantías de consistencia y de amenazas, análisis de dependencias, privacidad y lista de no conformidades |
 | `docs/c4/contexto.md` | Diagramas C4 de contexto, contenedores y componentes |
-| `docs/adr/` | Registros de decisiones de arquitectura (0001 a 0009) |
+| `docs/adr/` | Registros de decisiones de arquitectura (0001 a 0010; la numeración repetida está registrada en la [Sección 9 de arc42](docs/arc42/09_decisiones_de_diseno.md)) |
 | `docs/resilience/idempotencia.md` | Diseño de idempotencia en la creación de publicaciones |
 | `deploy/compose.lab.yaml` | Definición de despliegue para el servidor del laboratorio |
 
@@ -105,7 +105,9 @@ README.md
 
 ## 6. Estado del proyecto
 
-**En fase activa de desarrollo, integración y despliegue.** El sistema está desplegado en el servidor del laboratorio con dominio HTTPS. Están operativos el registro y el inicio de sesión con tokens propios, el feed de publicaciones con imágenes y la consulta de clubes en la API. Siguen pendientes la persistencia del catálogo de clubes, las membresías, los eventos y la asistencia, la protección de contraseñas con hash y la autorización por rol. El detalle está en la [Sección 11 de arc42](docs/arc42/11_riesgos_y_deuda_tecnica.md).
+**En fase activa de desarrollo, integración y despliegue.** El sistema está desplegado en el servidor del laboratorio con dominio HTTPS. Están operativos el registro y el inicio de sesión con tokens propios, el feed de publicaciones con imágenes y la consulta de clubes en la API. Siguen pendientes la persistencia del catálogo de clubes, las membresías, los eventos y la asistencia, la protección de contraseñas con hash y la autorización por rol. El detalle está en la [Sección 11 de arc42](docs/arc42/11_riesgos_y_deuda_tecnica.md) y en la [lista de no conformidades](docs/arc42/lista_errores.md).
+
+La estrategia de consistencia está documentada en la [Sección 8 de arc42](docs/arc42/08_conceptos_transversales.md): las publicaciones se guardan en PostgreSQL con consistencia fuerte y no se implementa caché; el diseño de caché queda definido para activarse si la medición de latencia lo exige.
 
 ---
 
@@ -160,6 +162,8 @@ cd backend
 PYTHONPATH=src pytest tests/ -v
 ```
 
+Las pruebas usan una base SQLite en memoria y una autenticación simulada; no requieren PostgreSQL.
+
 ### 7.4. Frontend (Flutter)
 
 Requisitos previos: Flutter SDK (Dart 3+). La aplicación declara un archivo `.env` como recurso, por lo que debe existir en `frontend/linkclub/`. Define en él la variable `API_URL`; si se omite, la aplicación usa la API publicada.
@@ -172,15 +176,43 @@ flutter run
 
 ### 7.5. Limitaciones conocidas
 
-El esquema de la migración y los modelos del backend, la suite de pruebas y el contrato de inicio de sesión tienen divergencias registradas como deuda técnica en la [Sección 11 de arc42](docs/arc42/11_riesgos_y_deuda_tecnica.md).
+El esquema de la migración y los modelos del backend, la suite de pruebas y el contrato de inicio de sesión tienen divergencias registradas en la [lista de no conformidades](docs/arc42/lista_errores.md) y en la [Sección 11 de arc42](docs/arc42/11_riesgos_y_deuda_tecnica.md).
 
 ---
 
-## 8. Estimación de Costo Mensual y Supuestos
+## 8. Despliegue y URLs
+
+| Componente | URL | Notas |
+|---|---|---|
+| API (backend) | `https://api-linkclub.iscoutb.dev` | Dominio institucional con HTTPS, desplegado en Dokploy |
+| Comprobación de estado | `https://api-linkclub.iscoutb.dev/health` | Responde `{"status": "ok"}`; es una comprobación de vida, no verifica la base de datos |
+| Interfaz | No aplica | La interfaz es la aplicación móvil Flutter; no existe un sitio web publicado. La aplicación apunta por defecto a la URL de la API |
+
+Verificación desde cualquier equipo:
+
+```bash
+curl -i https://api-linkclub.iscoutb.dev/health
+```
+
+### 8.1. Recrear el entorno desplegado
+
+El entorno consta de un contenedor de aplicación, un contenedor PostgreSQL y un volumen de imágenes.
+
+1. Crear un contenedor PostgreSQL (el despliegue vigente usa la versión 18) con una base `linkclub` y un volumen de datos propio. Aplicar `backend/migrations/001_esquema_inicial.sql`.
+2. Crear el servicio de la API a partir de este repositorio, rama `master`, con construcción por `Dockerfile` y contexto `backend`. El contenedor escucha en el puerto 8000.
+3. Definir en el servicio las variables `DATABASE_URL`, `JWT_SECRET` y `CORS_ORIGINS`. Se configuran en la plataforma y nunca se versionan.
+4. Montar un volumen persistente en `/app/uploads` para conservar las imágenes subidas.
+5. Asociar un dominio con certificado automático al puerto 8000 del servicio.
+
+Alternativa con compose para el servidor del laboratorio: `deploy/compose.lab.yaml` define la base y el backend con las mismas variables. Antes de usarlo debe agregarse el volumen de `/app/uploads` y aplicarse la migración manualmente (ver NC-20 en la lista de no conformidades).
+
+---
+
+## 9. Estimación de Costo Mensual y Supuestos
 
 El sistema opera sobre el servidor del laboratorio de la universidad y repositorios públicos, sin proveedores de pago ni tarjeta de crédito.
 
-### 8.1. Desglose de Costos (Fase Académica / Beta / Producción Inicial)
+### 9.1. Desglose de Costos (Fase Académica / Beta / Producción Inicial)
 
 | Componente / Servicio | Plataforma | Costo Estimado (USD / mes) | Supuestos Operativos |
 | --- | --- | --- | --- |
@@ -192,7 +224,7 @@ El sistema opera sobre el servidor del laboratorio de la universidad y repositor
 | **Integración continua** | GitHub Actions y SonarCloud | **$0.00** | Repositorio público, sin consumo de cuota de minutos. |
 | **TOTAL ESTIMADO** | — | **$0.00 USD / mes** | Viable para desarrollo, pruebas y operación académica. |
 
-### 8.2. Punto de quiebre y escalabilidad
+### 9.2. Punto de quiebre y escalabilidad
 
 No existen cuotas de terceros que se agoten. El límite lo marcan los recursos asignados al servidor (memoria, CPU y disco) y su disponibilidad.
 
