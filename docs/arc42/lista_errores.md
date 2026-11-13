@@ -1,6 +1,6 @@
 # Correcciones y No Conformidades (NC)
 
-El objetivo del documento es registrar las no conformidades, desviaciones o aspectos de mejora identificados en el proyecto LinkClub, y establecer un plan, un responsable y una referencia para cada hallazgo. Las NC-01 a NC-04 provienen de los cortes 1 y 2; las NC-05 a NC-23 se registraron el 2026-11-12. La columna de responsable es una propuesta que el equipo debe confirmar. Cada NC debe enlazarse a un issue de GitHub al iniciarse su corrección.
+El objetivo del documento es registrar las no conformidades, desviaciones o aspectos de mejora identificados en el proyecto LinkClub, y establecer un plan, un responsable y una referencia para cada hallazgo.
 
 ## Registro
 
