@@ -9,3 +9,5 @@ python-multipart==0.0.31
 prometheus-fastapi-instrumentator==6.1.0
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2

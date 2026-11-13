@@ -25,7 +25,8 @@ class ApiClient {
             options.headers['Authorization'] = 'Bearer $token';
           }
 
-          if (options.method.toUpperCase() == 'POST') {
+          if (options.method.toUpperCase() == 'POST' &&
+              !options.path.contains('/auth/')) {
             if (!options.headers.containsKey('Idempotency-Key')) {
               options.headers['Idempotency-Key'] = const Uuid().v4();
             }
@@ -33,15 +34,6 @@ class ApiClient {
 
           return handler.next(options);
         },
-      ),
-    );
-
-    dio.interceptors.add(
-      LogInterceptor(
-        request: true,
-        requestBody: true,
-        responseBody: true,
-        error: true,
       ),
     );
 

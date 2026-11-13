@@ -16,7 +16,10 @@ bearer = HTTPBearer(auto_error=False)
 
 @lru_cache
 def get_auth_port() -> AuthPort:
-    secret_key = os.environ.get("JWT_SECRET", "secreto-desarrollo-local-super-seguro")
+    secret_key = os.environ.get("JWT_SECRET")
+    if not secret_key:
+        raise ValueError("ERROR CRÍTICO: La variable de entorno JWT_SECRET no está configurada. La aplicación no puede iniciar de forma segura.")
+    
     return LocalJwtAuthAdapter(secret_key)
 
 
@@ -32,4 +35,3 @@ def require_auth(
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
     except AuthNoDisponible:
         raise HTTPException(status_code=503, detail="Servicio de autenticación no disponible")
-        

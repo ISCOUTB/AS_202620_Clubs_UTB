@@ -45,7 +45,7 @@ def mensaje(**data_extra):
 
 def test_duplicado_no_repite_el_efecto():
     broker, notif, m, _ = armar()
-    broker.perder_acks = 1                      # el broker redelivera el mismo mensaje
+    broker.perder_acks = 1
     broker.publicar(mensaje())
     broker.procesar_pendientes()
     assert len(notif.enviados) == 1
@@ -58,7 +58,7 @@ def test_fallo_recuperable_se_reintenta_con_backoff():
     broker.procesar_pendientes()
     assert len(notif.enviados) == 1
     assert m.contadores["reintentos"] == 2
-    assert esperas == [0.5, 1.0]                # exponencial (rng=1.0 => sin jitter)
+    assert esperas == [0.5, 1.0]
     assert broker.dlq == []
 
 
@@ -68,16 +68,18 @@ def test_reintentos_agotados_van_a_dlq_y_se_pueden_reprocesar():
     broker.procesar_pendientes()
     assert len(broker.dlq) == 1
     assert notif.enviados == []
-    notif.fallos = 0                           # el servicio se recuperó
+    notif.fallos = 0
     broker.reprocesar_dlq()
-    assert len(notif.enviados) == 1 and broker.dlq == []
+    assert len(notif.enviados) == 1 
+    assert broker.dlq == []
 
 
 def test_mensaje_invalido_va_a_dlq_sin_reintentos():
     broker, notif, m, esperas = armar()
     broker.publicar(Mensaje(**{**mensaje().__dict__, "data": {"club_id": "c1"}}))
     broker.procesar_pendientes()
-    assert len(broker.dlq) == 1 and esperas == []
+    assert len(broker.dlq) == 1 
+    assert esperas == []
     assert m.contadores["reintentos"] == 0
 
 
@@ -102,9 +104,11 @@ def test_outbox_recupera_publicacion_cuando_el_broker_vuelve():
     relay = OutboxRelay(outbox, broker, m)
     outbox.registrar(mensaje())
     broker.caido = True
-    assert relay.drenar() == 0 and len(outbox.pendientes()) == 1
+    assert relay.drenar() == 0 
+    assert len(outbox.pendientes()) == 1
     broker.caido = False
-    assert relay.drenar() == 1 and outbox.pendientes() == []
+    assert relay.drenar() == 1 
+    assert outbox.pendientes() == []
     broker.procesar_pendientes()
     assert len(notif.enviados) == 1
 

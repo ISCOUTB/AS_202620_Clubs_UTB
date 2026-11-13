@@ -9,12 +9,12 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
 
     def ejecutar(
         self,
-        club_id: int,
+        club_id: str,
         autor_matricula: str,
         titulo: str,
         contenido: str,
         tipo: str = TipoPublicacion.AVISO.value,
-        opciones: list[str] | None = None,
+        opciones: dict | list | None = None,
         idempotency_key: str | None = None,
     ) -> Publicacion:
         if idempotency_key:
@@ -40,4 +40,4 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
             idempotency_key=idempotency_key,
         )
         
-        return self.repository.guardar(publicacion)
+        return self.repository.guardar(publicacion, idempotency_key=idempotency_key)

@@ -10,7 +10,7 @@ from linkclub.adapters.outbound.postgres.models.publicacion_model import Publica
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 
 from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
-from linkclub.adapters.outbound.postgres.publicacion_repository import PublicacionRepositoryPostgres
+from linkclub.adapters.outbound.postgres.postgres_publicacion_adapter import PostgresPublicacionAdapter
 
 router = APIRouter(tags=["publicaciones"])
 
@@ -19,7 +19,7 @@ TITULO_POR_DEFECTO = "Publicación"
 class CrearPublicacionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    club_id: Optional[int] = 1
+    club_id: Optional[str] = "1"
     titulo: Optional[str] = TITULO_POR_DEFECTO
     contenido: str
     tipo: str = "aviso"
@@ -27,8 +27,8 @@ class CrearPublicacionRequest(BaseModel):
     imagen_url: Optional[str] = None
 
 class PublicacionResponse(BaseModel):
-    id: int
-    club_id: int
+    id: str
+    club_id: str
     autor_id: str
     autor_nombre: Optional[str] = None
     titulo: str
@@ -41,7 +41,6 @@ class PublicacionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
-    """Resuelve el usuario por correo o matrícula para asegurar la FK exacta."""
     usuario = (
         db.query(UsuarioModel)
         .filter(
@@ -59,7 +58,6 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
     return usuario.matricula
 
 def _validar_encuesta(payload: CrearPublicacionRequest) -> None:
-    """El caso de uso recibe meta_data (siempre truthy), asi que se valida aqui."""
     if payload.tipo == "encuesta" and not payload.opciones:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -78,32 +76,20 @@ def a_respuesta(pub) -> PublicacionResponse:
         elif isinstance(parsed, list):
             opciones_val = parsed
 
-    if hasattr(pub, "autor_matricula"):
-        autor_identity = pub.autor_matricula
-        nombre_autor = pub.autor.nombre if (hasattr(pub, 'autor') and pub.autor) else pub.autor_matricula
-        tipo_str = str(pub.tipo)
-        creado_en_val = pub.creado_en
-    else:
-        autor_identity = pub.autor_id
-        nombre_autor = pub.autor_id 
-        tipo_str = pub.tipo.value if hasattr(pub.tipo, 'value') else str(pub.tipo)
-        creado_en_val = getattr(pub, "creado_en", datetime.now()) 
-
     return PublicacionResponse(
-        id=pub.id,
-        club_id=pub.club_id,
-        autor_id=autor_identity,
-        autor_nombre=nombre_autor,
+        id=str(pub.id),
+        club_id=str(pub.club_id),
+        autor_id=pub.autor_id,
+        autor_nombre=getattr(pub, "autor_nombre", pub.autor_id),
         titulo=pub.titulo or TITULO_POR_DEFECTO,
         contenido=pub.contenido,
-        tipo=tipo_str,
+        tipo=pub.tipo.value if hasattr(pub.tipo, 'value') else str(pub.tipo),
         opciones=opciones_val,
         imagen_url=imagen_url_val,
-        creado_en=creado_en_val,
+        creado_en=pub.creada_en if hasattr(pub, 'creada_en') else getattr(pub, "creado_en", datetime.now()),
     )
 
 def _inyectar_nombres(db: Session, publicaciones: list) -> list[PublicacionResponse]:
-    """Inyecta los nombres reales resolviendo las matrículas en bloque para optimizar BD."""
     respuestas = [a_respuesta(p) for p in publicaciones]
     matriculas = {r.autor_id for r in respuestas if r.autor_id}
     
@@ -127,7 +113,7 @@ def _inyectar_nombres(db: Session, publicaciones: list) -> list[PublicacionRespo
     },
 )
 def crear_publicacion_por_club(
-    club_id: int,
+    club_id: str,
     payload: CrearPublicacionRequest,
     autor_id: Annotated[str, Depends(require_auth)],
     db: Annotated[Session, Depends(get_db)],
@@ -142,7 +128,7 @@ def crear_publicacion_por_club(
             "imagen_url": payload.imagen_url
         }
 
-        repository = PublicacionRepositoryPostgres(db)
+        repository = PostgresPublicacionAdapter(db)
         use_case = CrearPublicacionUseCase(repository)
 
         pub_guardada = use_case.ejecutar(
@@ -172,84 +158,3 @@ def crear_publicacion_por_club(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Error al guardar publicación: {str(error)}"
         )
-
-@router.post(
-    "/publicaciones",
-    response_model=PublicacionResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def crear_publicacion_general(
-    payload: CrearPublicacionRequest,
-    autor_id: Annotated[str, Depends(require_auth)],
-    db: Annotated[Session, Depends(get_db)],
-    idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
-):
-    _validar_encuesta(payload)
-    autor_matricula = _obtener_matricula_usuario(db, autor_id)
-
-    try:
-        meta_data = {
-            "opciones": payload.opciones,
-            "imagen_url": payload.imagen_url
-        }
-
-        repository = PublicacionRepositoryPostgres(db)
-        use_case = CrearPublicacionUseCase(repository)
-
-        pub_guardada = use_case.ejecutar(
-            club_id=payload.club_id or 1,
-            autor_matricula=autor_matricula,
-            titulo=payload.titulo or TITULO_POR_DEFECTO,
-            contenido=payload.contenido,
-            tipo=payload.tipo or "aviso",
-            opciones=meta_data,
-            idempotency_key=idempotency_key
-        )
-
-        respuesta = a_respuesta(pub_guardada)
-        
-        usuario = db.query(UsuarioModel).filter(UsuarioModel.matricula == autor_matricula).first()
-        if usuario and hasattr(usuario, "nombre") and usuario.nombre:
-            respuesta.autor_nombre = usuario.nombre
-            
-        return respuesta
-    except ValueError as val_error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(val_error)
-        )
-    except Exception as error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Error al guardar publicación: {str(error)}"
-        )
-
-@router.get(
-    "/clubes/{club_id}/publicaciones",
-    response_model=List[PublicacionResponse],
-)
-def listar_publicaciones_por_club(
-    club_id: int, 
-    db: Annotated[Session, Depends(get_db)]
-):
-    pubs = (
-        db.query(PublicacionModel)
-        .filter(PublicacionModel.club_id == club_id)
-        .order_by(PublicacionModel.creado_en.desc())
-        .all()
-    )
-    return _inyectar_nombres(db, pubs)
-
-@router.get(
-    "/publicaciones",
-    response_model=List[PublicacionResponse],
-)
-def listar_todas_las_publicaciones(
-    db: Annotated[Session, Depends(get_db)]
-):
-    pubs = (
-        db.query(PublicacionModel)
-        .order_by(PublicacionModel.creado_en.desc())
-        .all()
-    )
-    return _inyectar_nombres(db, pubs)

@@ -18,7 +18,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Idempotency-Key", "Authorization", "Content-Type"],
 )
 
 @app.exception_handler(RequestValidationError)

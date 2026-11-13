@@ -9,7 +9,8 @@ class AuthRepository {
   Future<void> login(String correo, String password) async {
     final response = await _dio.post(
       '/auth/login',
-      data: {'correo': correo, 'password': password},
+      data: {'username': correo, 'password': password},
+      options: Options(contentType: Headers.formUrlEncodedContentType),
     );
 
     if (response.data != null && response.data['access_token'] != null) {

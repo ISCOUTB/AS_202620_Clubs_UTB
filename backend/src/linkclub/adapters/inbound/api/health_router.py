@@ -1,12 +1,17 @@
-from fastapi import APIRouter
-from linkclub.application.use_cases.check_health import CheckHealthUseCase
-from linkclub.adapters.outbound.persistence.in_memory_status_adapter import InMemoryStatusAdapter
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Annotated
 
-router = APIRouter()
+from linkclub.adapters.outbound.postgres.database import get_db
+from linkclub.adapters.outbound.postgres.postgres_status_adapter import PostgresStatusAdapter
 
-use_case = CheckHealthUseCase(status_port=InMemoryStatusAdapter())
-
+router = APIRouter(tags=["health"])
 
 @router.get("/health")
-def health():
-    return use_case.check()
+def health_check(db: Annotated[Session, Depends(get_db)]):
+    status_adapter = PostgresStatusAdapter(db)
+    
+    if status_adapter.get_status() == "ok":
+        return {"status": "ok", "database": "online"}
+    
+    raise HTTPException(status_code=503, detail="Base de datos no disponible")

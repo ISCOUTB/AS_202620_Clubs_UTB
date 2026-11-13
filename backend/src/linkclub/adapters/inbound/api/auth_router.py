@@ -4,6 +4,8 @@ from typing import Annotated
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -12,18 +14,19 @@ from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioMode
 
 router = APIRouter(tags=["auth"])
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "secreto-desarrollo-local-super-seguro")
+JWT_SECRET = os.environ.get("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError("ERROR CRÍTICO: La variable de entorno JWT_SECRET no está configurada. La aplicación no puede iniciar de forma segura.")
+
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_EXPIRES_DAYS", "7"))
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class CrearUsuarioRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     nombre: str
     matricula: str
-    correo: str
-    password: str
-
-class LoginRequest(BaseModel):
     correo: str
     password: str
 
@@ -47,22 +50,27 @@ def crear_token_acceso(data: dict, expires_delta: timedelta) -> str:
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 @router.post("/auth/registro", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED, responses={
-        409: {"description": "El correo ya está registrado"}
+        409: {"description": "El correo o la matrícula ya están registrados"}
     }
 )
 def registrar_usuario(
     payload: CrearUsuarioRequest, 
     db: Annotated[Session, Depends(get_db)]
 ):
-    usuario_existente = db.query(UsuarioModel).filter(UsuarioModel.correo == payload.correo).first()
-    if usuario_existente:
+    
+    if db.query(UsuarioModel).filter(UsuarioModel.correo == payload.correo).first():
         raise HTTPException(status_code=409, detail="El correo ya está registrado")
     
+    if db.query(UsuarioModel).filter(UsuarioModel.matricula == payload.matricula).first():
+        raise HTTPException(status_code=409, detail="La matrícula ya está registrada")
+    
+    hashed_password = pwd_context.hash(payload.password)
+
     nuevo_usuario = UsuarioModel(
         matricula=payload.matricula,
         nombre=payload.nombre,
         correo=payload.correo,
-        password_hash=payload.password,
+        password_hash=hashed_password,
     )
     
     db.add(nuevo_usuario)
@@ -79,12 +87,13 @@ def registrar_usuario(
 
 @router.post("/auth/login", response_model=TokenResponse)
 def iniciar_sesion(
-    payload: LoginRequest, 
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()], 
     db: Annotated[Session, Depends(get_db)]
 ):
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.correo == payload.correo).first()
     
-    if not usuario or usuario.password_hash != payload.password:
+    usuario = db.query(UsuarioModel).filter(UsuarioModel.correo == form_data.username).first()
+    
+    if not usuario or not pwd_context.verify(form_data.password, usuario.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",

@@ -11,7 +11,7 @@ router = APIRouter(prefix="/recursos", tags=["Recursos"])
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "svg"}
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 def subir_imagen(
