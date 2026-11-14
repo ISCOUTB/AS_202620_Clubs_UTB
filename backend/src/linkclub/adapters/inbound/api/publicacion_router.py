@@ -10,7 +10,7 @@ from linkclub.adapters.outbound.postgres.models.publicacion_model import Publica
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 
 from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
-from linkclub.adapters.outbound.postgres.postgres_publicacion_adapter import PostgresPublicacionAdapter
+from linkclub.adapters.outbound.persistence.postgres_publicacion_adapter import PostgresPublicacionAdapter
 
 router = APIRouter(tags=["publicaciones"])
 

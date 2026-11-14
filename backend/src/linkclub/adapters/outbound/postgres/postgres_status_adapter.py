@@ -11,9 +11,8 @@ class PostgresStatusAdapter(StatusPort):
 
     def get_status(self) -> str:
         try:
-            
             self.db_session.execute(text("SELECT 1"))
             return "ok"
-        except Exception as e:
-            logger.error(f"Fallo en Health Check de la Base de Datos: {e}")
+        except Exception:
+            logger.exception("Fallo en Health Check de la Base de Datos")
             return "error"

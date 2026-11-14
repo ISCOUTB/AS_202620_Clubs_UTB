@@ -1,28 +1,39 @@
 openapi: 3.1.0
 info:
   title: LinkClub API
-  summary: Contrato objetivo de la API de LinkClub (diseño API-first, con backend nativo).
+  summary: Contrato de la API de LinkClub (API-first) con backend FastAPI y PostgreSQL propios.
   description: >
-    Fuente única de verdad del contrato entre el backend de LinkClub y sus
-    consumidores (app Flutter). Cubre las tres personas descritas en el C4 de
-    contexto. Se gestiona de forma autónoma sin depender de Supabase.
-  version: 2.0.0
+    Fuente única de verdad del contrato entre el backend de LinkClub y la aplicación
+    móvil Flutter. Cubre las tres personas del C4 de contexto: estudiante interesado,
+    miembro de club y administrador de club. La autenticación y la persistencia son
+    propias del sistema y se despliegan en Dokploy (ADR 0007).
+
+
+    Cada operación declara la extensión x-estado. El valor implementado indica que la
+    ruta existe en el backend. El valor pendiente indica que forma parte del diseño
+    objetivo y aún no está disponible en el código desplegado.
+
+
+    Convenciones: toda respuesta de error usa el cuerpo {"detail": "mensaje"}. Las
+    lecturas son públicas y toda escritura, salvo registro e inicio de sesión, exige
+    un token Bearer. La identidad de un usuario en la API es su matrícula.
+  version: 3.0.0
   contact:
     name: Equipo LinkClub
     url: https://github.com/ISCOUTB/AS_202620_Clubs_UTB
 servers:
   - url: https://api-linkclub.iscoutb.dev
-    description: Entorno de Producción (Dokploy)
+    description: Producción (Dokploy, servidor del laboratorio)
   - url: http://localhost:8000
-    description: Entorno local de desarrollo
+    description: Desarrollo local
 
 tags:
   - name: health
-    description: Estado del servicio.
+    description: Estado del servicio y de su base de datos.
   - name: auth
-    description: Registro e inicio de sesión local.
+    description: Registro e inicio de sesión con tokens JWT propios.
   - name: usuarios
-    description: Perfil de usuario.
+    description: Perfil del usuario autenticado.
   - name: clubes
     description: Consulta, búsqueda y creación de clubes.
   - name: membresias
@@ -30,7 +41,9 @@ tags:
   - name: eventos
     description: Eventos de un club y confirmación de asistencia.
   - name: publicaciones
-    description: Avisos, encuestas y noticias de un club.
+    description: Avisos, encuestas y noticias de los clubes.
+  - name: recursos
+    description: Carga y descarga de imágenes.
 
 security:
   - bearerAuth: []
@@ -40,24 +53,32 @@ paths:
     get:
       operationId: getHealth
       tags: [health]
-      summary: Estado de salud del backend.
+      summary: Estado del servicio y conectividad con PostgreSQL.
+      description: Ejecuta una consulta de verificación contra la base de datos.
       security: []
+      x-estado: implementado
       responses:
         "200":
-          description: El servicio está operativo.
+          description: El servicio y la base de datos están operativos.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
+        "503":
+          description: La base de datos no está disponible.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /auth/registro:
     post:
       operationId: registrarUsuario
       tags: [auth]
-      summary: Registra un usuario nuevo en la plataforma.
+      summary: Registra un usuario nuevo.
       description: >
-        Crea la cuenta de forma nativa. El id lo genera el backend. El correo debe ser
-        institucional (@utb.edu.co) y la matrícula tener formato T + 7 u 8 dígitos.
+        Crea la cuenta. El correo debe ser institucional (@utb.edu.co) y la matrícula
+        tener formato T seguido de 7 u 8 dígitos. La contraseña se almacena con hash bcrypt.
       security: []
+      x-estado: implementado
       requestBody:
         required: true
         content:
@@ -65,7 +86,7 @@ paths:
             schema: { $ref: "#/components/schemas/CrearUsuarioRequest" }
       responses:
         "201":
-          description: Usuario creado exitosamente.
+          description: Usuario creado.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Usuario" }
@@ -81,9 +102,13 @@ paths:
     post:
       operationId: iniciarSesion
       tags: [auth]
-      summary: Inicia sesión y devuelve un token JWT propio.
-      description: Implementa el estándar OAuth2 usando Form Data.
+      summary: Inicia sesión y devuelve un token JWT.
+      description: >
+        Implementa el flujo OAuth2 de contraseña con application/x-www-form-urlencoded.
+        El campo username recibe el correo institucional. El token usa HS256, contiene
+        la matrícula como sujeto y vence a los 7 días por defecto.
       security: []
+      x-estado: implementado
       requestBody:
         required: true
         content:
@@ -96,7 +121,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TokenResponse" }
         "401":
-          $ref: "#/components/responses/NoAutenticado"
+          $ref: "#/components/responses/CredencialesInvalidas"
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -105,6 +130,8 @@ paths:
       operationId: obtenerMiPerfil
       tags: [usuarios]
       summary: Perfil del usuario autenticado.
+      description: Devuelve únicamente los datos del usuario identificado por el token.
+      x-estado: pendiente
       responses:
         "200":
           description: Perfil del usuario.
@@ -119,20 +146,25 @@ paths:
       operationId: listarClubes
       tags: [clubes]
       summary: Lista y busca clubes.
-      description: Consulta abierta al público (el Estudiante interesado no requiere sesión).
+      description: >
+        Consulta pública. La búsqueda no distingue mayúsculas y compara contra nombre
+        y descripción. El filtro de categoría tampoco distingue mayúsculas.
       security: []
+      x-estado: implementado
       parameters:
         - name: q
           in: query
+          required: false
           schema: { type: string }
-          description: Búsqueda por nombre o descripción.
+          description: Texto a buscar en nombre o descripción.
         - name: categoria
           in: query
+          required: false
           schema: { type: string }
-          description: Filtra por categoría del club.
+          description: Categoría exacta del club.
       responses:
         "200":
-          description: Clubes que coinciden con el filtro.
+          description: Clubes que coinciden con los filtros; lista vacía si ninguno coincide.
           content:
             application/json:
               schema:
@@ -142,7 +174,8 @@ paths:
       operationId: crearClub
       tags: [clubes]
       summary: Crea un club.
-      description: Requiere sesión. Quien lo crea queda como administrador del club.
+      description: Quien lo crea queda como administrador del club.
+      x-estado: pendiente
       requestBody:
         required: true
         content:
@@ -169,7 +202,9 @@ paths:
       operationId: obtenerClub
       tags: [clubes]
       summary: Detalle de un club.
+      description: Consulta pública de un club por su identificador.
       security: []
+      x-estado: implementado
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
@@ -186,9 +221,8 @@ paths:
       operationId: listarMiembros
       tags: [membresias]
       summary: Lista los miembros de un club.
-      description: >
-        Solo el administrador del club puede ver el listado completo de
-        miembros (escenario U3 — permisos por rol).
+      description: Solo el administrador del club puede consultar el listado.
+      x-estado: pendiente
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
@@ -203,11 +237,14 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "403":
           $ref: "#/components/responses/SinPermiso"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
     post:
       operationId: unirseAClub
       tags: [membresias]
-      summary: Un estudiante autenticado se inscribe en un club.
-      description: Crea una membresía con rol "miembro". Requiere sesión nativa.
+      summary: El usuario autenticado se inscribe en el club.
+      description: Crea una membresía con rol miembro.
+      x-estado: pendiente
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
@@ -218,8 +255,10 @@ paths:
               schema: { $ref: "#/components/schemas/Membresia" }
         "401":
           $ref: "#/components/responses/NoAutenticado"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
         "409":
-          description: El usuario ya es miembro de este club.
+          description: El usuario ya es miembro del club.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -229,22 +268,27 @@ paths:
       operationId: listarEventosDeClub
       tags: [eventos]
       summary: Lista los eventos de un club.
+      description: Consulta pública de los eventos asociados al club.
       security: []
+      x-estado: pendiente
       parameters:
         - $ref: "#/components/parameters/ClubId"
       responses:
         "200":
-          description: Eventos del club.
+          description: Eventos del club ordenados por fecha de inicio.
           content:
             application/json:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Evento" }
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
     post:
       operationId: crearEvento
       tags: [eventos]
-      summary: Publica un nuevo evento del club.
-      description: Requiere rol "miembro" o "administrador" en ese club.
+      summary: Publica un evento del club.
+      description: Requiere rol miembro o administrador en el club.
+      x-estado: pendiente
       parameters:
         - $ref: "#/components/parameters/ClubId"
       requestBody:
@@ -262,6 +306,8 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "403":
           $ref: "#/components/responses/SinPermiso"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -270,7 +316,9 @@ paths:
       operationId: obtenerEvento
       tags: [eventos]
       summary: Detalle de un evento.
+      description: Consulta pública de un evento por su identificador.
       security: []
+      x-estado: pendiente
       parameters:
         - $ref: "#/components/parameters/EventoId"
       responses:
@@ -287,7 +335,8 @@ paths:
       operationId: confirmarAsistencia
       tags: [eventos]
       summary: Confirma o cancela la asistencia a un evento.
-      description: Cualquier usuario autenticado (miembro o interesado) puede confirmar asistencia.
+      description: Cualquier usuario autenticado puede registrar su asistencia.
+      x-estado: pendiente
       parameters:
         - $ref: "#/components/parameters/EventoId"
       requestBody:
@@ -305,15 +354,19 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "404":
           $ref: "#/components/responses/NoEncontrado"
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
 
   /clubes/{club_id}/publicaciones:
     get:
-      operationId: listarPublicaciones
+      operationId: listarPublicacionesDeClub
       tags: [publicaciones]
-      summary: Lista los avisos, encuestas y noticias de un club.
+      summary: Lista las publicaciones de un club.
+      description: Consulta pública, de la más reciente a la más antigua.
       security: []
+      x-estado: pendiente
       parameters:
-        - $ref: "#/components/parameters/ClubIdEntero"
+        - $ref: "#/components/parameters/ClubId"
       responses:
         "200":
           description: Publicaciones del club.
@@ -322,26 +375,29 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Publicacion" }
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
     post:
-      operationId: crearPublicacion
+      operationId: crearPublicacionDeClub
       tags: [publicaciones]
-      summary: Crea un aviso, una encuesta o una noticia para el club.
-      description: Requiere rol "miembro" o "administrador" en ese club.
+      summary: Crea un aviso, una encuesta o una noticia en el club indicado en la ruta.
+      description: >
+        El autor se toma siempre del token. El club se toma de la ruta y no se acepta
+        club_id en el cuerpo. Si se envía una Idempotency-Key ya usada, la implementación
+        vigente devuelve la publicación original sin crear otra. El código 409 describe el
+        diseño objetivo para una clave reutilizada con contenido distinto.
+      x-estado: implementado
       parameters:
-        - $ref: "#/components/parameters/ClubIdEntero"
-        - name: Idempotency-Key
-          in: header
-          required: false
-          schema: { type: string, format: uuid }
-          description: Llave generada por el cliente para evitar publicaciones duplicadas (S11).
+        - $ref: "#/components/parameters/ClubId"
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/CrearPublicacionRequest" }
+            schema: { $ref: "#/components/schemas/CrearPublicacionClubRequest" }
       responses:
         "201":
-          description: Publicación creada.
+          description: Publicación creada, o publicación original si la clave de idempotencia ya existía.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Publicacion" }
@@ -349,67 +405,43 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "403":
           $ref: "#/components/responses/SinPermiso"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
         "409":
-          description: Conflicto - Petición bloqueada por Idempotencia para evitar duplicados.
+          description: La clave de idempotencia ya fue usada con un contenido distinto.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
-  /recursos/upload:
-    post:
-      operationId: subirImagen
-      tags: [recursos]
-      summary: Sube una imagen (jpg, jpeg, png, webp, gif, svg) y devuelve su URL pública.
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file]
-              properties:
-                file: { type: string, format: binary }
-      responses:
-        "201":
-          description: Imagen guardada.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [url]
-                properties:
-                  url: { type: string }
-        "400":
-          description: Nombre de archivo vacío o formato no permitido.
-        "401":
-          $ref: "#/components/responses/NoAutenticado"
-
   /publicaciones:
     get:
-      operationId: listarTodasLasPublicaciones
+      operationId: listarFeed
       tags: [publicaciones]
       summary: Feed general con las publicaciones de todos los clubes.
+      description: Consulta pública, de la más reciente a la más antigua. Es el origen del feed de la aplicación móvil.
       security: []
+      x-estado: pendiente
       responses:
         "200":
-          description: Publicaciones, de la más reciente a la más antigua.
+          description: Publicaciones con el nombre del autor resuelto.
           content:
             application/json:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Publicacion" }
     post:
-      operationId: crearPublicacionGeneral
+      operationId: crearPublicacion
       tags: [publicaciones]
-      summary: Crea una publicación indicando el club en el cuerpo (club_id).
+      summary: Crea una publicación indicando el club en el cuerpo.
+      description: >
+        El autor se toma siempre del token. Si se omite club_id, el servidor aplica el
+        club por defecto; este comportamiento es transitorio mientras el catálogo de
+        clubes no esté persistido y la aplicación móvil no permita elegir club.
+      x-estado: pendiente
       parameters:
-        - name: Idempotency-Key
-          in: header
-          required: false
-          schema: { type: string }
-          description: Llave generada por el cliente para evitar publicaciones duplicadas.
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -417,7 +449,7 @@ paths:
             schema: { $ref: "#/components/schemas/CrearPublicacionRequest" }
       responses:
         "201":
-          description: Publicación creada.
+          description: Publicación creada, o publicación original si la clave de idempotencia ya existía.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Publicacion" }
@@ -425,6 +457,11 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "404":
           $ref: "#/components/responses/NoEncontrado"
+        "409":
+          description: La clave de idempotencia ya fue usada con un contenido distinto.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -433,7 +470,9 @@ paths:
       operationId: obtenerPublicacion
       tags: [publicaciones]
       summary: Detalle de una publicación.
+      description: Consulta pública de una publicación por su identificador.
       security: []
+      x-estado: pendiente
       parameters:
         - $ref: "#/components/parameters/PublicacionId"
       responses:
@@ -445,13 +484,83 @@ paths:
         "404":
           $ref: "#/components/responses/NoEncontrado"
 
+  /recursos/upload:
+    post:
+      operationId: subirImagen
+      tags: [recursos]
+      summary: Sube una imagen y devuelve su URL pública.
+      description: >
+        Extensiones permitidas: jpg, jpeg, png, webp y gif. El archivo se guarda con un
+        nombre UUID en el volumen de la API y se sirve bajo /static.
+      x-estado: implementado
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Imagen guardada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArchivoSubido" }
+        "400":
+          description: El archivo no tiene nombre o su extensión no está permitida.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
+        "500":
+          description: Error al escribir el archivo en el volumen.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /static/{archivo}:
+    get:
+      operationId: descargarImagen
+      tags: [recursos]
+      summary: Descarga una imagen previamente subida.
+      description: Archivos servidos desde el volumen de la API. Acceso público para quien conozca la URL.
+      security: []
+      x-estado: implementado
+      parameters:
+        - name: archivo
+          in: path
+          required: true
+          schema: { type: string }
+          description: Nombre del archivo devuelto por la carga, con su extensión.
+      responses:
+        "200":
+          description: Contenido de la imagen.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+            image/gif:
+              schema: { type: string, format: binary }
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: Token de acceso emitido nativamente por la API en /auth/login.
+      description: Token emitido por POST /auth/login y firmado con HS256 por la propia API.
 
   parameters:
     ClubId:
@@ -459,40 +568,57 @@ components:
       in: path
       required: true
       schema: { type: string }
-    ClubIdEntero:
-      name: club_id
-      in: path
-      required: true
-      schema: { type: integer }
+      description: Identificador del club.
     EventoId:
       name: evento_id
       in: path
       required: true
       schema: { type: string }
+      description: Identificador del evento.
     PublicacionId:
       name: publicacion_id
       in: path
       required: true
       schema: { type: string }
+      description: Identificador de la publicación.
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 1
+      description: >
+        Clave generada por el cliente, preferiblemente un UUID v4, que evita publicaciones
+        duplicadas ante reintentos tras un fallo de red.
 
   responses:
     NoAutenticado:
-      description: Falta un token válido o las credenciales son incorrectas.
+      description: Falta el token, es inválido o está vencido.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    CredencialesInvalidas:
+      description: Correo o contraseña incorrectos.
+      headers:
+        WWW-Authenticate:
+          description: Esquema de autenticación requerido.
+          schema: { type: string, example: Bearer }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
     SinPermiso:
-      description: El usuario autenticado no tiene el rol requerido para esta acción.
+      description: El usuario autenticado no tiene el rol requerido en el club.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
     NoEncontrado:
-      description: El recurso no existe.
+      description: El recurso solicitado no existe.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
     DatosInvalidos:
-      description: El cuerpo de la petición no cumple las reglas del recurso.
+      description: La petición no cumple las reglas de validación; detail describe el primer error.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -500,9 +626,14 @@ components:
   schemas:
     HealthStatus:
       type: object
-      required: [status]
+      required: [status, database]
       properties:
-        status: { type: string, example: ok }
+        status:
+          type: string
+          enum: [ok]
+        database:
+          type: string
+          enum: [online]
       additionalProperties: false
 
     ErrorResponse:
@@ -514,13 +645,22 @@ components:
 
     Usuario:
       type: object
-      required: [id, nombre, matricula, correo, rol, creado_en]
+      required: [id, nombre, matricula, correo, creado_en]
       properties:
-        id: { type: string, format: uuid }
+        id:
+          type: string
+          description: Identidad del usuario; coincide con la matrícula.
+          example: T00012345
         nombre: { type: string }
-        matricula: { type: string, example: T00012345 }
-        correo: { type: string }
-        rol: { type: string, example: estudiante }
+        matricula:
+          type: string
+          example: T00012345
+        correo:
+          type: string
+          example: estudiante@utb.edu.co
+        rol:
+          type: string
+          example: estudiante
         creado_en: { type: string, format: date-time }
       additionalProperties: false
 
@@ -528,26 +668,38 @@ components:
       type: object
       required: [nombre, matricula, correo, password]
       properties:
-        nombre: { type: string, minLength: 1 }
-        matricula: { type: string, pattern: "^T[0-9]{7,8}$" }
-        correo: { type: string, description: "Debe terminar en @utb.edu.co." }
-        password: { type: string, minLength: 8 }
+        nombre:
+          type: string
+          minLength: 1
+        matricula:
+          type: string
+          pattern: "^T[0-9]{7,8}$"
+        correo:
+          type: string
+          pattern: '^[^@\s]+@utb\.edu\.co$'
+        password:
+          type: string
+          minLength: 8
       additionalProperties: false
 
     LoginRequest:
       type: object
       required: [username, password]
       properties:
-        username: { type: string, description: "Correo electrónico del usuario" }
-        password: { type: string }
-      additionalProperties: false
+        username:
+          type: string
+          description: Correo institucional del usuario.
+        password:
+          type: string
 
     TokenResponse:
       type: object
       required: [access_token, token_type]
       properties:
         access_token: { type: string }
-        token_type: { type: string, example: bearer }
+        token_type:
+          type: string
+          example: bearer
       additionalProperties: false
 
     AdministradorClub:
@@ -578,7 +730,9 @@ components:
         id: { type: string, format: uuid }
         nombre: { type: string }
         descripcion: { type: string }
-        categoria: { type: string, example: deportes }
+        categoria:
+          type: string
+          example: Tecnología
         descripcion_completa: { type: [string, "null"] }
         icono: { type: [string, "null"] }
         horario: { type: [string, "null"] }
@@ -597,7 +751,7 @@ components:
       required: [id, club_id, usuario_id, rol, creada_en]
       properties:
         id: { type: string, format: uuid }
-        club_id: { type: string }
+        club_id: { type: string, format: uuid }
         usuario_id: { type: string }
         rol:
           type: string
@@ -621,7 +775,8 @@ components:
       required: [id, club_id, titulo, descripcion, fecha_inicio, lugar, creado_en]
       properties:
         id: { type: string, format: uuid }
-        club_id: { type: string }
+        club_id: { type: string, format: uuid }
+        autor_id: { type: string }
         titulo: { type: string }
         descripcion: { type: string }
         fecha_inicio: { type: string, format: date-time }
@@ -644,7 +799,7 @@ components:
       required: [id, evento_id, usuario_id, estado, actualizado_en]
       properties:
         id: { type: string, format: uuid }
-        evento_id: { type: string }
+        evento_id: { type: string, format: uuid }
         usuario_id: { type: string }
         estado:
           type: string
@@ -656,45 +811,102 @@ components:
       type: string
       enum: [aviso, encuesta, noticia]
 
-    CrearPublicacionRequest:
+    CrearPublicacionClubRequest:
       type: object
       required: [contenido]
       properties:
-        club_id:
-          type: [integer, "null"]
-          description: Solo se usa en POST /publicaciones; en la ruta por club se toma de la URL.
-        titulo: { type: [string, "null"], description: "Si falta, se usa 'Publicación'." }
-        contenido: { type: string, minLength: 1 }
-        imagen_url: { type: [string, "null"] }
+        titulo:
+          type: [string, "null"]
+          description: Si se omite, se usa el valor Publicación.
+        contenido:
+          type: string
+          minLength: 1
+          description: Texto en formato Markdown.
         tipo:
           allOf: [{ $ref: "#/components/schemas/TipoPublicacion" }]
           default: aviso
         opciones:
           type: [array, "null"]
           items: { type: string }
+        imagen_url:
+          type: [string, "null"]
       additionalProperties: false
       if:
-        properties: { tipo: { const: encuesta } }
+        properties:
+          tipo: { const: encuesta }
         required: [tipo]
       then:
         required: [opciones]
         properties:
-          opciones: { type: array, minItems: 1, items: { type: string } }
+          opciones:
+            type: array
+            minItems: 1
+            items: { type: string }
+
+    CrearPublicacionRequest:
+      type: object
+      required: [contenido]
+      properties:
+        club_id:
+          type: [string, "null"]
+          description: Club de la publicación. Si se omite, se aplica el club por defecto.
+        titulo:
+          type: [string, "null"]
+          description: Si se omite, se usa el valor Publicación.
+        contenido:
+          type: string
+          minLength: 1
+          description: Texto en formato Markdown.
+        tipo:
+          allOf: [{ $ref: "#/components/schemas/TipoPublicacion" }]
+          default: aviso
+        opciones:
+          type: [array, "null"]
+          items: { type: string }
+        imagen_url:
+          type: [string, "null"]
+      additionalProperties: false
+      if:
+        properties:
+          tipo: { const: encuesta }
+        required: [tipo]
+      then:
+        required: [opciones]
+        properties:
+          opciones:
+            type: array
+            minItems: 1
+            items: { type: string }
 
     Publicacion:
       type: object
-      required: [id, club_id, titulo, contenido, tipo, creado_en]
+      required: [id, club_id, autor_id, titulo, contenido, tipo, creado_en]
       properties:
-        id: { type: integer }
-        club_id: { type: integer }
-        autor_id: { type: string }
-        autor_nombre: { type: [string, "null"] }
-        imagen_url: { type: [string, "null"] }
+        id: { type: string, format: uuid }
+        club_id: { type: string, format: uuid }
+        autor_id:
+          type: string
+          description: Matrícula del autor.
+        autor_nombre:
+          type: [string, "null"]
         titulo: { type: string }
-        contenido: { type: string }
+        contenido:
+          type: string
+          description: Texto en formato Markdown.
         tipo: { $ref: "#/components/schemas/TipoPublicacion" }
         opciones:
           type: [array, "null"]
           items: { type: string }
+        imagen_url:
+          type: [string, "null"]
         creado_en: { type: string, format: date-time }
+      additionalProperties: false
+
+    ArchivoSubido:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
       additionalProperties: false

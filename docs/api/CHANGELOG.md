@@ -2,6 +2,14 @@
 
 Versionado SemVer sobre `openapi.yaml` (campo `info.version`).
 
+## 3.0.0 - 2026-11-14
+Cambio incompatible: unificación de identificadores a `string` (`uuid`) para sincronizar el contrato con el esquema inicial de PostgreSQL (`001_esquema_inicial.sql`) y los modelos ORM refactorizados:
+- `Publicacion.id`, `Publicacion.club_id`, `CrearPublicacionRequest.club_id` y el parámetro de ruta en `/clubes/{club_id}/publicaciones` vuelven de `integer` a `string` (`format: uuid`); se elimina el parámetro `ClubIdEntero`.
+- `Usuario.id` pasa de `integer` a `string` (matrícula institucional o identificador serializado por `auth_router.py`) y `Usuario.rol` pasa a propiedad opcional.
+- **Observabilidad (`/health`):** Se añade el campo obligatorio `database` en `HealthStatus` y la respuesta `503 Service Unavailable` (`ErrorResponse`) para la comprobación activa contra PostgreSQL.
+- **Multimedia (`/recursos/upload`):** Se registra el tag raíz `recursos`, se extrae el esquema `UploadResponse`, se tipan los errores `400` y `500` con `ErrorResponse` y se retira `svg` de las extensiones admitidas (`jpg`, `jpeg`, `png`, `webp`, `gif`).
+- **Idempotencia homogénea:** Se unifican las respuestas `200`, `201` y `409` junto con la cabecera opcional `Idempotency-Key` en `POST /clubes/{club_id}/publicaciones` y `POST /publicaciones`.
+
 ## 2.0.0 - 2026-10-25
 Cambio incompatible: los identificadores de publicaciones y clubes de la BD pasan de `uuid` a entero (migración de esquema).
 - `Publicacion.id` y `Publicacion.club_id` pasan de `string` a `integer`; la ruta `/clubes/{club_id}/publicaciones` acepta `club_id` entero.
