@@ -3,8 +3,9 @@ import sys
 from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
-os.environ.setdefault("SUPABASE_URL", "https://proyecto-de-prueba.supabase.co")
+os.environ.setdefault("JWT_SECRET", "clave-secreta-de-prueba-para-ci-local-2026")
 
 import pytest
 from fastapi.testclient import TestClient
@@ -23,10 +24,10 @@ from linkclub.application.ports.outbound_auth_port import AuthPort, TokenInvalid
 from linkclub.main import app
 
 
-# SQLite no conoce JSONB: en las pruebas se compila como JSON.
 @compiles(JSONB, "sqlite")
 def _jsonb_en_sqlite(tipo, compilador, **kw):
     return "JSON"
+
 
 TOKEN_VALIDO = "token-valido"
 AUTOR_DE_PRUEBA = "usuario-123"
@@ -57,8 +58,10 @@ def entorno_de_prueba():
             correo="usuario123@utb.edu.co",
             password_hash="x",
         ))
-        db.add_all([ClubModel(nombre=f"Club {i}", descripcion="d", categoria="c")
-                    for i in range(1, 6)])
+        db.add_all([
+            ClubModel(nombre=f"Club {i}", descripcion="d", categoria="c")
+            for i in range(1, 6)
+        ])
         db.commit()
 
     def _get_db():
@@ -79,6 +82,7 @@ def entorno_de_prueba():
 @pytest.fixture
 def headers_auth():
     return {"Authorization": f"Bearer {TOKEN_VALIDO}"}
+
 
 RUTA_CONTRATO = Path(__file__).resolve().parents[2] / "docs" / "api" / "openapi.yaml"
 _contrato = yaml.safe_load(RUTA_CONTRATO.read_text(encoding="utf-8"))

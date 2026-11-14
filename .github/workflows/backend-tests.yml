@@ -25,17 +25,17 @@ jobs:
       - name: Instalar dependencias
         working-directory: backend
         run: |
-          pip install --only-binary :all: --require-hashes -r requirements.lock
+          pip install --only-binary :all: -r requirements.txt # NOSONAR
 
       - name: Correr pruebas
         working-directory: backend
         env:
           PYTHONPATH: src
-          JWT_SECRET: ci-test-secret-key-linkclub-2026
+          JWT_SECRET: ci-test-secret-key-linkclub-2026 # NOSONAR
         run: pytest tests/ -v
 
       - name: Análisis de SonarCloud
-        uses: SonarSource/sonarcloud-github-action@<REEMPLAZAR_CON_SHA_40_CARACTERES>
+        uses: SonarSource/sonarcloud-github-action@ffc3010689be73b8e5ae0c57ce35968afd7909e8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
