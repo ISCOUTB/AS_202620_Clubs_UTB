@@ -81,11 +81,13 @@ def a_respuesta(pub) -> PublicacionResponse:
         elif isinstance(parsed, list):
             opciones_val = parsed
 
+    autor_val = getattr(pub, "autor_id", None) or getattr(pub, "autor_matricula", "")
+
     return PublicacionResponse(
         id=str(pub.id),
         club_id=str(pub.club_id),
-        autor_id=pub.autor_id,
-        autor_nombre=getattr(pub, "autor_nombre", pub.autor_id),
+        autor_id=autor_val,
+        autor_nombre=getattr(pub, "autor_nombre", None) or autor_val,
         titulo=pub.titulo or TITULO_POR_DEFECTO,
         contenido=pub.contenido,
         tipo=pub.tipo.value if hasattr(pub.tipo, 'value') else str(pub.tipo),
