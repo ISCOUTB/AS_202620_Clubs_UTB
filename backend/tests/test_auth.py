@@ -6,13 +6,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from conftest import AUTOR_DE_PRUEBA, CLUB_1_ID, CLUB_4_ID
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
 from linkclub.main import app  # pyright: ignore[reportMissingImports]
 
 client = TestClient(app)
 
-
+CLUB_1_ID = "00000000-0000-0000-0000-000000000001"
+CLUB_4_ID = "00000000-0000-0000-0000-000000000004"
 CUERPO = {"titulo": "x", "contenido": "y"}
 
 
@@ -78,4 +78,4 @@ def test_toda_ruta_de_escritura_exige_auth():
 def test_publicacion_guarda_el_autor_del_token(headers_auth):
     r = client.post(f"/clubes/{CLUB_4_ID}/publicaciones", json=CUERPO, headers=headers_auth)
     assert r.status_code == 201
-    assert r.json()["autor_id"] == AUTOR_DE_PRUEBA
+    assert r.json()["autor_id"] == "usuario-123"  # AUTOR_DE_PRUEBA de conftest.py

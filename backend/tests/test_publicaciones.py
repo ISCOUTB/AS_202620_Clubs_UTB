@@ -1,9 +1,12 @@
 from fastapi.testclient import TestClient
-
-from conftest import CLUB_1_ID, CLUB_2_ID, CLUB_3_ID, CLUB_4_ID
 from linkclub.main import app
 
 client = TestClient(app)
+
+CLUB_1_ID = "00000000-0000-0000-0000-000000000001"
+CLUB_2_ID = "00000000-0000-0000-0000-000000000002"
+CLUB_3_ID = "00000000-0000-0000-0000-000000000003"
+CLUB_4_ID = "00000000-0000-0000-0000-000000000004"
 
 
 def test_crear_publicacion_tipo_aviso(headers_auth):
@@ -20,7 +23,7 @@ def test_crear_publicacion_tipo_aviso(headers_auth):
     assert response.status_code == 201
     body = response.json()
     assert body["tipo"] == "aviso"
-    assert body["club_id"] == str(CLUB_1_ID)
+    assert body["club_id"] == CLUB_1_ID
     assert "creado_en" in body
 
 

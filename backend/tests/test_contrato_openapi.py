@@ -4,12 +4,15 @@ import yaml
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
-from conftest import CLUB_1_ID, CLUB_2_ID, CLUB_3_ID
 from linkclub.main import app
 
 RUTA = Path(__file__).resolve().parents[2] / "docs" / "api" / "openapi.yaml"
 contrato = yaml.safe_load(RUTA.read_text(encoding="utf-8"))
 client = TestClient(app)
+
+CLUB_1_ID = "00000000-0000-0000-0000-000000000001"
+CLUB_2_ID = "00000000-0000-0000-0000-000000000002"
+CLUB_3_ID = "00000000-0000-0000-0000-000000000003"
 
 
 def validar(cuerpo, nombre_schema):
