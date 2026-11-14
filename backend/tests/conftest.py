@@ -10,7 +10,7 @@ os.environ.setdefault("JWT_SECRET", "clave-secreta-de-prueba-para-ci-local-2026"
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -24,9 +24,15 @@ from linkclub.application.ports.outbound_auth_port import AuthPort, TokenInvalid
 from linkclub.main import app
 
 
+# SQLite no conoce JSONB ni UUID de PostgreSQL: en las pruebas se compilan a tipos compatibles.
 @compiles(JSONB, "sqlite")
 def _jsonb_en_sqlite(tipo, compilador, **kw):
     return "JSON"
+
+
+@compiles(UUID, "sqlite")
+def _uuid_en_sqlite(tipo, compilador, **kw):
+    return "CHAR(36)"
 
 
 TOKEN_VALIDO = "token-valido"
