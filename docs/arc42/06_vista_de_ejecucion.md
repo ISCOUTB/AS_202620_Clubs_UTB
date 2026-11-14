@@ -10,23 +10,34 @@ sequenceDiagram
     participant R as health_router<br/>(Adaptador de entrada)
     participant UC as CheckHealthUseCase<br/>(Aplicación)
     participant P as StatusPort<br/>(Puerto de salida)
-    participant A as InMemoryStatusAdapter<br/>(Adaptador de salida)
+    participant A as PostgresStatusAdapter<br/>(Adaptador de salida)
+    participant DB as PostgreSQL
 
     C->>R: GET /health
     R->>UC: check()
     UC->>P: get_status()
     P->>A: get_status()
-    A-->>P: "ok"
-    P-->>UC: "ok"
-    UC-->>R: {"status": "ok"}
-    R-->>C: 200 OK {"status": "ok"}
+    A->>DB: SELECT 1
+    alt Base de datos disponible
+        DB-->>A: 1
+        A-->>P: {"status": "ok", "database": "online"}
+        P-->>UC: {"status": "ok", "database": "online"}
+        UC-->>R: {"status": "ok", "database": "online"}
+        R-->>C: 200 OK {"status": "ok", "database": "online"}
+    else Base de datos no disponible
+        DB-->>A: Error de conexión
+        A-->>P: Excepción de disponibilidad
+        P-->>UC: Excepción de disponibilidad
+        UC-->>R: Excepción de disponibilidad
+        R-->>C: 503 Service Unavailable {"detail": "..."}
+    end
 ```
 
 1. El cliente envía `GET /health` a la API.
 2. El adaptador de entrada (`health_router.py`) delega en el caso de uso, sin lógica de negocio propia.
 3. `CheckHealthUseCase` llama a `get_status()` sobre el puerto `StatusPort`; solo conoce la interfaz.
-4. `InMemoryStatusAdapter` devuelve un valor fijo `"ok"` sin sondear la base de datos. Es un adaptador temporal.
-5. La respuesta vuelve por las mismas capas con `200 OK`.
+4. `PostgresStatusAdapter` ejecuta `SELECT 1` contra PostgreSQL para verificar la conectividad real.
+5. Si la base responde, devuelve `200 OK {"status": "ok", "database": "online"}`; si falla, responde de forma controlada con `503 Service Unavailable`.
 
 Cubierto por [`backend/tests/test_health.py`](../../backend/tests/test_health.py).
 
@@ -41,9 +52,10 @@ sequenceDiagram
     participant S as Almacenamiento seguro<br/>(dispositivo)
 
     U->>APP: Ingresa correo institucional y contraseña
-    APP->>R: POST /auth/login (JSON)
-    R->>DB: Consulta el usuario por correo
-    DB-->>R: Usuario o ninguno
+    APP->>R: POST /auth/login (form-data: username, password)
+    R->>DB: Consulta el usuario por correo (username)
+    DB-->>R: Usuario (con password_hash) o ninguno
+    R->>R: Verifica hash bcrypt de la contraseña
     alt Credenciales válidas
         R-->>APP: 200 con access_token y token_type
         APP->>S: Guarda el token
@@ -54,8 +66,8 @@ sequenceDiagram
     end
 ```
 
-1. La app valida en el formulario que el correo termine en `@utb.edu.co`.
-2. La API busca al usuario y, si las credenciales son correctas, emite un token JWT firmado con vigencia configurable (por defecto 7 días) cuyo sujeto es la matrícula.
+1. La app valida en el formulario que el correo termine en `@utb.edu.co` y envía las credenciales bajo el estándar `OAuth2PasswordRequestForm` (`username` y `password`).
+2. La API busca al usuario por correo, verifica el hash `bcrypt` de la contraseña y emite un token JWT HS256 firmado con `JWT_SECRET` (vigencia por defecto de 7 días) cuyo sujeto es la matrícula.
 3. La app guarda el token en almacenamiento seguro; un interceptor lo agrega como cabecera `Authorization: Bearer` en las peticiones siguientes, excepto las de `/auth/`.
 4. Ante un `401`, la app informa que las credenciales son incorrectas.
 
@@ -83,12 +95,16 @@ sequenceDiagram
         AUTH-->>R: Identidad del autor
         R->>DB: Resuelve al autor por identidad
         R->>UC: ejecutar(club, autor, titulo, contenido, tipo, opciones, clave)
-        UC->>REP: obtener_por_idempotencia(clave)
-        REP->>DB: Consulta por clave
-        alt La clave ya fue usada
-            DB-->>REP: Publicación existente
+        UC->>REP: obtener_por_idempotencia(autor_id, clave)
+        REP->>DB: Consulta por (autor_id, idempotency_key)
+        alt La clave ya fue usada con el mismo contenido
+            DB-->>REP: Publicación existente (UUID)
             REP-->>UC: Publicación existente
             UC-->>R: Publicación original, sin duplicar
+        else La clave ya fue usada con distinto contenido
+            DB-->>REP: Publicación existente con otro payload
+            REP-->>UC: Conflicto de idempotencia
+            UC-->>R: 409 Conflict {"detail": "..."}
         else Primera vez
             UC->>UC: Valida tipo y opciones de encuesta
             UC->>REP: guardar(publicación)
@@ -97,12 +113,12 @@ sequenceDiagram
             REP-->>UC: Publicación
             UC-->>R: Publicación
         end
-        R-->>APP: 201 con la publicación y el nombre del autor
+        R-->>APP: 201 (o 200 en reintento) con la publicación y el nombre del autor
     end
 ```
 
-1. Si la publicación incluye una imagen local, la app la sube antes con `POST /recursos/upload` y usa la URL devuelta como `imagen_url`.
-2. El interceptor de la app agrega una `Idempotency-Key` (UUID v4) a cada `POST`. Ante un timeout, el reintento reutiliza la misma petición y el caso de uso devuelve la publicación ya creada en lugar de duplicarla (ver [`docs/resilience/idempotencia.md`](../resilience/idempotencia.md)).
+1. Si la publicación incluye una imagen local, la app la sube antes con `POST /recursos/upload` (verificando extensión válida y token) y usa la URL devuelta como `imagen_url`.
+2. El interceptor de la app agrega una `Idempotency-Key` (UUID v4) a cada `POST`. Ante un timeout, el reintento reutiliza la misma clave aislada por autor `(autor_id, idempotency_key)` y devuelve la publicación original en lugar de duplicarla (ver [`docs/resilience/idempotencia.md`](../resilience/idempotencia.md)).
 3. La identidad del autor se toma siempre del token, nunca del cuerpo de la petición.
 4. Un tipo de publicación no soportado o una encuesta sin opciones producen `422` con el formato uniforme `{"detail": "..."}`.
 
@@ -110,6 +126,6 @@ Cubierto por `backend/tests/test_publicaciones.py`, `test_auth.py` y `test_contr
 
 ## 6.4. Relación con los escenarios de calidad
 
-- **U2 (Disponibilidad):** hoy `/health` no depende de la base de datos, por lo que no detecta su caída. El manejo de errores de conexión (tiempo de espera, respuesta controlada) debe implementarse en los adaptadores de salida sin tocar casos de uso ni adaptadores de entrada. La decisión queda anotada en la [Sección 9](./09_decisiones_de_diseno.md#decisiones-pendientes-de-registrar).
+- **U2 (Disponibilidad):** `/health` sondea activamente PostgreSQL (`SELECT 1`) mediante `PostgresStatusAdapter` y responde de forma controlada con `503 Service Unavailable` si la base no responde, sin afectar la arquitectura hexagonal.
 - **U3 (Seguridad):** el recorrido 6.3 muestra el rechazo con `401` antes de llegar al caso de uso.
-- **Resiliencia:** el recorrido 6.3 es el que ejerce la idempotencia definida en la [Sección 8](./08_conceptos_transversales.md) y en el [ADR 0008](../adr/0008-no-extraer-publicaciones.md).
+- **Resiliencia:** el recorrido 6.3 es el que ejerce la idempotencia aislada por autor definida en la [Sección 8](./08_conceptos_transversales.md) y en el [ADR 0008](../adr/0008-no-extraer-publicaciones.md).

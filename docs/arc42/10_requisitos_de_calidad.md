@@ -95,11 +95,11 @@ graph TD
 
 | Escenario | Estado | Evidencia o pendiente |
 |---|---|---|
-| U1 | Sin medir | La latencia del camino crítico aún no se ha medido (Evidencia S14). |
-| U2 | Parcial | El cliente muestra mensajes controlados ante fallos de red. `/health` no sondea la base y falta un manejo centralizado de errores de conexión en la API. |
-| U3 | Parcial | Dependencia `require_auth` en las rutas de publicación, verificada en `backend/tests/test_auth.py`. Falta cubrir todas las rutas de escritura que corresponden, ajustar la prueba automática de cobertura y registrar los intentos rechazados. |
-| C1 | Verificado en parte | Los tipos aviso, encuesta y noticia se resuelven con una sola entidad y están cubiertos por `backend/tests/test_publicaciones.py`. |
-| C2 | Sin medir | No se ha ejecutado una prueba con volumen incrementado (Evidencia S14). |
-| C3 | Ejercido, sin medición formal | La migración del [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md) reemplazó proveedor de datos y autenticación; falta documentar el recuento de módulos afectados. |
-| Protección de contraseñas | Pendiente | Implementación de hash de contraseñas planificada. |
+| U1 | Medido preliminarmente | Latencia P95 de 131 ms (promedio 127 ms) registrada en [`mediciones_calidad.md`](../mediciones_calidad.md), cumpliendo el umbral ≤ 800 ms. Falta ampliar cobertura a todos los flujos de búsqueda en Evidencia S14. |
+| U2 | Verificado | El cliente muestra mensajes controlados ante fallos de red y `/health` sondea PostgreSQL (`SELECT 1`) mediante `PostgresStatusAdapter`, devolviendo HTTP `503` si la base no está disponible ([`mediciones_calidad.md`](../mediciones_calidad.md)). |
+| U3 | Verificado en rutas protegidas | Dependencia `require_auth` aplicada al 100% de las rutas de escritura (incluyendo `/recursos/upload`), verificada en `backend/tests/test_auth.py` y [`mediciones_calidad.md`](../mediciones_calidad.md). Pendiente: registro persistente de intentos rechazados. |
+| C1 | Verificado | Los tipos aviso, encuesta y noticia se resuelven con una sola entidad afectando 2 módulos (umbral ≤ 3), cubiertos por `backend/tests/test_publicaciones.py` y [`mediciones_calidad.md`](../mediciones_calidad.md). |
+| C2 | Medido preliminarmente | Simulación de 5x volumen documentada en [`mediciones_calidad.md`](../mediciones_calidad.md) con tiempos < 300 ms ≤ 800 ms. Pendiente automatizar el script de prueba en el repositorio (Evidencia S14). |
+| C3 | Verificado | La migración del [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md) reemplazó proveedor de datos y autenticación con 0 módulos afectados fuera de la capa de adaptadores ([`mediciones_calidad.md`](../mediciones_calidad.md)). |
+| Protección de contraseñas | Implementado | Cifrado con `bcrypt` implementado al registrar y verificar credenciales en `auth_router.py` (NC-05 resuelta). |
 | Permisos por rol | Pendiente | Requiere implementar el contexto Clubes con membresías. |

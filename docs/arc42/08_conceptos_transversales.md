@@ -30,7 +30,7 @@ El lenguaje ubicuo se organiza por contexto delimitado (ver 8.2), porque algunos
 | Publicación | Elemento de comunicación emitido en nombre de un club. | Concepto raíz de este contexto; toda escritura pasa por aquí (`crear_publicacion.py`). |
 | Tipo de publicación | Aviso, encuesta o noticia, resueltos con una sola entidad. | El evento se modela como recurso propio en el contrato y en el esquema (tabla `eventos`), aún sin implementar en la API. |
 | Autor | Referencia a la identidad del usuario que originó la publicación. | Publicaciones no guarda el perfil del autor; el nombre mostrado en el feed se resuelve consultando a Usuarios. |
-| Idempotency-Key | Cabecera con un UUID v4 que identifica un intento de creación. | Debe permitir que un reintento no duplique la publicación (ver 8.6). |
+| Idempotency-Key | Cabecera con un UUID v4 que identifica un intento de creación. | Permite que un reintento del mismo autor no duplique la publicación (ver 8.6). |
 
 ## 8.2. Mapa de contextos delimitados
 
@@ -67,9 +67,9 @@ PostgreSQL es el único almacén de datos de negocio y cada escritura se resuelv
 
 | Operación | Garantía | Mecanismo | Estado |
 |---|---|---|---|
-| Registro de usuario | Fuerte | Llave primaria en matrícula y unicidad de correo en la base | Implementada. El correo repetido responde 409; la matrícula repetida responde 500 (NC-13) |
-| Inicio de sesión | Fuerte en la lectura; token sin estado | Consulta a la base y token con vencimiento; sin revocación en el servidor | Implementada |
-| Crear publicación | Escritura atómica; efecto único previsto con `Idempotency-Key` | Un INSERT con un único `commit` por solicitud y columna `idempotency_key` única | Atómica e implementada. La respuesta del reintento no es consistente (ver 8.4.1) |
+| Registro de usuario | Fuerte | Llave primaria en matrícula y unicidad de correo en la base | Implementada. Tanto el correo repetido como la matrícula repetida responden `409 Conflict` (NC-13 resuelta) |
+| Inicio de sesión | Fuerte en la lectura; token sin estado | Consulta a la base, verificación de hash `bcrypt` y token con vencimiento; sin revocación en el servidor | Implementada |
+| Crear publicación | Escritura atómica; efecto único con `Idempotency-Key` | Un INSERT con un único `commit` por solicitud y restricción única `(autor_id, idempotency_key)` | Atómica e implementada con respuesta consistente (ver 8.4.1) |
 | Listar publicaciones y clubes | Fuerte hoy | Consulta directa sin caché; las publicaciones se leen sin paginación | Implementada |
 | Subir imagen y publicar | Sin atomicidad entre archivo y registro | La imagen se sube antes; si la publicación falla, queda un archivo huérfano aceptado como costo ([ADR 0009](../adr/0009-estrategia-persistencia-multimedia.md)) | Implementada |
 | Inscripción, eventos y asistencia | Fuerte | Restricciones únicas `(club_id, usuario_id)` y `(evento_id, usuario_id)` ya definidas en la migración | Sin implementar en la API |
@@ -83,14 +83,14 @@ PostgreSQL es el único almacén de datos de negocio y cada escritura se resuelv
 | Almacén | Tabla `publicaciones` de PostgreSQL, mediante `PublicacionRepositoryPostgres` | La misma tabla, consultada desde el router con la sesión |
 | Transacción | Un INSERT y un `commit`; si falla, la sesión se cierra sin confirmar | Una consulta de solo lectura |
 | Garantía observada | Fuerte: tras el 201, la publicación es visible para cualquier lectura posterior | Lee solo datos confirmados; sin caché, lo ve inmediatamente (lectura de lo propio) |
-| Concurrencia | Dos solicitudes simultáneas con la misma clave pueden pasar la consulta previa; la restricción única impide el segundo registro, pero el perdedor responde con un error genérico | No bloquea escrituras |
-| Defecto verificado | Un reintento con la misma `Idempotency-Key` no duplica datos, pero responde 422 en lugar de devolver la publicación original (el identificador reconstruido es un UUID y la respuesta exige un entero). La clave es única de forma global, no por autor, y la consulta no compara autor ni contenido (NC-10) | Devuelve todos los registros sin paginar, lo que no escala con el volumen del escenario C2 (NC-23) |
+| Concurrencia | Dos solicitudes simultáneas con la misma clave pueden pasar la consulta previa; la restricción única `(autor_id, idempotency_key)` impide el segundo registro y el adaptador resuelve devolviendo la publicación existente | No bloquea escrituras |
+| Comportamiento verificado | Un reintento con la misma `Idempotency-Key` y el mismo autor reconstruye la publicación original con su identificador `UUID` sin duplicar datos, o devuelve `409 Conflict` si el contenido difiere (NC-10 resuelta) | Devuelve todos los registros sin paginar, lo que no escala con el volumen del escenario C2 (NC-23) |
 
 La garantía real, por tanto, es consistencia fuerte sin caché y sin broker; ninguna garantía de entrega asíncrona se exige al flujo de publicaciones porque la notificación no está conectada a él.
 
 ## 8.5. Estrategia de caché y política de invalidación
 
-**Decisión vigente: no se implementa caché.** El sistema tiene una réplica, una base en la misma red interna y un volumen estimado de 160.000 consultas mensuales; la latencia del escenario U1 aún no se ha medido. La caché se activa solo si esa medición (Evidencia S14) supera el umbral de 800 ms. El diseño queda definido para ese caso:
+**Decisión vigente: no se implementa caché.** El sistema tiene una réplica, una base en la misma red interna y un volumen estimado de 160.000 consultas mensuales; las mediciones preliminares del escenario U1 en [`mediciones_calidad.md`](../mediciones_calidad.md) muestran una latencia P95 de 131 ms, muy por debajo del umbral de 800 ms. La caché se activará solo si las pruebas de carga concurrente superan dicho umbral. El diseño queda definido para ese caso:
 
 | Aspecto | Diseño |
 |---|---|
@@ -104,20 +104,18 @@ La garantía real, por tanto, es consistencia fuerte sin caché y sin broker; ni
 
 ## 8.6. Idempotencia y reintentos
 
-El cliente móvil agrega una `Idempotency-Key` (UUID v4) a toda petición `POST` mediante un interceptor. El caso de uso consulta la clave antes de crear y la base impone unicidad sobre ella. El diseño completo está en [`docs/resilience/idempotencia.md`](../resilience/idempotencia.md). Los mensajes asíncronos siguen la misma lógica con `message_id` como clave de deduplicación.
-
-Desviaciones abiertas, registradas en [`lista_errores.md`](./lista_errores.md) (NC-10): el reintento responde con error en lugar de la publicación original, la clave no está aislada por autor y el código de estado difiere entre el código (siempre 201), el contrato (409) y el documento de diseño (200).
+El cliente móvil agrega una `Idempotency-Key` (UUID v4) a toda petición `POST` mediante un interceptor. El caso de uso consulta la clave aislada por autor `(autor_id, idempotency_key)` antes de crear y la base impone unicidad sobre ese par. Si la llave ya existe con el mismo payload, se devuelve la publicación original sin duplicar; si el contenido difiere, se responde `409 Conflict`. El diseño completo está en [`docs/resilience/idempotencia.md`](../resilience/idempotencia.md). Los mensajes asíncronos siguen la misma lógica con `message_id` como clave de deduplicación.
 
 ## 8.7. Autenticación, autorización y errores
 
 * **Autenticación:** la API emite tokens JWT firmados con HS256, con el sujeto igual a la matrícula y vigencia configurable (7 días por defecto). Las lecturas son públicas y toda escritura, salvo registro e inicio de sesión, exige un token válido mediante la dependencia `require_auth` (escenario U3), incluida la carga de imágenes.
 * **Identidad del autor:** siempre se toma del token, nunca del cuerpo de la petición.
 * **Autorización por rol dentro de cada club:** sin implementar; depende de las membresías.
-* **Formato de error uniforme:** `{"detail": "mensaje"}` en 401, 403, 404, 409 y 422. Hoy algunas respuestas 422 incluyen texto interno de excepciones (NC-21).
-* **Contraseñas y secreto de firma:** la contraseña se almacena y compara sin hash, y el secreto JWT tiene un valor por defecto en el código si la variable no está definida. Ambos son riesgos prioritarios de la [Sección 11](./11_riesgos_y_deuda_tecnica.md).
+* **Formato de error uniforme:** `{"detail": "mensaje"}` en 400, 401, 403, 404, 409, 422 y 503. El manejador de errores de validación de `main.py` fue corregido (NC-06).
+* **Contraseñas y secreto de firma:** las contraseñas se cifran con `bcrypt` al registrar y se verifican mediante hash al iniciar sesión (NC-05 resuelta), y la aplicación exige `JWT_SECRET` al arrancar aplicando *fail-fast* si la variable no está definida (NC-11 resuelta).
 
 ## 8.8. Observabilidad
 
 * **Mensajería:** cada etapa deja un registro con `message_id` y `correlation_id`, y existen contadores en memoria (`application/messaging/observabilidad.py`). Es un prototipo sin conexión a la API.
 * **API:** no hay registros estructurados ni métricas expuestas. La dependencia `prometheus-fastapi-instrumentator` está declarada pero no se usa (NC-16).
-* **Estado del servicio:** `/health` es una comprobación de vida (liveness): confirma que la API responde, no que la base de datos esté disponible. Una comprobación de disponibilidad de la base está registrada como NC-09.
+* **Estado del servicio:** `/health` actúa como comprobación de vida y disponibilidad (liveness y readiness): ejecuta `SELECT 1` contra PostgreSQL mediante `PostgresStatusAdapter`, devolviendo `200 OK {"status": "ok", "database": "online"}` cuando hay conectividad o `503 Service Unavailable` si la base de datos falla (NC-09 resuelta).

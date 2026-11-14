@@ -30,7 +30,7 @@ La aplicación móvil Flutter es el único cliente. Se comunica con la API FastA
 | --- | --- | --- | --- |
 | Consumo de la API | Aplicación móvil hacia API | REST sobre HTTPS, JSON, cabecera `Authorization: Bearer` | URL de producción `https://api-linkclub.iscoutb.dev`. Contrato en `docs/api/openapi.yaml`. Errores con formato uniforme `{"detail": "mensaje"}`. |
 | Idempotencia de escrituras | Aplicación móvil hacia API | Cabecera `Idempotency-Key` (UUID v4) en las peticiones POST | La genera un interceptor del cliente HTTP de la aplicación. |
-| Subida de imágenes | Aplicación móvil hacia API | `multipart/form-data` en `POST /recursos/upload` | Extensiones permitidas: jpg, jpeg, png, webp, gif y svg. |
+| Subida de imágenes | Aplicación móvil hacia API | `multipart/form-data` en `POST /recursos/upload` | Extensiones permitidas: jpg, jpeg, png, webp y gif. |
 | Descarga de imágenes | Aplicación móvil hacia API | HTTPS, `GET /static/{archivo}` | Las imágenes se sirven desde el volumen de la API. |
 | Imágenes por URL externa | Aplicación móvil hacia sitios web de terceros | HTTPS | La publicación puede referenciar una imagen alojada fuera del sistema. |
 | Persistencia de datos | API hacia PostgreSQL | SQL con SQLAlchemy y psycopg2, red interna `dokploy-network`, puerto 5432 | Host interno `clubsutb-db-2m0uk5`, base de datos `linkclub`. |

@@ -53,4 +53,14 @@ graph TD
 
 ### 7.2.3. Almacenamiento de imágenes
 
-Las imágenes subidas por los usuarios se guardan en un volumen Docker montado en el contenedor de la API y se sirven bajo la ruta `/static`. La estrategia de persistencia multimedia y su evolución se
+Las imágenes subidas por los usuarios se guardan en un volumen Docker montado en el contenedor de la API y se sirven bajo la ruta `/static`. La estrategia de persistencia multimedia y su evolución se encuentran documentadas en el [ADR 0009](../adr/0009-estrategia-persistencia-multimedia.md):
+
+* **Persistencia:** el volumen `linkclub_uploads` se monta en `/app/uploads` dentro del contenedor de FastAPI, asegurando que los archivos binarios sobrevivan a reinicios y redespliegues de la imagen.
+* **Validación y nombrado:** el endpoint `POST /recursos/upload` admite únicamente imágenes con extensión `jpg`, `jpeg`, `png`, `webp` o `gif` (se excluye `svg` por seguridad), asigna un nombre único con UUIDv4 y devuelve la URL pública (`https://api-linkclub.iscoutb.dev/static/<uuid>.<ext>`).
+* **Desacoplamiento:** PostgreSQL almacena únicamente la referencia URL en la publicación, evitando almacenar blobs binarios en la base de datos.
+
+### 7.2.4. Integración continua y despliegue (CI/CD)
+
+* **Pruebas y análisis estático:** el workflow [`.github/workflows/backend-tests.yml`](../../.github/workflows/backend-tests.yml) ejecuta `pytest` con `PYTHONPATH=src` y envía el reporte de cobertura y calidad a SonarCloud en cada cambio hacia `master`.
+* **Gobernanza de contrato:** el workflow [`.github/workflows/contrato.yml`](../../.github/workflows/contrato.yml) valida `docs/api/openapi.yaml` con Spectral, verifica conformidad del backend mediante pruebas de contrato y detecta cambios incompatibles con `oasdiff`.
+* **Despliegue continuo:** tras aprobar los cambios en `master`, Dokploy reconstruye el contenedor de la API a partir de `backend/Dockerfile` y actualiza el servicio sin intervención manual.

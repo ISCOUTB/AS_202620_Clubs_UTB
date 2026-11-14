@@ -1,6 +1,6 @@
 # 9. Decisiones de diseño
 
-Esta sección resume las decisiones arquitectónicas de LinkClub y remite al Registro de Decisiones de Arquitectura (ADR) correspondiente para el detalle completo (contexto, alternativas descartadas y consecuencias). No repite ese contenido: su propósito es dar trazabilidad entre la decisión, el escenario que la motiva y los bloques que la implementan.
+Esta sección resume las decisiones arquitectónicas de LinkClub y remite al Registro de Decisiones de Arquitectura (ADR) correspondiente para el detalle completo (contexto, alternativas descartadas y consecuencias). No repite ese contenido: su propósito es dar trazabilidad entre la decisión, la escenario que la motiva y los bloques que la implementan.
 
 | # | Decisión | Estado | Motivada por | ADR | Implementada en |
 |---|---|---|---|---|---|
@@ -12,7 +12,8 @@ Esta sección resume las decisiones arquitectónicas de LinkClub y remite al Reg
 | 6 | Validar tokens con JWT asimétrico de Supabase (JWKS) | Reemplazada por la decisión 7 | Escenario **U3** | [`0006-validacion-token-jwt-supabase.md`](../adr/0006-validacion-token-jwt-supabase.md) | Sin implementación vigente |
 | 7 | Migrar a infraestructura autónoma: PostgreSQL y autenticación JWT propios, desplegados en Dokploy | Aceptada | Deriva arquitectónica detectada en S10, **U2** y restricciones T4, T5, F1 | [`0007-migracion-dokploy-postgresql.md`](../adr/0007-migracion-dokploy-postgresql.md) | `deploy/compose.lab.yaml`, `backend/Dockerfile`, `adapters/outbound/auth/local_jwt_adapter.py`, `adapters/outbound/postgres/`, `backend/migrations/` |
 | 8 | No extraer Publicaciones: mantener un único backend desplegable | Propuesta | Escenarios **U1** y **U2**, restricciones C2 y F1 | [`0008-no-extraer-publicaciones.md`](../adr/0008-no-extraer-publicaciones.md) | `backend/src/linkclub/main.py` |
-| 9 | Estrategia de persistencia multimedia | En elaboración (Evidencia S12) | Persistencia de imágenes subidas y su relación con el despliegue | `0009-estrategia-persistencia-multimedia.md` | `adapters/inbound/api/recurso_router.py` y volumen de imágenes ([Sección 7](./07_vista_de_despliegue.md)) |
+| 9 | Almacenamiento local de archivos multimedia vía volúmenes Docker | Aceptada | Persistencia de imágenes subidas, restricciones F1, C2 y ADR 0007 | [`0009-estrategia-persistencia-multimedia.md`](../adr/0009-estrategia-persistencia-multimedia.md) | `adapters/inbound/api/recurso_router.py`, `main.py` y volumen `linkclub_uploads` ([Sección 7](./07_vista_de_despliegue.md)) |
+| 10 | Mensajería asíncrona para notificar publicaciones creadas (al-menos-una-vez con consumidor idempotente) | Propuesta | Escenarios **U1** y **U2**, restricciones C2 y F1 | [`0010-mensajeria-asincrona-notificaciones.md`](../adr/0010-mensajeria-asincrona-notificaciones.md) | `application/messaging/`, `application/use_cases/notificar_publicacion.py`, `adapters/outbound/messaging/` |
 
 ## Estado de las decisiones
 
@@ -24,8 +25,5 @@ La idempotencia de la creación de publicaciones no tiene un ADR propio: su dise
 
 | Tema | Cuándo se registra |
 |---|---|
-| Persistencia multimedia (volumen local frente a almacenamiento de objetos) | ADR 0009, Evidencia S12 |
-| Algoritmo de protección de contraseñas | Al implementarse, como ADR propio o como ampliación del ADR 0007 |
 | Autorización por rol dentro de cada club (respuesta 403) | Cuando se implemente el contexto Clubes con membresías |
-| Estrategia de respaldo de la base de datos | Junto con la actualización de la [Sección 11](./11_riesgos_y_deuda_tecnica.md) |
-| Manejo de fallos de conexión a la base (tiempos de espera, respuesta controlada) | Cuando `/health` y los adaptadores de persistencia sondeen la base real |
+| Estrategia de respaldo de la base de datos | Junto con la automatización de `pg_dump` y respaldo del volumen ([Sección 11](./11_riesgos_y_deuda_tecnica.md)) |

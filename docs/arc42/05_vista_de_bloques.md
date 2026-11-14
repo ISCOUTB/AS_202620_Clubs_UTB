@@ -36,9 +36,9 @@ Código en `backend/src/linkclub/`.
 | Aplicación: puertos | `application/ports/` | Puertos de entrada (salud, clubes, publicaciones) y de salida (autenticación, repositorios de clubes y publicaciones, estado, mensajería). | Implementado |
 | Aplicación: mensajería | `application/messaging/` | Mensaje versionado `publicacion.creada`, validación de contrato, métricas y trazas. | Prototipo verificado por pruebas |
 | Adaptadores de entrada | `adapters/inbound/api/` | Routers de salud, autenticación, clubes, publicaciones y recursos, y la dependencia de seguridad `require_auth`. | Implementado, con desviaciones |
-| Adaptador de autenticación | `adapters/outbound/auth/` | `LocalJwtAuthAdapter`: verifica firma, expiración y sujeto del token. | Implementado |
-| Adaptadores de persistencia (PostgreSQL) | `adapters/outbound/postgres/` | Sesión de base de datos, modelos SQLAlchemy y `PublicacionRepositoryPostgres`. | Implementado |
-| Adaptadores en memoria | `adapters/outbound/persistence/` | Catálogo de clubes, estado de salud y deduplicación de mensajes. | Temporales |
+| Adaptador de autenticación | `adapters/outbound/auth/` | `LocalJwtAuthAdapter`: verifica firma, expiración y sujeto del token con `JWT_SECRET` obligatorio. | Implementado |
+| Adaptadores de persistencia (PostgreSQL) | `adapters/outbound/postgres/` | Sesión de base de datos, modelos SQLAlchemy (`UUID`), `PublicacionRepositoryPostgres` y `PostgresStatusAdapter` (`SELECT 1`). | Implementado |
+| Adaptadores en memoria | `adapters/outbound/persistence/` | Catálogo de clubes y deduplicación de mensajes. | Temporales |
 | Adaptadores de mensajería | `adapters/outbound/messaging/` | Broker y outbox en memoria con reintentos y cola de mensajes fallidos. | Prototipo; sin endpoint que los invoque |
 
 Componentes de persistencia sin uso en la API vigente: `in_memory_publicacion_adapter.py` y `postgres_publicacion_adapter.py`. Se registran como deuda técnica en la [Sección 11](./11_riesgos_y_deuda_tecnica.md).
@@ -47,9 +47,9 @@ Componentes de persistencia sin uso en la API vigente: `in_memory_publicacion_ad
 
 | Contexto | Datos que administra | Código principal | Estado |
 |---|---|---|---|
-| Usuarios | Identidad, perfil, credenciales | `auth_router.py`, `auth_dependency.py`, `usuario_model.py`, `local_jwt_adapter.py` | Registro, inicio de sesión y validación de token |
+| Usuarios | Identidad, perfil, credenciales | `auth_router.py`, `auth_dependency.py`, `usuario_model.py`, `local_jwt_adapter.py` | Registro con hash `bcrypt`, inicio de sesión y validación de token |
 | Clubes | Clubes y membresías | `club.py`, `consultar_clubes.py`, `club_router.py`, `in_memory_club_adapter.py` | Solo consulta, con datos en memoria |
-| Publicaciones | Avisos, encuestas y noticias | `publicacion.py`, `crear_publicacion.py`, `publicacion_router.py`, `publicacion_repository.py` | Creación y listado con persistencia |
+| Publicaciones | Avisos, encuestas y noticias | `publicacion.py`, `crear_publicacion.py`, `publicacion_router.py`, `publicacion_repository.py` | Creación y listado con persistencia e idempotencia por autor |
 
 El detalle de las relaciones está en [`mapa-contextos-fundamentacion.md`](./mapa-contextos-fundamentacion.md) y la propiedad de datos en [`tabla_modulo.md`](./tabla_modulo.md).
 

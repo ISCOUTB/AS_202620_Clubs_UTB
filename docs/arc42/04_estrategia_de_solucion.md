@@ -26,9 +26,9 @@ El estilo se aplica completo en los casos de uso de salud, clubes y publicacione
 
 | Meta de calidad | Enfoque en esta estrategia |
 |---|---|
-| Disponibilidad | Aislamiento del dominio respecto a la infraestructura vía puertos. Idempotencia en la creación de publicaciones mediante la cabecera `Idempotency-Key`, para que un reintento tras un fallo parcial no duplique datos. Mensajes de error controlados en el cliente ante fallos de red. Previsto: comprobación real de la base en `/health`, tiempos de espera y respaldo periódico. |
-| Rendimiento | Base de datos y API en la misma red interna del servidor. Índices por club y fecha definidos en la migración inicial. La estrategia de caché y su política de invalidación se definen en la [Sección 8](./08_conceptos_transversales.md). La latencia aún no se ha medido. |
-| Seguridad (escenario U3, [Sección 10](./10_requisitos_de_calidad.md)) | Token JWT exigido por una dependencia de autenticación en las rutas de escritura, con la identidad del autor tomada siempre del token. Comunicación por HTTPS. Lecturas públicas según el contrato. |
+| Disponibilidad | Aislamiento del dominio respecto a la infraestructura vía puertos. Comprobación real de disponibilidad de PostgreSQL en `/health` (`SELECT 1` con respuesta controlada `503` si falla). Idempotencia en la creación de publicaciones mediante la cabecera `Idempotency-Key`, para que un reintento tras un fallo parcial no duplique datos. Mensajes de error controlados en el cliente ante fallos de red. Previsto: tiempos de espera y respaldo periódico. |
+| Rendimiento | Base de datos y API en la misma red interna del servidor. Índices por club y fecha definidos en la migración inicial. La estrategia de caché y su política de invalidación se definen en la [Sección 8](./08_conceptos_transversales.md). Medición preliminar de latencia P95 registrada en [`mediciones_calidad.md`](../mediciones_calidad.md) (131 ms ≤ 800 ms). |
+| Seguridad (escenario U3, [Sección 10](./10_requisitos_de_calidad.md)) | Token JWT exigido por una dependencia de autenticación en las rutas de escritura, secreto `JWT_SECRET` obligatorio al arrancar, contraseñas protegidas con hash `bcrypt` y la identidad del autor tomada siempre del token. Comunicación por HTTPS. Lecturas públicas según el contrato. |
 | Usabilidad | No condicionada por esta decisión de backend; se aborda en el diseño de la app Flutter, fuera del alcance de esta sección. |
 | Mantenibilidad | Separación por responsabilidad (dominio, aplicación, adaptadores). Contrato OpenAPI comprobado en cada Pull Request, pruebas automatizadas con pytest y análisis estático en SonarCloud. |
 
@@ -37,7 +37,7 @@ El estilo se aplica completo en los casos de uso de salud, clubes y publicacione
 | Aspecto | Estado |
 |---|---|
 | Arquitectura hexagonal | Aplicada en salud, clubes y publicaciones. Desviaciones declaradas en autenticación, carga de imágenes y listados de publicaciones. |
-| Persistencia en PostgreSQL | Operativa para usuarios y publicaciones. El catálogo de clubes se sirve aún desde un adaptador en memoria. |
-| Autenticación propia | Operativa: registro, inicio de sesión y validación de token. Pendientes: protección de contraseñas con hash y autorización por rol dentro de cada club. |
-| Contrato OpenAPI | Verificado en el pipeline. Algunas rutas del contrato aún no están implementadas (membresías, eventos, asistencia). |
+| Persistencia en PostgreSQL | Operativa para usuarios y publicaciones con identificadores `UUID` sincronizados con el esquema SQL. El catálogo de clubes se sirve aún desde un adaptador en memoria. |
+| Autenticación propia | Operativa: registro con hash `bcrypt` y validación de matrícula única, inicio de sesión OAuth2 (`username`) y validación de token con `JWT_SECRET` obligatorio. Pendiente: autorización por rol dentro de cada club. |
+| Contrato OpenAPI | Verificado en el pipeline (`v3.0.0`). Algunas rutas del contrato aún no están implementadas (membresías, eventos, asistencia). |
 | Despliegue | Operativo en Dokploy con dominio HTTPS. |
