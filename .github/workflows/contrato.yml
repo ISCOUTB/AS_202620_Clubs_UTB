@@ -28,7 +28,9 @@ jobs:
           python-version: "3.12"
       - name: Instalar dependencias
         working-directory: backend
-        run: pip install --only-binary :all: -r requirements.txt
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
       - name: Probar que el codigo cumple el contrato
         working-directory: backend
         env:
