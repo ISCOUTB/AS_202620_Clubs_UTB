@@ -1,5 +1,6 @@
 import os
 import sys
+import uuid
 from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator
@@ -38,6 +39,13 @@ def _uuid_en_sqlite(tipo, compilador, **kw):
 TOKEN_VALIDO = "token-valido"
 AUTOR_DE_PRUEBA = "usuario-123"
 
+CLUB_1_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+CLUB_2_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
+CLUB_3_ID = uuid.UUID("00000000-0000-0000-0000-000000000003")
+CLUB_4_ID = uuid.UUID("00000000-0000-0000-0000-000000000004")
+CLUB_5_ID = uuid.UUID("00000000-0000-0000-0000-000000000005")
+CLUB_IDS = [CLUB_1_ID, CLUB_2_ID, CLUB_3_ID, CLUB_4_ID, CLUB_5_ID]
+
 
 class AuthFalso(AuthPort):
     def verificar(self, token: str) -> str:
@@ -65,7 +73,7 @@ def entorno_de_prueba():
             password_hash="x",
         ))
         db.add_all([
-            ClubModel(nombre=f"Club {i}", descripcion="d", categoria="c")
+            ClubModel(id=CLUB_IDS[i - 1], nombre=f"Club {i}", descripcion="d", categoria="c")
             for i in range(1, 6)
         ])
         db.commit()

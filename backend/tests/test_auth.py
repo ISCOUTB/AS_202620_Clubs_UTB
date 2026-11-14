@@ -1,13 +1,13 @@
-from fastapi.routing import APIRoute
-
-from linkclub.adapters.inbound.api.auth_dependency import require_auth
-
-
 import os
 import sys
-from fastapi.testclient import TestClient
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
+from fastapi.routing import APIRoute
+from fastapi.testclient import TestClient
+
+from conftest import AUTOR_DE_PRUEBA, CLUB_1_ID, CLUB_4_ID
+from linkclub.adapters.inbound.api.auth_dependency import require_auth
 from linkclub.main import app  # pyright: ignore[reportMissingImports]
 
 client = TestClient(app)
@@ -17,14 +17,14 @@ CUERPO = {"titulo": "x", "contenido": "y"}
 
 
 def test_publicar_sin_token_devuelve_401():
-    r = client.post("/clubes/1/publicaciones", json=CUERPO)
+    r = client.post(f"/clubes/{CLUB_1_ID}/publicaciones", json=CUERPO)
     assert r.status_code == 401
     assert isinstance(r.json()["detail"], str)
 
 
 def test_publicar_con_token_invalido_devuelve_401():
     r = client.post(
-        "/clubes/1/publicaciones",
+        f"/clubes/{CLUB_1_ID}/publicaciones",
         json=CUERPO,
         headers={"Authorization": "Bearer token-falso"},
     )
@@ -33,14 +33,13 @@ def test_publicar_con_token_invalido_devuelve_401():
 
 
 def test_publicar_con_token_valido_devuelve_201(headers_auth):
-    r = client.post("/clubes/1/publicaciones", json=CUERPO, headers=headers_auth)
+    r = client.post(f"/clubes/{CLUB_1_ID}/publicaciones", json=CUERPO, headers=headers_auth)
     assert r.status_code == 201
 
 
 def test_listar_publicaciones_es_publico():
-    r = client.get("/clubes/1/publicaciones")
+    r = client.get(f"/clubes/{CLUB_1_ID}/publicaciones")
     assert r.status_code == 200
-
 
 
 METODOS_ESCRITURA = {"POST", "PUT", "PATCH", "DELETE"}
@@ -75,7 +74,8 @@ def test_toda_ruta_de_escritura_exige_auth():
     print(f"\nU3: {len(rutas) - len(sin_auth)} de {len(rutas)} rutas de escritura protegidas")
     assert not sin_auth, f"Rutas de escritura sin auth: {sin_auth}"
 
+
 def test_publicacion_guarda_el_autor_del_token(headers_auth):
-    r = client.post("/clubes/4/publicaciones", json=CUERPO, headers=headers_auth)
+    r = client.post(f"/clubes/{CLUB_4_ID}/publicaciones", json=CUERPO, headers=headers_auth)
     assert r.status_code == 201
-    assert r.json()["autor_id"] == "usuario-123"  # AUTOR_DE_PRUEBA de conftest.py
+    assert r.json()["autor_id"] == AUTOR_DE_PRUEBA

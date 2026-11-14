@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Annotated, Optional, List
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
@@ -16,15 +17,16 @@ router = APIRouter(tags=["publicaciones"])
 
 TITULO_POR_DEFECTO = "Publicación"
 
+
 class CrearPublicacionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    club_id: Optional[str] = "1"
     titulo: Optional[str] = TITULO_POR_DEFECTO
     contenido: str
     tipo: str = "aviso"
     opciones: list[str] | None = None
     imagen_url: Optional[str] = None
+
 
 class PublicacionResponse(BaseModel):
     id: str
@@ -39,6 +41,7 @@ class PublicacionResponse(BaseModel):
     creado_en: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
 
 def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
     usuario = (
@@ -57,12 +60,14 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
 
     return usuario.matricula
 
+
 def _validar_encuesta(payload: CrearPublicacionRequest) -> None:
     if payload.tipo == "encuesta" and not payload.opciones:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Una publicación de tipo encuesta requiere al menos una opción",
         )
+
 
 def a_respuesta(pub) -> PublicacionResponse:
     opciones_val = None
@@ -89,19 +94,48 @@ def a_respuesta(pub) -> PublicacionResponse:
         creado_en=pub.creada_en if hasattr(pub, 'creada_en') else getattr(pub, "creado_en", datetime.now()),
     )
 
+
 def _inyectar_nombres(db: Session, publicaciones: list) -> list[PublicacionResponse]:
     respuestas = [a_respuesta(p) for p in publicaciones]
     matriculas = {r.autor_id for r in respuestas if r.autor_id}
-    
+
     if matriculas:
         usuarios = db.query(UsuarioModel).filter(UsuarioModel.matricula.in_(matriculas)).all()
         mapa_nombres = {u.matricula: getattr(u, "nombre", u.matricula) for u in usuarios}
-        
+
         for r in respuestas:
             if r.autor_id in mapa_nombres and mapa_nombres[r.autor_id]:
                 r.autor_nombre = mapa_nombres[r.autor_id]
-                
+
     return respuestas
+
+
+@router.get(
+    "/clubes/{club_id}/publicaciones",
+    response_model=List[PublicacionResponse],
+    status_code=status.HTTP_200_OK,
+)
+def listar_publicaciones_por_club(
+    club_id: str,
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        club_uuid = uuid.UUID(club_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="badly formed hexadecimal UUID string",
+        )
+
+    consulta = db.query(PublicacionModel).filter(PublicacionModel.club_id == club_uuid)
+    if hasattr(PublicacionModel, "creada_en"):
+        consulta = consulta.order_by(PublicacionModel.creada_en.desc())
+    elif hasattr(PublicacionModel, "creado_en"):
+        consulta = consulta.order_by(PublicacionModel.creado_en.desc())
+
+    publicaciones = consulta.all()
+    return _inyectar_nombres(db, publicaciones)
+
 
 @router.post(
     "/clubes/{club_id}/publicaciones",
@@ -142,11 +176,11 @@ def crear_publicacion_por_club(
         )
 
         respuesta = a_respuesta(pub_guardada)
-        
+
         usuario = db.query(UsuarioModel).filter(UsuarioModel.matricula == autor_matricula).first()
         if usuario and hasattr(usuario, "nombre") and usuario.nombre:
             respuesta.autor_nombre = usuario.nombre
-            
+
         return respuesta
     except ValueError as val_error:
         raise HTTPException(

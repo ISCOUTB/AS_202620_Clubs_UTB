@@ -4,6 +4,7 @@ import yaml
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
+from conftest import CLUB_1_ID, CLUB_2_ID, CLUB_3_ID
 from linkclub.main import app
 
 RUTA = Path(__file__).resolve().parents[2] / "docs" / "api" / "openapi.yaml"
@@ -27,7 +28,7 @@ def test_health_cumple_contrato():
 
 def test_crear_publicacion_cumple_contrato(headers_auth):
     r = client.post(
-        "/clubes/1/publicaciones",
+        f"/clubes/{CLUB_1_ID}/publicaciones",
         json={"titulo": "Hola", "contenido": "Reunion el lunes", "tipo": "aviso"},
         headers=headers_auth,
     )
@@ -42,7 +43,7 @@ def test_rutas_del_codigo_existen_en_el_contrato():
 
 def test_noticia_cumple_contrato(headers_auth):
     r = client.post(
-        "/clubes/2/publicaciones",
+        f"/clubes/{CLUB_2_ID}/publicaciones",
         json={"titulo": "Ganamos", "contenido": "Torneo interno", "tipo": "noticia"},
         headers=headers_auth,
     )
@@ -52,7 +53,7 @@ def test_noticia_cumple_contrato(headers_auth):
 
 def test_error_422_cumple_contrato(headers_auth):
     r = client.post(
-        "/clubes/3/publicaciones",
+        f"/clubes/{CLUB_3_ID}/publicaciones",
         json={"titulo": "sin contenido"},
         headers=headers_auth,
     )
@@ -62,7 +63,7 @@ def test_error_422_cumple_contrato(headers_auth):
 
 def test_error_401_cumple_contrato():
     r = client.post(
-        "/clubes/3/publicaciones",
+        f"/clubes/{CLUB_3_ID}/publicaciones",
         json={"titulo": "x", "contenido": "y"},
     )
     assert r.status_code == 401
