@@ -12,7 +12,7 @@ class CrearPublicacionPort(ABC):
         titulo: str,
         contenido: str,
         tipo: str,
-        opciones: list[str] | None = None,
+        opciones: dict | list | None = None,
         idempotency_key: str | None = None,
     ) -> Publicacion:
         ...

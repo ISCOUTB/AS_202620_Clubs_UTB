@@ -1,25 +1,32 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-import os
 
+from linkclub.adapters.inbound.api.auth_router import router as auth_router
+from linkclub.adapters.inbound.api.club_router import router as club_router
 from linkclub.adapters.inbound.api.health_router import router as health_router
 from linkclub.adapters.inbound.api.publicacion_router import router as publicacion_router
-from linkclub.adapters.inbound.api.club_router import router as club_router
-from linkclub.adapters.inbound.api.auth_router import router as auth_router
 from linkclub.adapters.inbound.api.recurso_router import router as recurso_router
 
 app = FastAPI(title="LinkClub API")
 
+raw_origins = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:8080",
+)
+allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*", "Idempotency-Key", "Authorization", "Content-Type"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
 )
+
 
 @app.exception_handler(RequestValidationError)
 async def manejar_validacion(request: Request, exc: RequestValidationError):
@@ -28,9 +35,11 @@ async def manejar_validacion(request: Request, exc: RequestValidationError):
     mensaje = f"{campo}: {primero['msg']}" if campo else primero["msg"]
     return JSONResponse(status_code=422, content={"detail": mensaje})
 
-os.makedirs("uploads", exist_ok=True)
 
-app.mount("/static", StaticFiles(directory="uploads"), name="static")
+upload_dir = os.environ.get("UPLOAD_DIR", "uploads")
+os.makedirs(upload_dir, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=upload_dir), name="static")
 
 app.include_router(health_router)
 app.include_router(publicacion_router)
