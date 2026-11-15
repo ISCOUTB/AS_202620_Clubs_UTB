@@ -2,10 +2,10 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+import bcrypt
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -25,7 +25,20 @@ if not JWT_SECRET:
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_EXPIRES_DAYS", "7"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hashear_password(password: str) -> str:
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+
+
+def _verificar_password(password_plano: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(
+            password_plano.encode("utf-8"),
+            password_hash.encode("utf-8"),
+        )
+    except ValueError:
+        return False
 
 
 class CrearUsuarioRequest(BaseModel):
@@ -33,7 +46,7 @@ class CrearUsuarioRequest(BaseModel):
     nombre: str = Field(min_length=1)
     matricula: str = Field(pattern=r"^T[0-9]{7,8}$")
     correo: str = Field(pattern=r"^[^@\s]+@utb\.edu\.co$")
-    password: str = Field(min_length=6)
+    password: str = Field(min_length=6, max_length=72)
 
 
 class UsuarioResponse(BaseModel):
@@ -77,7 +90,7 @@ def registrar_usuario(
     if db.query(UsuarioModel).filter(UsuarioModel.matricula == matricula_normalizada).first():
         raise HTTPException(status_code=409, detail="La matrícula ya está registrada")
 
-    hashed_password = pwd_context.hash(payload.password)
+    hashed_password = _hashear_password(payload.password)
 
     nuevo_usuario = UsuarioModel(
         matricula=matricula_normalizada,
@@ -114,7 +127,7 @@ def iniciar_sesion(
     correo_normalizado = form_data.username.strip().lower()
     usuario = db.query(UsuarioModel).filter(UsuarioModel.correo == correo_normalizado).first()
 
-    if not usuario or not pwd_context.verify(form_data.password, usuario.password_hash):
+    if not usuario or not _verificar_password(form_data.password, usuario.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
