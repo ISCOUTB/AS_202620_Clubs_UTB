@@ -13,7 +13,7 @@ class AppTheme {
   ); // Morado (Detalles secundarios)
 
   // Colores del Modo Claro (Light Theme)
-  // Ajuste premium: Fondo ligeramente gris/azulado (Slate 50) para que las tarjetas blancas resalten.
+  // Fondo ligeramente gris/azulado (Slate 50) para que las tarjetas blancas resalten.
   static const Color backgroundLight = Color(0xFFF8FAFC);
   static const Color surfaceLight = Colors.white; // Tarjetas puramente blancas
   static const Color textMainLight = Color(
