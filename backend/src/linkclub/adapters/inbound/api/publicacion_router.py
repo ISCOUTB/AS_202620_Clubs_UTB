@@ -9,9 +9,11 @@ from linkclub.adapters.inbound.api.auth_dependency import require_auth
 from linkclub.adapters.outbound.postgres.database import get_db
 from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
-
+from linkclub.adapters.outbound.postgres.publicacion_repository import (
+    PublicacionRepositoryPostgres,
+)
 from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
-from linkclub.adapters.outbound.persistence.postgres_publicacion_adapter import PostgresPublicacionAdapter
+from linkclub.domain.publicacion import PublicacionDuplicada
 
 router = APIRouter(tags=["publicaciones"])
 
@@ -164,12 +166,12 @@ def crear_publicacion_por_club(
             "imagen_url": payload.imagen_url
         }
 
-        repository = PostgresPublicacionAdapter(db)
+        repository = PublicacionRepositoryPostgres(db)
         use_case = CrearPublicacionUseCase(repository)
 
         pub_guardada = use_case.ejecutar(
             club_id=club_id,
-            autor_matricula=autor_matricula,
+            autor_id=autor_matricula,
             titulo=payload.titulo or TITULO_POR_DEFECTO,
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
@@ -184,6 +186,11 @@ def crear_publicacion_por_club(
             respuesta.autor_nombre = usuario.nombre
 
         return respuesta
+    except PublicacionDuplicada as dup_error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(dup_error)
+        )
     except ValueError as val_error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

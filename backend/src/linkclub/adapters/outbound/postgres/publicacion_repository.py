@@ -36,7 +36,7 @@ class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
         pub_uuid = (
             publicacion.id
             if isinstance(publicacion.id, uuid.UUID)
-            else uuid.UUID(str(publicacion.id))
+            else (uuid.UUID(str(publicacion.id)) if publicacion.id else uuid.uuid4())
         )
 
         nueva_pub_db = PublicacionModel(
@@ -72,7 +72,7 @@ class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
 
     def _mapear_a_dominio(self, pub_db: PublicacionModel) -> Publicacion:
         return Publicacion(
-            id=pub_db.id,
+            id=str(pub_db.id),
             club_id=str(pub_db.club_id),
             autor_id=pub_db.autor_matricula,
             titulo=pub_db.titulo,
