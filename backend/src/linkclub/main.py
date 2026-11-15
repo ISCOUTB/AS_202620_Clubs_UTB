@@ -1,26 +1,63 @@
+from contextlib import asynccontextmanager
 import logging
 import os
+from uuid import NAMESPACE_DNS, uuid5
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import SQLAlchemyError
 
 from linkclub.adapters.inbound.api.auth_router import router as auth_router
 from linkclub.adapters.inbound.api.club_router import router as club_router
 from linkclub.adapters.inbound.api.health_router import router as health_router
 from linkclub.adapters.inbound.api.publicacion_router import router as publicacion_router
 from linkclub.adapters.inbound.api.recurso_router import router as recurso_router
+from linkclub.adapters.outbound.persistence.in_memory_club_adapter import _SEMILLA
+from linkclub.adapters.outbound.postgres.database import Base, SessionLocal, engine
+from linkclub.adapters.outbound.postgres.models import (
+    club_model,
+    publicacion_model,
+    usuario_model,
+)
+from linkclub.adapters.outbound.postgres.models.club_model import ClubModel
 
 logger = logging.getLogger("linkclub.api")
 
-app = FastAPI(title="LinkClub API")
 
-raw_origins = os.environ.get(
-    "CORS_ORIGINS",
-    "",
-)
+def _inicializar_base_datos() -> None:
+    """Crea tablas faltantes y sincroniza los clubes semilla en PostgreSQL al arrancar."""
+    try:
+        Base.metadata.create_all(bind=engine)
+        with SessionLocal() as db:
+            for nombre, descripcion, categoria in _SEMILLA:
+                club_uuid = uuid5(NAMESPACE_DNS, f"linkclub.{nombre}")
+                existe = db.query(ClubModel).filter(ClubModel.id == club_uuid).first()
+                if not existe:
+                    db.add(
+                        ClubModel(
+                            id=club_uuid,
+                            nombre=nombre,
+                            descripcion=descripcion,
+                            categoria=categoria,
+                        )
+                    )
+            db.commit()
+    except SQLAlchemyError:
+        logger.exception("No se pudo inicializar el esquema/semilla en PostgreSQL al arrancar")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _inicializar_base_datos()
+    yield
+
+
+app = FastAPI(title="LinkClub API", lifespan=lifespan)
+
+raw_origins = os.environ.get("CORS_ORIGINS", "")
 allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
 app.add_middleware(

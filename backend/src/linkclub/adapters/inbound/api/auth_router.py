@@ -6,7 +6,8 @@ import bcrypt
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -32,21 +33,39 @@ def _hashear_password(password: str) -> str:
 
 
 def _verificar_password(password_plano: str, password_hash: str) -> bool:
+    if not password_plano or not password_hash:
+        return False
     try:
         return bcrypt.checkpw(
             password_plano.encode("utf-8"),
             password_hash.encode("utf-8"),
         )
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 
 class CrearUsuarioRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
     nombre: str = Field(min_length=1)
     matricula: str = Field(pattern=r"^T[0-9]{7,8}$")
     correo: str = Field(pattern=r"^[^@\s]+@utb\.edu\.co$")
     password: str = Field(min_length=6, max_length=72)
+
+    @field_validator("nombre", mode="before")
+    @classmethod
+    def normalizar_nombre(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("matricula", mode="before")
+    @classmethod
+    def normalizar_matricula(cls, v):
+        return v.strip().upper() if isinstance(v, str) else v
+
+    @field_validator("correo", mode="before")
+    @classmethod
+    def normalizar_correo(cls, v):
+        return v.strip().lower() if isinstance(v, str) else v
 
 
 class UsuarioResponse(BaseModel):
@@ -84,10 +103,18 @@ def registrar_usuario(
     correo_normalizado = payload.correo.strip().lower()
     matricula_normalizada = payload.matricula.strip().upper()
 
-    if db.query(UsuarioModel).filter(UsuarioModel.correo == correo_normalizado).first():
+    if (
+        db.query(UsuarioModel)
+        .filter(func.lower(UsuarioModel.correo) == correo_normalizado)
+        .first()
+    ):
         raise HTTPException(status_code=409, detail="El correo ya está registrado")
 
-    if db.query(UsuarioModel).filter(UsuarioModel.matricula == matricula_normalizada).first():
+    if (
+        db.query(UsuarioModel)
+        .filter(UsuarioModel.matricula == matricula_normalizada)
+        .first()
+    ):
         raise HTTPException(status_code=409, detail="La matrícula ya está registrada")
 
     hashed_password = _hashear_password(payload.password)
@@ -125,7 +152,11 @@ def iniciar_sesion(
     db: Annotated[Session, Depends(get_db)],
 ):
     correo_normalizado = form_data.username.strip().lower()
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.correo == correo_normalizado).first()
+    usuario = (
+        db.query(UsuarioModel)
+        .filter(func.lower(UsuarioModel.correo) == correo_normalizado)
+        .first()
+    )
 
     if not usuario or not _verificar_password(form_data.password, usuario.password_hash):
         raise HTTPException(

@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import Annotated, Optional, List
+from typing import Annotated, List, Optional
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
@@ -49,7 +51,8 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
     usuario = (
         db.query(UsuarioModel)
         .filter(
-            (UsuarioModel.correo == autor_identity) | (UsuarioModel.matricula == autor_identity)
+            (UsuarioModel.correo == autor_identity)
+            | (UsuarioModel.matricula == autor_identity)
         )
         .first()
     )
@@ -57,7 +60,7 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
     if not usuario:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Usuario con identidad '{autor_identity}' no existe en la base de datos."
+            detail=f"Usuario con identidad '{autor_identity}' no existe en la base de datos.",
         )
 
     return usuario.matricula
@@ -66,7 +69,7 @@ def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
 def _validar_encuesta(payload: CrearPublicacionRequest) -> None:
     if payload.tipo == "encuesta" and not payload.opciones:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail="Una publicación de tipo encuesta requiere al menos una opción",
         )
 
@@ -92,10 +95,14 @@ def a_respuesta(pub) -> PublicacionResponse:
         autor_nombre=getattr(pub, "autor_nombre", None) or autor_val,
         titulo=pub.titulo or TITULO_POR_DEFECTO,
         contenido=pub.contenido,
-        tipo=pub.tipo.value if hasattr(pub.tipo, 'value') else str(pub.tipo),
+        tipo=pub.tipo.value if hasattr(pub.tipo, "value") else str(pub.tipo),
         opciones=opciones_val,
         imagen_url=imagen_url_val,
-        creado_en=pub.creada_en if hasattr(pub, 'creada_en') else getattr(pub, "creado_en", datetime.now()),
+        creado_en=(
+            pub.creada_en
+            if hasattr(pub, "creada_en")
+            else getattr(pub, "creado_en", datetime.now())
+        ),
     )
 
 
@@ -125,11 +132,11 @@ def listar_publicaciones_por_club(
 ):
     try:
         club_uuid = uuid.UUID(club_id)
-    except ValueError:
+    except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             detail="badly formed hexadecimal UUID string",
-        )
+        ) from exc
 
     consulta = db.query(PublicacionModel).filter(PublicacionModel.club_id == club_uuid)
     if hasattr(PublicacionModel, "creada_en"):
@@ -147,7 +154,7 @@ def listar_publicaciones_por_club(
     status_code=status.HTTP_201_CREATED,
     responses={
         422: {"description": "Error de validación en los datos de la publicación"},
-        409: {"description": "Conflicto de idempotencia"}
+        409: {"description": "Conflicto de idempotencia"},
     },
 )
 def crear_publicacion_por_club(
@@ -163,7 +170,7 @@ def crear_publicacion_por_club(
     try:
         meta_data = {
             "opciones": payload.opciones,
-            "imagen_url": payload.imagen_url
+            "imagen_url": payload.imagen_url,
         }
 
         repository = PublicacionRepositoryPostgres(db)
@@ -176,7 +183,7 @@ def crear_publicacion_por_club(
             contenido=payload.contenido,
             tipo=payload.tipo or "aviso",
             opciones=meta_data,
-            idempotency_key=idempotency_key
+            idempotency_key=idempotency_key,
         )
 
         respuesta = a_respuesta(pub_guardada)
@@ -189,15 +196,21 @@ def crear_publicacion_por_club(
     except PublicacionDuplicada as dup_error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(dup_error)
-        )
+            detail=str(dup_error),
+        ) from dup_error
     except ValueError as val_error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(val_error)
-        )
+            status_code=422,
+            detail=str(val_error),
+        ) from val_error
+    except IntegrityError as int_error:
+        db.rollback()
+        raise HTTPException(
+            status_code=404,
+            detail="El club indicado no existe en la base de datos.",
+        ) from int_error
     except Exception as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Error al guardar publicación: {str(error)}"
-        )
+            status_code=422,
+            detail=f"Error al guardar publicación: {str(error)}",
+        ) from error
