@@ -3,16 +3,17 @@ FROM python:3.12-slim
 WORKDIR /app
 
 ENV PYTHONPATH=/app/src \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    TMPDIR=/tmp
 
 RUN useradd -m -u 1000 appuser
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt  # NOSONAR
+RUN mkdir -p /tmp && chmod 1777 /tmp && \
+    pip install --no-cache-dir --only-binary :all: -r requirements.txt  # NOSONAR
 
 COPY src/ ./src/
 COPY migrations/ ./migrations/
-
 
 RUN mkdir -p /app/uploads && chown -R appuser:appuser /app  # NOSONAR
 USER appuser

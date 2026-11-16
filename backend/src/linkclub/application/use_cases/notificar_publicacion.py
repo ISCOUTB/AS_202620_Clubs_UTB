@@ -10,13 +10,13 @@ class NotificarPublicacionCreada:
         self.notificador, self.dedup, self.metricas = notificador, dedup, metricas
 
     def __call__(self, raw: str) -> None:
-        m = Mensaje.desde_json(raw)               # ContratoInvalido -> permanente
+        m = Mensaje.desde_json(raw)
         if self.dedup.ya_procesado(m.message_id):
             self.metricas.inc("duplicados_descartados")
             traza("duplicado_descartado", m.message_id, m.correlation_id)
             return
-        self.notificador.notificar(               # ErrorTransitorio -> reintento
+        self.notificador.notificar(
             m.data["club_id"], m.data["publicacion_id"], m.data["titulo"])
-        self.dedup.marcar(m.message_id)           # se marca DESPUÉS del efecto
+        self.dedup.marcar(m.message_id)
         self.metricas.inc("procesados")
         traza("procesado", m.message_id, m.correlation_id)
