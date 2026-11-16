@@ -20,6 +20,8 @@ class ClubOption {
 
 class PublicacionModel {
   final String id;
+  final String clubId;
+  final String? clubNombre;
   final String autorNombre;
   final String titulo;
   final String contenido;
@@ -28,6 +30,8 @@ class PublicacionModel {
 
   PublicacionModel({
     required this.id,
+    this.clubId = '',
+    this.clubNombre,
     required this.autorNombre,
     required this.titulo,
     required this.contenido,
@@ -40,7 +44,6 @@ class PublicacionModel {
     String? imagen = json['imagen_url'];
     String contenidoLimpio = rawContenido;
 
-    // Extrae imagen incrustada en Markdown si el backend no devuelve imagen_url separada
     final imgRegex = RegExp(r'!\[[^\]]*\]\(([^)]+)\)');
     final match = imgRegex.firstMatch(rawContenido);
     if (match != null) {
@@ -50,6 +53,8 @@ class PublicacionModel {
 
     return PublicacionModel(
       id: json['id']?.toString() ?? '',
+      clubId: json['club_id']?.toString() ?? '',
+      clubNombre: json['club_nombre']?.toString(),
       autorNombre: json['autor_nombre'] ?? json['autor_id'] ?? 'Estudiante UTB',
       titulo: json['titulo'] ?? 'Aviso',
       contenido: contenidoLimpio,
@@ -72,16 +77,9 @@ class PublicacionRepository {
 
   Future<List<PublicacionModel>> obtenerFeed() async {
     try {
-      final clubes = await obtenerClubes();
-      final List<PublicacionModel> todas = [];
-
-      for (final club in clubes) {
-        if (club.id.isEmpty) continue;
-        final response = await _dio.get('/clubes/${club.id}/publicaciones');
-        final List data = response.data is List ? response.data : [];
-        todas.addAll(data.map((e) => PublicacionModel.fromJson(e)));
-      }
-
+      final response = await _dio.get('/publicaciones');
+      final List data = response.data is List ? response.data : [];
+      final todas = data.map((e) => PublicacionModel.fromJson(e)).toList();
       todas.sort((a, b) => b.creadoEn.compareTo(a.creadoEn));
       return todas;
     } catch (e) {
@@ -161,12 +159,12 @@ class PublicacionRepository {
 
     try {
       await _dio.post(
-        '/publicaciones',
+        '/clubes/$clubId/publicaciones',
         data: {
-          'club_id': clubId,
           'titulo': titulo,
           'contenido': cuerpoFinal,
           'tipo': 'aviso',
+          if (urlFinal != null && urlFinal.isNotEmpty) 'imagen_url': urlFinal,
         },
       );
     } on DioException catch (e) {

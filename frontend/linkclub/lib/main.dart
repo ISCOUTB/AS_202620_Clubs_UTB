@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:linkclub/core/session/session_controller.dart';
 import 'package:linkclub/core/theme/app_theme.dart';
 import 'package:linkclub/core/theme/theme_controller.dart';
 import 'package:linkclub/presentation/clubs_page.dart';
@@ -11,12 +12,15 @@ Future<void> main() async {
   FlutterError.onError = (FlutterErrorDetails details) {};
 
   await dotenv.load(fileName: ".env");
-
   await ThemeController.init();
 
   const storage = FlutterSecureStorage();
   final String? jwtToken = await storage.read(key: 'jwt_token');
-  final bool isUserLoggedIn = jwtToken != null;
+  if (jwtToken != null && jwtToken.isNotEmpty) {
+    await SessionController.instance.cargarSesion();
+  }
+
+  final bool isUserLoggedIn = jwtToken != null && jwtToken.isNotEmpty;
 
   runApp(LinkClubApp(isUserLoggedIn: isUserLoggedIn));
 }
@@ -37,7 +41,6 @@ class LinkClubApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,
-
           home: isUserLoggedIn ? const ClubsPage() : const LoginScreen(),
         );
       },

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:linkclub/data/publication_repository.dart';
+import 'package:linkclub/core/session/session_controller.dart';
 
 class CreatePublicationScreen extends StatefulWidget {
-  const CreatePublicationScreen({super.key});
+  final String? clubIdFijo;
+  const CreatePublicationScreen({super.key, this.clubIdFijo});
 
   @override
   State<CreatePublicationScreen> createState() =>
@@ -24,6 +26,7 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   List<ClubOption> _clubes = [];
   String? _clubSeleccionadoId;
   bool _cargandoClubes = true;
+  bool _clubBloqueado = false;
 
   XFile? _imagenSeleccionada;
   bool _usarUrlExterna = false;
@@ -44,22 +47,35 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   }
 
   Future<void> _cargarClubes() async {
+    final session = SessionController.instance;
+    final String? fijo =
+        widget.clubIdFijo ??
+        (session.esAdminClubReal ? session.usuario?.clubAdministradoId : null);
+
+    List<ClubOption> lista = [];
     try {
-      final lista = await _repository.obtenerClubes();
-      if (mounted) {
-        setState(() {
-          _clubes = lista;
-          if (_clubes.isNotEmpty) {
-            _clubSeleccionadoId = _clubes.first.id;
-          }
-          _cargandoClubes = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _cargandoClubes = false);
-      }
+      lista = await _repository.obtenerClubes();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    if (fijo != null && !lista.any((c) => c.id == fijo)) {
+      lista = [
+        ...lista,
+        ClubOption(
+          id: fijo,
+          nombre: session.usuario?.clubAdministradoNombre ?? 'Club asignado',
+          categoria: '',
+        ),
+      ];
     }
+
+    setState(() {
+      _clubes = lista;
+      _clubBloqueado = fijo != null;
+      _clubSeleccionadoId = fijo ?? (lista.isNotEmpty ? lista.first.id : null);
+      _cargandoClubes = false;
+    });
   }
 
   @override
@@ -384,8 +400,9 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                           ),
                         )
                         .toList(),
-                    onChanged: (val) =>
-                        setState(() => _clubSeleccionadoId = val),
+                    onChanged: _clubBloqueado
+                        ? null
+                        : (val) => setState(() => _clubSeleccionadoId = val),
                   ),
                 const SizedBox(height: 14),
                 TextField(

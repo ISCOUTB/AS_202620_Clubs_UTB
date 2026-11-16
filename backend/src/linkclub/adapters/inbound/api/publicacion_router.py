@@ -1,216 +1,190 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, List, Optional
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy.exc import IntegrityError
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
-from linkclub.adapters.outbound.postgres.database import get_db
-from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
-from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
-from linkclub.adapters.outbound.postgres.publicacion_repository import (
-    PublicacionRepositoryPostgres,
+from linkclub.adapters.outbound.messaging.in_memory_broker import InMemoryBroker
+from linkclub.adapters.outbound.messaging.outbox import OutboxWorker
+from linkclub.adapters.outbound.persistence.postgres_publicacion_adapter import (
+    PostgresPublicacionAdapter,
 )
-from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
-from linkclub.domain.publicacion import PublicacionDuplicada
+from linkclub.adapters.outbound.postgres.database import get_db
+from linkclub.adapters.outbound.postgres.models.club_model import ClubModel
+from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
+from linkclub.application.use_cases.crear_publicacion import (
+    CrearPublicacion,
+    DatosInvalidos,
+)
+from linkclub.domain.publicacion import Publicacion
 
 router = APIRouter(tags=["publicaciones"])
+broker = InMemoryBroker()
 
-TITULO_POR_DEFECTO = "Publicación"
+
+def get_use_case(db: Session = Depends(get_db)) -> CrearPublicacion:
+    repo = PostgresPublicacionAdapter(db)
+    outbox = OutboxWorker(db, broker)
+    return CrearPublicacion(repo, outbox)
 
 
-class CrearPublicacionRequest(BaseModel):
+class CrearPublicacionBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    titulo: Optional[str] = TITULO_POR_DEFECTO
-    contenido: str
+    titulo: Optional[str] = None
+    contenido: str = Field(min_length=1)
     tipo: str = "aviso"
-    opciones: list[str] | None = None
+    opciones: Optional[List[str]] = None
     imagen_url: Optional[str] = None
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: str) -> str:
+        permitidos = {"aviso", "encuesta", "noticia"}
+        if v not in permitidos:
+            raise ValueError(f"tipo debe ser uno de {sorted(permitidos)}")
+        return v
+
+    @model_validator(mode="after")
+    def validar_opciones_de_encuesta(self) -> "CrearPublicacionBody":
+        if self.tipo == "encuesta":
+            limpias = [o.strip() for o in (self.opciones or []) if o and o.strip()]
+            if not limpias:
+                raise ValueError("Una encuesta debe incluir al menos una opción no vacía.")
+            self.opciones = limpias
+        return self
 
 
 class PublicacionResponse(BaseModel):
     id: str
     club_id: str
+    club_nombre: Optional[str] = None
     autor_id: str
     autor_nombre: Optional[str] = None
     titulo: str
     contenido: str
     tipo: str
-    opciones: list[str] | None = None
+    opciones: Optional[List[str]] = None
     imagen_url: Optional[str] = None
     creado_en: datetime
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-def _obtener_matricula_usuario(db: Session, autor_identity: str) -> str:
-    usuario = (
-        db.query(UsuarioModel)
-        .filter(
-            (UsuarioModel.correo == autor_identity)
-            | (UsuarioModel.matricula == autor_identity)
-        )
-        .first()
-    )
-
-    if not usuario:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Usuario con identidad '{autor_identity}' no existe en la base de datos.",
-        )
-
-    return usuario.matricula
-
-
-def _validar_encuesta(payload: CrearPublicacionRequest) -> None:
-    if payload.tipo == "encuesta" and not payload.opciones:
-        raise HTTPException(
-            status_code=422,
-            detail="Una publicación de tipo encuesta requiere al menos una opción",
-        )
-
-
-def a_respuesta(pub) -> PublicacionResponse:
-    opciones_val = None
-    imagen_url_val = None
-
-    if pub.opciones:
-        parsed = pub.opciones
-        if isinstance(parsed, dict):
-            opciones_val = parsed.get("opciones")
-            imagen_url_val = parsed.get("imagen_url")
-        elif isinstance(parsed, list):
-            opciones_val = parsed
-
-    autor_val = getattr(pub, "autor_id", None) or getattr(pub, "autor_matricula", "")
+def _serializar_publicacion(p: Publicacion, db: Session) -> PublicacionResponse:
+    autor = db.query(UsuarioModel).filter(UsuarioModel.matricula == p.autor_id).first()
+    club_nombre = None
+    try:
+        club = db.query(ClubModel).filter(ClubModel.id == uuid.UUID(str(p.club_id))).first()
+        if club:
+            club_nombre = club.nombre
+    except ValueError:
+        pass
 
     return PublicacionResponse(
-        id=str(pub.id),
-        club_id=str(pub.club_id),
-        autor_id=autor_val,
-        autor_nombre=getattr(pub, "autor_nombre", None) or autor_val,
-        titulo=pub.titulo or TITULO_POR_DEFECTO,
-        contenido=pub.contenido,
-        tipo=pub.tipo.value if hasattr(pub.tipo, "value") else str(pub.tipo),
-        opciones=opciones_val,
-        imagen_url=imagen_url_val,
-        creado_en=(
-            pub.creada_en
-            if hasattr(pub, "creada_en")
-            else getattr(pub, "creado_en", datetime.now())
-        ),
+        id=str(p.id),
+        club_id=str(p.club_id),
+        club_nombre=club_nombre,
+        autor_id=p.autor_id,
+        autor_nombre=autor.nombre if autor else p.autor_id,
+        titulo=p.titulo,
+        contenido=p.contenido,
+        tipo=p.tipo,
+        opciones=p.opciones,
+        imagen_url=p.imagen_url,
+        creado_en=getattr(p, "creado_en", None) or datetime.now(timezone.utc),
     )
 
 
-def _inyectar_nombres(db: Session, publicaciones: list) -> list[PublicacionResponse]:
-    respuestas = [a_respuesta(p) for p in publicaciones]
-    matriculas = {r.autor_id for r in respuestas if r.autor_id}
+def _verificar_permiso_publicar(club_id: str, autor_id: str, db: Session) -> None:
+    usuario = (
+        db.query(UsuarioModel)
+        .filter((UsuarioModel.matricula == autor_id) | (UsuarioModel.correo == autor_id))
+        .first()
+    )
+    if usuario is None:
+        return
 
-    if matriculas:
-        usuarios = db.query(UsuarioModel).filter(UsuarioModel.matricula.in_(matriculas)).all()
-        mapa_nombres = {u.matricula: getattr(u, "nombre", u.matricula) for u in usuarios}
+    if usuario.estado_cuenta != "ACTIVO":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tu cuenta no se encuentra activa.",
+        )
 
-        for r in respuestas:
-            if r.autor_id in mapa_nombres and mapa_nombres[r.autor_id]:
-                r.autor_nombre = mapa_nombres[r.autor_id]
+    if usuario.rol == "SUPERADMIN":
+        return
 
-    return respuestas
+    es_admin_valido = (
+        usuario.rol == "ADMIN_CLUB"
+        and usuario.verificado
+        and usuario.club_administrado_id is not None
+        and str(usuario.club_administrado_id) == str(club_id)
+    )
+    if not es_admin_valido:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el administrador verificado de este club puede publicar aquí.",
+        )
 
 
-@router.get(
-    "/clubes/{club_id}/publicaciones",
-    response_model=List[PublicacionResponse],
-    status_code=status.HTTP_200_OK,
-)
+@router.get("/publicaciones", response_model=List[PublicacionResponse])
+def listar_publicaciones_feed(
+    db: Annotated[Session, Depends(get_db)],
+    club_id: Optional[str] = None,
+    use_case: CrearPublicacion = Depends(get_use_case),
+):
+    publicaciones = use_case.listar_todas()
+    if club_id:
+        publicaciones = [p for p in publicaciones if str(p.club_id) == str(club_id)]
+    return [_serializar_publicacion(p, db) for p in publicaciones]
+
+
+@router.get("/clubes/{club_id}/publicaciones", response_model=List[PublicacionResponse])
 def listar_publicaciones_por_club(
     club_id: str,
     db: Annotated[Session, Depends(get_db)],
+    use_case: CrearPublicacion = Depends(get_use_case),
 ):
-    try:
-        club_uuid = uuid.UUID(club_id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail="badly formed hexadecimal UUID string",
-        ) from exc
-
-    consulta = db.query(PublicacionModel).filter(PublicacionModel.club_id == club_uuid)
-    if hasattr(PublicacionModel, "creada_en"):
-        consulta = consulta.order_by(PublicacionModel.creada_en.desc())
-    elif hasattr(PublicacionModel, "creado_en"):
-        consulta = consulta.order_by(PublicacionModel.creado_en.desc())
-
-    publicaciones = consulta.all()
-    return _inyectar_nombres(db, publicaciones)
+    publicaciones = [p for p in use_case.listar_todas() if str(p.club_id) == str(club_id)]
+    return [_serializar_publicacion(p, db) for p in publicaciones]
 
 
 @router.post(
     "/clubes/{club_id}/publicaciones",
     response_model=PublicacionResponse,
     status_code=status.HTTP_201_CREATED,
-    responses={
-        422: {"description": "Error de validación en los datos de la publicación"},
-        409: {"description": "Conflicto de idempotencia"},
-    },
 )
-def crear_publicacion_por_club(
+def crear_publicacion_endpoint(
     club_id: str,
-    payload: CrearPublicacionRequest,
-    autor_id: Annotated[str, Depends(require_auth)],
+    body: CrearPublicacionBody,
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
-    idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
+    autor_id: str = Depends(require_auth),
+    idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
+    use_case: CrearPublicacion = Depends(get_use_case),
 ):
-    _validar_encuesta(payload)
-    autor_matricula = _obtener_matricula_usuario(db, autor_id)
-
-    try:
-        meta_data = {
-            "opciones": payload.opciones,
-            "imagen_url": payload.imagen_url,
-        }
-
-        repository = PublicacionRepositoryPostgres(db)
-        use_case = CrearPublicacionUseCase(repository)
-
-        pub_guardada = use_case.ejecutar(
-            club_id=club_id,
-            autor_id=autor_matricula,
-            titulo=payload.titulo or TITULO_POR_DEFECTO,
-            contenido=payload.contenido,
-            tipo=payload.tipo or "aviso",
-            opciones=meta_data,
-            idempotency_key=idempotency_key,
+    if idempotency_key is not None and not idempotency_key.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Idempotency-Key no puede ser una cadena vacía",
         )
 
-        respuesta = a_respuesta(pub_guardada)
+    _verificar_permiso_publicar(club_id, autor_id, db)
 
-        usuario = db.query(UsuarioModel).filter(UsuarioModel.matricula == autor_matricula).first()
-        if usuario and hasattr(usuario, "nombre") and usuario.nombre:
-            respuesta.autor_nombre = usuario.nombre
+    try:
+        publicacion = use_case.ejecutar(
+            club_id=club_id,
+            autor_id=autor_id,
+            titulo=body.titulo or "Publicación",
+            contenido=body.contenido,
+            tipo=body.tipo,
+            opciones=body.opciones,
+            imagen_url=body.imagen_url,
+            idempotency_key=idempotency_key,
+        )
+    except DatosInvalidos as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-        return respuesta
-    except PublicacionDuplicada as dup_error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(dup_error),
-        ) from dup_error
-    except ValueError as val_error:
-        raise HTTPException(
-            status_code=422,
-            detail=str(val_error),
-        ) from val_error
-    except IntegrityError as int_error:
-        db.rollback()
-        raise HTTPException(
-            status_code=404,
-            detail="El club indicado no existe en la base de datos.",
-        ) from int_error
-    except Exception as error:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Error al guardar publicación: {str(error)}",
-        ) from error
+    response.status_code = 201
+    return _serializar_publicacion(publicacion, db)

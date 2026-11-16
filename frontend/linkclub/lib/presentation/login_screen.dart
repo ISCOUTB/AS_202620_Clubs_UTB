@@ -4,6 +4,7 @@ import 'package:linkclub/core/theme/theme_controller.dart';
 import 'package:linkclub/data/auth_repository.dart';
 import 'package:linkclub/presentation/signup_screen.dart';
 import 'package:linkclub/presentation/clubs_page.dart';
+import 'package:linkclub/core/session/session_controller.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
+      await SessionController.instance.cargarSesion();
 
       if (mounted) {
         Navigator.pushReplacement(

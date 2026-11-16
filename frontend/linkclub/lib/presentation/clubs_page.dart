@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:linkclub/core/session/session_controller.dart';
 import 'package:linkclub/core/theme/theme_controller.dart';
+import 'package:linkclub/data/auth_repository.dart';
 import 'package:linkclub/data/club_repository.dart';
 import 'package:linkclub/presentation/clubs_details.dart';
+import 'package:linkclub/presentation/dev_admin_screen.dart';
 import 'package:linkclub/presentation/feed_screen.dart';
 import 'package:linkclub/presentation/login_screen.dart';
 
@@ -476,14 +478,179 @@ class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   Future<void> _signOut(BuildContext context) async {
-    const storage = FlutterSecureStorage();
-    await storage.delete(key: 'jwt_token');
+    await SessionController.instance.cerrarSesion();
 
     if (context.mounted) {
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (_) => false,
       );
+    }
+  }
+
+  void _abrirEditarPerfil(BuildContext context, UsuarioSesion usuario) {
+    final nombreCtrl = TextEditingController(text: usuario.nombre);
+    final descCtrl = TextEditingController(text: usuario.descripcion ?? '');
+    final authRepo = AuthRepository();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar Perfil Institucional'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nombreCtrl,
+              decoration: const InputDecoration(labelText: 'Nombre completo'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Biografía o descripción (opcional)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await authRepo.actualizarMiPerfil(
+                  nombre: nombreCtrl.text.trim(),
+                  descripcion: descCtrl.text.trim(),
+                );
+                await SessionController.instance.cargarSesion();
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Perfil actualizado'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error al actualizar perfil: $e'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _abrirCambiarPassword(BuildContext context) {
+    final actualCtrl = TextEditingController();
+    final nuevaCtrl = TextEditingController();
+    final authRepo = AuthRepository();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cambiar contraseña'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: actualCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Contraseña actual'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nuevaCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Nueva contraseña (mín. 8 caracteres)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nuevaCtrl.text.length < 8) return;
+              try {
+                await authRepo.cambiarPassword(actualCtrl.text, nuevaCtrl.text);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Contraseña actualizada correctamente'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('La contraseña actual no es correcta'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Actualizar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmarEliminarCuenta(BuildContext context) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar cuenta'),
+        content: const Text(
+          'Esta acción es permanente y eliminará tu acceso institucional a LinkClub. ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar definitivamente'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      await AuthRepository().eliminarMiCuenta();
+      await SessionController.instance.cerrarSesion();
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (_) => false,
+        );
+      }
     }
   }
 
@@ -491,44 +658,196 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Configuracion y Perfil',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 20),
-          ListTile(
-            leading: const Icon(Icons.person_outline_rounded),
-            title: const Text('Mi Perfil Institucional'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () {},
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text('Notificaciones'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () {},
-          ),
-          const Spacer(),
-          Divider(color: colorScheme.onSurface.withOpacity(0.1)),
-          ListTile(
-            leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            title: const Text(
-              'Cerrar sesion',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.w600,
+    return ListenableBuilder(
+      listenable: SessionController.instance,
+      builder: (context, _) {
+        final session = SessionController.instance;
+        final usuario = session.usuario;
+
+        String etiquetaRol = 'Estudiante UTB';
+        if (session.esSuperAdminReal) {
+          etiquetaRol = 'Superadmin (Desarrollador)';
+        } else if (session.esAdminClubReal) {
+          etiquetaRol =
+              'Admin de Club: ${usuario?.clubAdministradoNombre ?? 'Verificado'}';
+        } else if (usuario?.solicitudPendiente == true) {
+          etiquetaRol = 'Estudiante (Solicitud de Admin pendiente)';
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Configuración y Perfil',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-            ),
-            onTap: () => _signOut(context),
+              const SizedBox(height: 16),
+              if (usuario != null)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: colorScheme.primaryContainer,
+                          child: Text(
+                            usuario.nombre.isNotEmpty
+                                ? usuario.nombre[0].toUpperCase()
+                                : 'U',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                usuario.nombre,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                '${usuario.matricula} • ${usuario.correo}',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: colorScheme.onSurface.withOpacity(
+                                    0.65,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  etiquetaRol,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (session.esAdminClubReal || session.esSuperAdminReal) ...[
+                const SizedBox(height: 16),
+                Card(
+                  child: SwitchListTile(
+                    secondary: const Icon(Icons.visibility_outlined),
+                    title: const Text(
+                      'Modo Vista Estudiante',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Oculta controles de edición para previsualizar la app como estudiante',
+                    ),
+                    value: session.forzarVistaEstudiante,
+                    onChanged: session.alternarVistaEstudiante,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              if (session.esAdminClubReal &&
+                  usuario?.clubAdministradoId != null)
+                ListTile(
+                  leading: const Icon(Icons.admin_panel_settings_outlined),
+                  title: const Text('Gestionar mi club'),
+                  subtitle: Text(usuario?.clubAdministradoNombre ?? ''),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    final club = await ClubRepository().obtenerClubPorId(
+                      usuario!.clubAdministradoId!,
+                    );
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ClubDetailPage(club: club),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              if (session.esSuperAdminReal)
+                ListTile(
+                  leading: const Icon(Icons.developer_mode_rounded),
+                  title: const Text('Consola Desarrollador (Superadmin)'),
+                  subtitle: const Text('Aprobar admins y crear clubes'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DevAdminScreen()),
+                    );
+                  },
+                ),
+              if (usuario != null) ...[
+                ListTile(
+                  leading: const Icon(Icons.person_outline_rounded),
+                  title: const Text('Editar Perfil Institucional'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _abrirEditarPerfil(context, usuario),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.lock_reset_rounded),
+                  title: const Text('Cambiar contraseña'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => _abrirCambiarPassword(context),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.delete_forever_outlined,
+                    color: Colors.redAccent,
+                  ),
+                  title: const Text(
+                    'Eliminar cuenta',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                  onTap: () => _confirmarEliminarCuenta(context),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Divider(color: colorScheme.onSurface.withOpacity(0.1)),
+              ListTile(
+                leading: const Icon(
+                  Icons.logout_rounded,
+                  color: Colors.redAccent,
+                ),
+                title: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () => _signOut(context),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-        ],
-      ),
+        );
+      },
     );
   }
 }

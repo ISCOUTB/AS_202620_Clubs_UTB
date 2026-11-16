@@ -7,35 +7,58 @@ class ClubModel {
   final String id;
   final String nombre;
   final String descripcion;
+  final String? descripcionCompleta;
   final String categoria;
   final int miembrosCount;
   final String lider;
   final String horario;
   final String lugar;
+  final bool inscripcionesAbiertas;
+  final String? msFormsUrl;
+  final String? avisoInscripcion;
+  final Map<String, dynamic> redesJson;
 
   const ClubModel({
     required this.id,
     required this.nombre,
     required this.descripcion,
+    this.descripcionCompleta,
     required this.categoria,
     this.miembrosCount = 0,
     this.lider = 'Coordinación Bienestar UTB',
     this.horario = 'Por definir en convocatoria',
     this.lugar = 'Campus Tecnológico UTB',
+    this.inscripcionesAbiertas = false,
+    this.msFormsUrl,
+    this.avisoInscripcion,
+    this.redesJson = const {},
   });
 
   factory ClubModel.fromJson(Map<String, dynamic> json) {
+    final total = json['total_miembros'] ?? json['miembros_count'] ?? 0;
     return ClubModel(
       id: json['id']?.toString() ?? '',
       nombre: json['nombre'] ?? 'Club UTB',
       descripcion: json['descripcion'] ?? 'Sin descripción disponible.',
+      descripcionCompleta: json['descripcion_completa']?.toString(),
       categoria: json['categoria'] ?? 'General',
-      miembrosCount: json['miembros_count'] is int
-          ? json['miembros_count']
-          : int.tryParse(json['miembros_count']?.toString() ?? '0') ?? 0,
-      lider: json['lider'] ?? 'Coordinación Bienestar UTB',
-      horario: json['horario'] ?? 'Sábados 9:00 AM - 12:00 PM',
-      lugar: json['lugar'] ?? 'Campus Tecnológico UTB',
+      miembrosCount: total is int ? total : int.tryParse(total.toString()) ?? 0,
+      lider: (json['lider'] != null && json['lider'].toString().isNotEmpty)
+          ? json['lider'].toString()
+          : 'Coordinación Bienestar UTB',
+      horario:
+          (json['horario'] != null && json['horario'].toString().isNotEmpty)
+          ? json['horario'].toString()
+          : 'Sábados 9:00 AM - 12:00 PM',
+      lugar: (json['lugar'] != null && json['lugar'].toString().isNotEmpty)
+          ? json['lugar'].toString()
+          : 'Campus Tecnológico UTB',
+      inscripcionesAbiertas: json['inscripciones_abiertas'] == true,
+      msFormsUrl: json['ms_forms_url']?.toString(),
+      avisoInscripcion: json['aviso_inscripcion']?.toString(),
+      redesJson: json['redes_json'] is Map
+          ? Map<String, dynamic>.from(json['redes_json'])
+          : const {},
     );
   }
 
@@ -70,6 +93,38 @@ class ClubRepository {
           ? (e.response?.data['detail'] ?? e.message)
           : e.message;
       throw Exception('No se pudieron cargar los clubes: $detalle');
+    }
+  }
+
+  Future<ClubModel> obtenerClubPorId(String clubId) async {
+    final response = await _dio.get('/clubes/$clubId');
+    return ClubModel.fromJson(Map<String, dynamic>.from(response.data));
+  }
+
+  Future<ClubModel> actualizarClub(
+    String clubId,
+    Map<String, dynamic> cambios,
+  ) async {
+    try {
+      final response = await _dio.patch('/clubes/$clubId', data: cambios);
+      return ClubModel.fromJson(Map<String, dynamic>.from(response.data));
+    } on DioException catch (e) {
+      final detalle = e.response?.data is Map
+          ? (e.response?.data['detail'] ?? e.message)
+          : e.message;
+      throw Exception(detalle.toString());
+    }
+  }
+
+  Future<ClubModel> crearClub(Map<String, dynamic> nuevoClub) async {
+    try {
+      final response = await _dio.post('/clubes', data: nuevoClub);
+      return ClubModel.fromJson(Map<String, dynamic>.from(response.data));
+    } on DioException catch (e) {
+      final detalle = e.response?.data is Map
+          ? (e.response?.data['detail'] ?? e.message)
+          : e.message;
+      throw Exception(detalle.toString());
     }
   }
 

@@ -1,17 +1,20 @@
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from linkclub.adapters.outbound.postgres.database import get_db
+from linkclub.adapters.outbound.postgres.models.solicitud_admin_model import (
+    SolicitudAdminClubModel,
+)
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 
 router = APIRouter(tags=["auth"])
@@ -51,6 +54,9 @@ class CrearUsuarioRequest(BaseModel):
     matricula: str = Field(pattern=r"^T[0-9]{7,8}$")
     correo: str = Field(pattern=r"^[^@\s]+@utb\.edu\.co$")
     password: str = Field(min_length=6, max_length=72)
+    solicitar_admin: bool = False
+    club_id: Optional[str] = None
+    justificacion_admin: Optional[str] = None
 
     @field_validator("nombre", mode="before")
     @classmethod
@@ -73,6 +79,9 @@ class UsuarioResponse(BaseModel):
     nombre: str
     matricula: str
     correo: str
+    rol: str
+    verificado: bool
+    club_administrado_id: Optional[str] = None
     creado_en: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -103,38 +112,52 @@ def registrar_usuario(
     correo_normalizado = payload.correo.strip().lower()
     matricula_normalizada = payload.matricula.strip().upper()
 
-    if (
-        db.query(UsuarioModel)
-        .filter(func.lower(UsuarioModel.correo) == correo_normalizado)
-        .first()
-    ):
+    if payload.solicitar_admin:
+        if not payload.club_id or not payload.justificacion_admin:
+            raise HTTPException(
+                status_code=422,
+                detail="Debes seleccionar un club y escribir una justificación para solicitar Admin de Club.",
+            )
+        try:
+            club_uuid = uuid.UUID(payload.club_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="ID de club inválido.") from exc
+
+    if db.query(UsuarioModel).filter(func.lower(UsuarioModel.correo) == correo_normalizado).first():
         raise HTTPException(status_code=409, detail="El correo ya está registrado")
 
-    if (
-        db.query(UsuarioModel)
-        .filter(UsuarioModel.matricula == matricula_normalizada)
-        .first()
-    ):
+    if db.query(UsuarioModel).filter(UsuarioModel.matricula == matricula_normalizada).first():
         raise HTTPException(status_code=409, detail="La matrícula ya está registrada")
-
-    hashed_password = _hashear_password(payload.password)
 
     nuevo_usuario = UsuarioModel(
         matricula=matricula_normalizada,
         nombre=payload.nombre.strip(),
         correo=correo_normalizado,
-        password_hash=hashed_password,
+        password_hash=_hashear_password(payload.password),
+        rol="ADMIN_CLUB" if payload.solicitar_admin else "ESTUDIANTE",
+        verificado=not payload.solicitar_admin,
     )
 
     try:
         db.add(nuevo_usuario)
+        db.flush()
+
+        if payload.solicitar_admin:
+            db.add(
+                SolicitudAdminClubModel(
+                    usuario_matricula=matricula_normalizada,
+                    club_id=club_uuid,
+                    justificacion=payload.justificacion_admin.strip(),
+                )
+            )
+
         db.commit()
         db.refresh(nuevo_usuario)
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="El correo o la matrícula ya están registrados",
+            detail="El correo, la matrícula ya existen o el club seleccionado no es válido.",
         ) from exc
 
     return UsuarioResponse(
@@ -142,30 +165,61 @@ def registrar_usuario(
         nombre=nuevo_usuario.nombre,
         matricula=nuevo_usuario.matricula,
         correo=nuevo_usuario.correo,
+        rol=nuevo_usuario.rol,
+        verificado=nuevo_usuario.verificado,
+        club_administrado_id=(
+            str(nuevo_usuario.club_administrado_id)
+            if nuevo_usuario.club_administrado_id
+            else None
+        ),
         creado_en=nuevo_usuario.creado_en,
     )
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-def iniciar_sesion(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+async def iniciar_sesion(
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
 ):
-    correo_normalizado = form_data.username.strip().lower()
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        body = await request.json()
+        identificador = str(body.get("correo") or body.get("username") or "").strip().lower()
+        password = str(body.get("password") or "")
+    else:
+        form = await request.form()
+        identificador = str(form.get("username") or form.get("correo") or "").strip().lower()
+        password = str(form.get("password") or "")
+
     usuario = (
         db.query(UsuarioModel)
-        .filter(func.lower(UsuarioModel.correo) == correo_normalizado)
+        .filter(
+            (func.lower(UsuarioModel.correo) == identificador)
+            | (func.lower(UsuarioModel.matricula) == identificador)
+        )
         .first()
     )
 
-    if not usuario or not _verificar_password(form_data.password, usuario.password_hash):
+    if not usuario or not _verificar_password(password, usuario.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    tiempo_expiracion = timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    token = crear_token_acceso({"sub": usuario.matricula}, tiempo_expiracion)
+    if usuario.estado_cuenta != "ACTIVO":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta cuenta se encuentra suspendida o eliminada.",
+        )
 
+    token = crear_token_acceso(
+        {
+            "sub": usuario.matricula,
+            "rol": usuario.rol,
+            "verificado": usuario.verificado,
+            "club_id": str(usuario.club_administrado_id) if usuario.club_administrado_id else None,
+        },
+        timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS),
+    )
     return TokenResponse(access_token=token, token_type="bearer")

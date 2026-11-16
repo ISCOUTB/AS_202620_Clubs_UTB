@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:linkclub/data/publication_repository.dart';
 import 'package:linkclub/presentation/create_publication_screen.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:linkclub/core/session/session_controller.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -94,13 +95,23 @@ class _FeedScreenState extends State<FeedScreen> {
                       },
                     ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _mostrarPantallaCrearPublicacion,
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.edit_rounded),
+      floatingActionButton: ListenableBuilder(
+        listenable: SessionController.instance,
+        builder: (context, _) {
+          if (!SessionController.instance.puedeGestionarAlgunClub) {
+            return const SizedBox.shrink();
+          }
+          return FloatingActionButton(
+            onPressed: _mostrarPantallaCrearPublicacion,
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.edit_rounded),
+          );
+        },
       ),
     );
   }
