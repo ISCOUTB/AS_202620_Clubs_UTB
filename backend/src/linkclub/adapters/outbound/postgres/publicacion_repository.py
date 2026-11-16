@@ -14,6 +14,14 @@ class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
     def __init__(self, db: Session):
         self.db = db
 
+    @staticmethod
+    def _resolver_uuid(valor: Optional[object]) -> uuid.UUID:
+        if isinstance(valor, uuid.UUID):
+            return valor
+        if valor:
+            return uuid.UUID(str(valor))
+        return uuid.uuid4()
+
     def obtener_por_idempotencia(
         self,
         autor_id: str,
@@ -33,10 +41,11 @@ class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
 
     def guardar(self, publicacion: Publicacion) -> Publicacion:
         club_uuid = uuid.UUID(str(publicacion.club_id))
-        pub_uuid = (
-            publicacion.id
-            if isinstance(publicacion.id, uuid.UUID)
-            else (uuid.UUID(str(publicacion.id)) if publicacion.id else uuid.uuid4())
+        pub_uuid = self._resolver_uuid(publicacion.id)
+        tipo_valor = (
+            publicacion.tipo.value
+            if hasattr(publicacion.tipo, "value")
+            else str(publicacion.tipo)
         )
 
         nueva_pub_db = PublicacionModel(
@@ -45,11 +54,7 @@ class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
             autor_matricula=publicacion.autor_id,
             titulo=publicacion.titulo,
             contenido=publicacion.contenido,
-            tipo=(
-                publicacion.tipo.value
-                if hasattr(publicacion.tipo, "value")
-                else str(publicacion.tipo)
-            ),
+            tipo=tipo_valor,
             opciones=publicacion.opciones,
             idempotency_key=publicacion.idempotency_key,
         )

@@ -16,9 +16,14 @@ class CreatePublicationScreen extends StatefulWidget {
 class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _tituloController = TextEditingController();
   final TextEditingController _contenidoController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   final PublicacionRepository _repository = PublicacionRepository();
+
+  List<ClubOption> _clubes = [];
+  String? _clubSeleccionadoId;
+  bool _cargandoClubes = true;
 
   XFile? _imagenSeleccionada;
   bool _usarUrlExterna = false;
@@ -28,6 +33,7 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _cargarClubes();
 
     _tabController.addListener(() {
       if (_tabController.index == 1) {
@@ -37,9 +43,29 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     });
   }
 
+  Future<void> _cargarClubes() async {
+    try {
+      final lista = await _repository.obtenerClubes();
+      if (mounted) {
+        setState(() {
+          _clubes = lista;
+          if (_clubes.isNotEmpty) {
+            _clubSeleccionadoId = _clubes.first.id;
+          }
+          _cargandoClubes = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _cargandoClubes = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
+    _tituloController.dispose();
     _contenidoController.dispose();
     _urlController.dispose();
     super.dispose();
@@ -184,13 +210,24 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   }
 
   Future<void> _publicar() async {
+    final titulo = _tituloController.text.trim();
     final contenido = _contenidoController.text.trim();
+
+    if (_clubSeleccionadoId == null || _clubSeleccionadoId!.isEmpty) {
+      _mostrarAviso('Selecciona un club para publicar.', Colors.orangeAccent);
+      return;
+    }
+    if (titulo.isEmpty) {
+      _mostrarAviso(
+        'Ingresa un título para tu publicación.',
+        Colors.orangeAccent,
+      );
+      return;
+    }
     if (contenido.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Escribe algo para tu publicación.'),
-          backgroundColor: Colors.orangeAccent,
-        ),
+      _mostrarAviso(
+        'Escribe el contenido de tu publicación.',
+        Colors.orangeAccent,
       );
       return;
     }
@@ -204,32 +241,35 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
           : null;
 
       await _repository.crearPublicacionConArchivo(
-        contenido,
+        clubId: _clubSeleccionadoId!,
+        titulo: titulo,
+        contenido: contenido,
         imagenUrl: imagenFinalUrl,
         archivoLocal: _usarUrlExterna ? null : _imagenSeleccionada,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Publicación creada exitosamente!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _mostrarAviso('¡Publicación creada exitosamente!', Colors.green);
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al publicar: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        final mensaje = e.toString().replaceFirst('Exception: ', '');
+        _mostrarAviso(mensaje, Colors.redAccent);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _mostrarAviso(String texto, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(texto),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -244,7 +284,6 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
           'Crear Publicación',
           style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
         ),
-
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(44),
           child: Padding(
@@ -323,6 +362,48 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (_cargandoClubes)
+                  const LinearProgressIndicator()
+                else
+                  DropdownButtonFormField<String>(
+                    value: _clubSeleccionadoId,
+                    decoration: InputDecoration(
+                      labelText: 'Club destino',
+                      prefixIcon: const Icon(Icons.groups_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.surface,
+                    ),
+                    items: _clubes
+                        .map(
+                          (c) => DropdownMenuItem<String>(
+                            value: c.id,
+                            child: Text(c.nombre),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (val) =>
+                        setState(() => _clubSeleccionadoId = val),
+                  ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _tituloController,
+                  maxLength: 120,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: 'Título del anuncio',
+                    hintText: 'Ej. Convocatoria abierta 2026-2',
+                    prefixIcon: const Icon(Icons.title_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    filled: true,
+                    fillColor: colorScheme.surface,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.center,
                   child: Container(
@@ -354,7 +435,7 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                         IconButton(
                           icon: const Icon(Icons.title, size: 20),
                           onPressed: () => _aplicarFormato('', prefix: '### '),
-                          tooltip: 'Título',
+                          tooltip: 'Subtítulo',
                         ),
                         IconButton(
                           icon: const Icon(Icons.link, size: 20),
@@ -373,15 +454,15 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 TextField(
                   controller: _contenidoController,
-                  maxLines: 8,
+                  maxLines: 7,
                   maxLength: 1000,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
                     hintText:
-                        'Escribe tu anuncio aquí con formato... \n\n(Usa doble espacio o doble Enter para separar párrafos)',
+                        'Escribe tu anuncio aquí con formato...\n\n(Usa doble Enter para separar párrafos)',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -395,7 +476,6 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 const SizedBox(height: 10),
-
                 SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment<bool>(
@@ -422,7 +502,6 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                   },
                 ),
                 const SizedBox(height: 14),
-
                 if (_usarUrlExterna)
                   TextField(
                     controller: _urlController,
@@ -488,7 +567,6 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
               ],
             ),
           ),
-
           SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -551,8 +629,17 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-
+                        if (_tituloController.text.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _tituloController.text.trim(),
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 10),
                         MarkdownBody(
                           data: _contenidoController.text.isEmpty
                               ? '*Tu publicación aparecerá aquí...*'
@@ -564,7 +651,6 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                               fontWeight: FontWeight.bold,
                             ),
                             em: const TextStyle(fontStyle: FontStyle.italic),
-
                             a: const TextStyle(
                               color: Colors.blueAccent,
                               decoration: TextDecoration.underline,
@@ -572,7 +658,6 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                             ),
                           ),
                         ),
-
                         if (_imagenSeleccionada != null ||
                             _urlController.text.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -602,14 +687,12 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                                         )),
                           ),
                         ],
-
                         const SizedBox(height: 14),
                         Divider(
                           color: colorScheme.outlineVariant.withOpacity(0.3),
                           height: 1,
                         ),
                         const SizedBox(height: 10),
-
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [

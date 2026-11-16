@@ -4,18 +4,22 @@ WORKDIR /app
 
 ENV PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1 \
-    TMPDIR=/tmp
+    TMPDIR=/app/tmp
 
-RUN useradd -m -u 1000 appuser
+RUN useradd -m -u 1000 appuser \
+    && mkdir -p /app/tmp /app/uploads \
+    && chown -R appuser:appuser /app
 
 COPY requirements.txt .
-RUN mkdir -p /tmp && chmod 1777 /tmp && \
-    pip install --no-cache-dir --only-binary :all: -r requirements.txt  # NOSONAR
+# NOSONAR
+RUN pip install --no-cache-dir --only-binary :all: -r requirements.txt
 
 COPY src/ ./src/
 COPY migrations/ ./migrations/
 
-RUN mkdir -p /app/uploads && chown -R appuser:appuser /app  # NOSONAR
+# NOSONAR
+RUN chown -R appuser:appuser /app
+
 USER appuser
 
 EXPOSE 8000
