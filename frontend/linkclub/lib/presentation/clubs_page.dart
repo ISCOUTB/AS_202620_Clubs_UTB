@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:linkclub/core/theme/theme_controller.dart';
-import 'package:linkclub/presentation/login_screen.dart';
+import 'package:linkclub/data/club_repository.dart';
+import 'package:linkclub/presentation/clubs_details.dart';
 import 'package:linkclub/presentation/feed_screen.dart';
+import 'package:linkclub/presentation/login_screen.dart';
 
 class ClubsPage extends StatefulWidget {
   const ClubsPage({super.key});
@@ -114,54 +116,135 @@ class _ClubsPageState extends State<ClubsPage> {
   }
 }
 
-class ClubsListScreen extends StatelessWidget {
+class ClubsListScreen extends StatefulWidget {
   const ClubsListScreen({super.key});
 
-  final List<Map<String, String>> clubs = const [
-    {
-      'name': 'Club de Programacion',
-      'category': 'Tecnologia',
-      'description': 'Aprende programacion y desarrolla proyectos de software.',
-      'image': 'assets/icon/logo_clean.png',
-    },
-    {
-      'name': 'Club de Robotica',
-      'category': 'Tecnologia',
-      'description': 'Disena, construye y programa robots inteligentes.',
-      'image': 'assets/icon/logo_clean.png',
-    },
-    {
-      'name': 'Club de Musica',
-      'category': 'Arte y cultura',
-      'description':
-          'Un espacio para compartir y desarrollar talentos musicales.',
-      'image': 'assets/icon/logo_clean.png',
-    },
-    {
-      'name': 'Club de Deportes',
-      'category': 'Deportes',
-      'description': 'Participa en actividades deportivas y conoce companeros.',
-      'image': 'assets/icon/logo_clean.png',
-    },
-  ];
+  @override
+  State<ClubsListScreen> createState() => _ClubsListScreenState();
+}
+
+class _ClubsListScreenState extends State<ClubsListScreen> {
+  final ClubRepository _clubRepository = ClubRepository();
+  final TextEditingController _searchController = TextEditingController();
+
+  List<ClubModel> _todosLosClubes = [];
+  String _categoriaSeleccionada = 'Todos';
+  String _queryBusqueda = '';
+  bool _isLoading = true;
+  String? _errorMensaje;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarClubes();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargarClubes() async {
+    setState(() {
+      _isLoading = true;
+      _errorMensaje = null;
+    });
+
+    try {
+      final clubes = await _clubRepository.obtenerClubes();
+      if (mounted) {
+        setState(() {
+          _todosLosClubes = clubes;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMensaje = e.toString().replaceFirst('Exception: ', '');
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<String> get _categoriasDisponibles {
+    final cats = <String>{'Todos'};
+    for (final c in _todosLosClubes) {
+      if (c.categoria.trim().isNotEmpty) {
+        cats.add(c.categoria.trim());
+      }
+    }
+    return cats.toList();
+  }
+
+  List<ClubModel> get _clubesFiltrados {
+    return _todosLosClubes.where((club) {
+      final coincideCategoria =
+          _categoriaSeleccionada == 'Todos' ||
+          club.categoria.toLowerCase() == _categoriaSeleccionada.toLowerCase();
+
+      final q = _queryBusqueda.toLowerCase();
+      final coincideTexto =
+          q.isEmpty ||
+          club.nombre.toLowerCase().contains(q) ||
+          club.categoria.toLowerCase().contains(q) ||
+          club.descripcion.toLowerCase().contains(q);
+
+      return coincideCategoria && coincideTexto;
+    }).toList();
+  }
+
+  void _abrirDetalleClub(ClubModel club) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ClubDetailPage(club: club)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final filtrados = _clubesFiltrados;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Clubes disponibles',
-            style: theme.textTheme.displayLarge?.copyWith(fontSize: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Clubes disponibles',
+                style: theme.textTheme.displayLarge?.copyWith(fontSize: 24),
+              ),
+              if (!_isLoading && _errorMensaje == null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${filtrados.length}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
-            'Explora y Conéctate con los clubes de la universidad',
+            'Explora y conéctate con los clubes activos de la UTB',
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.onSurface.withOpacity(0.6),
@@ -169,107 +252,205 @@ class ClubsListScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           TextField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _queryBusqueda = value.trim()),
             decoration: InputDecoration(
-              hintText: 'Buscar un club...',
+              hintText: 'Buscar por nombre, categoría o tema...',
               prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _queryBusqueda.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _queryBusqueda = '');
+                      },
+                    )
+                  : null,
               filled: true,
               fillColor: colorScheme.surface,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
             ),
           ),
-          const SizedBox(height: 16),
+          if (!_isLoading && _categoriasDisponibles.length > 1) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _categoriasDisponibles.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final cat = _categoriasDisponibles[index];
+                  final seleccionada = cat == _categoriaSeleccionada;
+                  return ChoiceChip(
+                    label: Text(cat),
+                    selected: seleccionada,
+                    onSelected: (_) =>
+                        setState(() => _categoriaSeleccionada = cat),
+                    selectedColor: colorScheme.primary,
+                    labelStyle: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: seleccionada
+                          ? colorScheme.onPrimary
+                          : colorScheme.onSurface,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
           Expanded(
-            child: ListView.builder(
-              itemCount: clubs.length,
-              itemBuilder: (context, index) {
-                final club = clubs[index];
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMensaje != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.asset(
-                              club['image']!,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                        const Icon(
+                          Icons.cloud_off_rounded,
+                          size: 44,
+                          color: Colors.redAccent,
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                club['name']!,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                club['category']!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                club['description']!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.onSurface.withOpacity(0.6),
-                                ),
-                              ),
-                            ],
-                          ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _errorMensaje!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 14),
                         ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          height: 36,
-                          child: ElevatedButton(
-                            onPressed: () {},
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Text(
-                              'Ver',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                          ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _cargarClubes,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Reintentar'),
                         ),
                       ],
                     ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _cargarClubes,
+                    color: colorScheme.primary,
+                    child: filtrados.isEmpty
+                        ? ListView(
+                            children: [
+                              const SizedBox(height: 100),
+                              Center(
+                                child: Text(
+                                  _todosLosClubes.isEmpty
+                                      ? 'No hay clubes registrados en la base de datos.'
+                                      : 'No se encontraron clubes con ese filtro.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.onSurface.withOpacity(
+                                      0.6,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            itemCount: filtrados.length,
+                            itemBuilder: (context, index) {
+                              final club = filtrados[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () => _abrirDetalleClub(club),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 52,
+                                          height: 52,
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.primary
+                                                .withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            club.iconoCategoria,
+                                            color: colorScheme.primary,
+                                            size: 26,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                club.nombre,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                club.categoria,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: colorScheme.primary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                club.descripcion,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: colorScheme.onSurface
+                                                      .withOpacity(0.65),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        SizedBox(
+                                          height: 36,
+                                          child: ElevatedButton(
+                                            onPressed: () =>
+                                                _abrirDetalleClub(club),
+                                            style: ElevatedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 14,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'Ver',
+                                              style: TextStyle(fontSize: 13),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
