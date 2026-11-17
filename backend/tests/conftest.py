@@ -20,6 +20,7 @@ from linkclub.adapters.outbound.persistence.in_memory_club_adapter import _SEMIL
 from linkclub.adapters.outbound.postgres.database import Base, get_db
 from linkclub.adapters.outbound.postgres.models import (  # noqa: F401
     club_model,
+    evento_model,
     publicacion_model,
     solicitud_admin_model,
     usuario_model,
@@ -42,7 +43,12 @@ def _uuid_en_sqlite(tipo, compilador, **kw):
 
 
 TOKEN_VALIDO = "token-valido"
+TOKEN_ADMIN_CLUB = "token-admin-club"
+TOKEN_ESTUDIANTE = "token-estudiante"
+
 AUTOR_DE_PRUEBA = "usuario-123"
+ADMIN_CLUB_DE_PRUEBA = "T00011111"
+ESTUDIANTE_DE_PRUEBA = "T00022222"
 
 CLUB_1_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 CLUB_2_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
@@ -53,9 +59,16 @@ CLUB_IDS = [CLUB_1_ID, CLUB_2_ID, CLUB_3_ID, CLUB_4_ID, CLUB_5_ID]
 
 
 class AuthFalso(AuthPort):
+    _TOKENS = {
+        TOKEN_VALIDO: AUTOR_DE_PRUEBA,
+        TOKEN_ADMIN_CLUB: ADMIN_CLUB_DE_PRUEBA,
+        TOKEN_ESTUDIANTE: ESTUDIANTE_DE_PRUEBA,
+    }
+
     def verificar(self, token: str) -> str:
-        if token == TOKEN_VALIDO:
-            return AUTOR_DE_PRUEBA
+        identidad = self._TOKENS.get(token)
+        if identidad is not None:
+            return identidad
         raise TokenInvalido()
 
 
@@ -71,15 +84,6 @@ def entorno_de_prueba():
     Sesion = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
     with Sesion() as db:
-        db.add(
-            UsuarioModel(
-                matricula=AUTOR_DE_PRUEBA,
-                nombre="Usuario de prueba",
-                correo="usuario123@utb.edu.co",
-                password_hash="x",
-                rol="SUPERADMIN",
-            )
-        )
         db.add_all(
             [
                 ClubModel(
@@ -89,6 +93,33 @@ def entorno_de_prueba():
                     categoria=categoria,
                 )
                 for i, (nombre, descripcion, categoria) in enumerate(_SEMILLA)
+            ]
+        )
+        db.add_all(
+            [
+                UsuarioModel(
+                    matricula=AUTOR_DE_PRUEBA,
+                    nombre="Usuario de prueba",
+                    correo="usuario123@utb.edu.co",
+                    password_hash="x",
+                    rol="SUPERADMIN",
+                ),
+                UsuarioModel(
+                    matricula=ADMIN_CLUB_DE_PRUEBA,
+                    nombre="Admin Club Prueba",
+                    correo="adminclub@utb.edu.co",
+                    password_hash="x",
+                    rol="ADMIN_CLUB",
+                    verificado=True,
+                    club_administrado_id=CLUB_1_ID,
+                ),
+                UsuarioModel(
+                    matricula=ESTUDIANTE_DE_PRUEBA,
+                    nombre="Estudiante Prueba",
+                    correo="estudiante@utb.edu.co",
+                    password_hash="x",
+                    rol="ESTUDIANTE",
+                ),
             ]
         )
         db.commit()
@@ -111,6 +142,16 @@ def entorno_de_prueba():
 @pytest.fixture
 def headers_auth():
     return {"Authorization": f"Bearer {TOKEN_VALIDO}"}
+
+
+@pytest.fixture
+def headers_admin_club():
+    return {"Authorization": f"Bearer {TOKEN_ADMIN_CLUB}"}
+
+
+@pytest.fixture
+def headers_estudiante():
+    return {"Authorization": f"Bearer {TOKEN_ESTUDIANTE}"}
 
 
 RUTA_CONTRATO = Path(__file__).resolve().parents[2] / "docs" / "api" / "openapi.yaml"

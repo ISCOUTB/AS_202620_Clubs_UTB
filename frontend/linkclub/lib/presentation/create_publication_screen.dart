@@ -17,6 +17,28 @@ class CreatePublicationScreen extends StatefulWidget {
 
 class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     with SingleTickerProviderStateMixin {
+  static const String _fontDisplay = 'Plus Jakarta Sans';
+  static const String _fontBody = 'Inter';
+
+  // Paleta Academic Vanguard
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _deepSapphire = Color(0xFF004AC6);
+  static const Color _softBlue = Color(0xFF60A5FA);
+
+  static const Color _lightBg = Color(0xFFF8F9FF);
+  static const Color _lightSurface = Color(0xFFFFFFFF);
+  static const Color _lightSurfaceLow = Color(0xFFEFF4FF);
+  static const Color _lightBorder = Color(0xFFE2E8F0);
+  static const Color _lightTextPrimary = Color(0xFF0B1C30);
+  static const Color _lightTextSecondary = Color(0xFF434655);
+
+  static const Color _darkBg = Color(0xFF080C14);
+  static const Color _darkSurface = Color(0xFF0F1623);
+  static const Color _darkElevated = Color(0xFF131B2E);
+  static const Color _darkBorder = Color(0xFF1E293B);
+  static const Color _darkTextPrimary = Color(0xFFF1F5F9);
+  static const Color _darkTextSecondary = Color(0xFF94A3B8);
+
   late TabController _tabController;
   final TextEditingController _tituloController = TextEditingController();
   final TextEditingController _contenidoController = TextEditingController();
@@ -85,6 +107,12 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     _contenidoController.dispose();
     _urlController.dispose();
     super.dispose();
+  }
+
+  String get _nombreClubSeleccionado {
+    if (_clubSeleccionadoId == null) return 'Club UTB';
+    final match = _clubes.where((c) => c.id == _clubSeleccionadoId);
+    return match.isNotEmpty ? match.first.nombre : 'Club UTB';
   }
 
   Future<void> _seleccionarImagen() async {
@@ -184,19 +212,37 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Insertar Hipervínculo'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Insertar Hipervínculo',
+            style: TextStyle(
+              fontFamily: _fontDisplay,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: textController,
-                decoration: const InputDecoration(labelText: 'Texto visible'),
+                decoration: InputDecoration(
+                  labelText: 'Texto visible',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextField(
                 controller: linkController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'URL (https://...)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 keyboardType: TextInputType.url,
               ),
@@ -208,6 +254,12 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
               child: const Text('Cancelar'),
             ),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: _primaryBlue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
               onPressed: () {
                 if (linkController.text.isNotEmpty) {
                   final texto = textController.text.trim().isNotEmpty
@@ -265,13 +317,16 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
       );
 
       if (mounted) {
-        _mostrarAviso('¡Publicación creada exitosamente!', Colors.green);
+        _mostrarAviso(
+          '¡Publicación creada exitosamente!',
+          const Color(0xFF10B981),
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         final mensaje = e.toString().replaceFirst('Exception: ', '');
-        _mostrarAviso(mensaje, Colors.redAccent);
+        _mostrarAviso(mensaje, const Color(0xFFBA1A1A));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -281,326 +336,586 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   void _mostrarAviso(String texto, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(texto),
+        content: Text(
+          texto,
+          style: const TextStyle(
+            fontFamily: _fontBody,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    String? hint,
+    required IconData icon,
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color borderColor,
+    required Color textSecondary,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: TextStyle(
+        fontFamily: _fontBody,
+        fontSize: 13.5,
+        color: textSecondary,
+      ),
+      hintStyle: TextStyle(
+        fontFamily: _fontBody,
+        fontSize: 13.5,
+        color: textSecondary.withValues(alpha: 0.7),
+      ),
+      prefixIcon: Icon(
+        icon,
+        size: 20,
+        color: isDarkMode ? _softBlue : _primaryBlue,
+      ),
+      filled: true,
+      fillColor: surfaceColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: borderColor, width: 1),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: borderColor, width: 1),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: _primaryBlue, width: 1.8),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? _darkBg : _lightBg;
+    final surfaceColor = isDarkMode ? _darkSurface : _lightSurface;
+    final elevatedColor = isDarkMode ? _darkElevated : _lightSurfaceLow;
+    final borderColor = isDarkMode ? _darkBorder : _lightBorder;
+    final textPrimary = isDarkMode ? _darkTextPrimary : _lightTextPrimary;
+    final textSecondary = isDarkMode ? _darkTextSecondary : _lightTextSecondary;
+    final accentColor = isDarkMode ? _softBlue : _deepSapphire;
+
+    final nombreAutor = _nombreClubSeleccionado;
+    final inicialAutor = nombreAutor.isNotEmpty
+        ? nombreAutor[0].toUpperCase()
+        : 'U';
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        toolbarHeight: 60,
-        title: const Text(
-          'Crear Publicación',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
+        backgroundColor: isDarkMode ? _darkBg : _lightSurface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: 62,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
+          onPressed: () => Navigator.pop(context),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(44),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: TabBar(
-              controller: _tabController,
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              indicator: BoxDecoration(
-                borderRadius: BorderRadius.circular(50),
-                color: colorScheme.primaryContainer.withOpacity(0.5),
-              ),
-              labelColor: colorScheme.onPrimaryContainer,
-              unselectedLabelColor: colorScheme.onSurfaceVariant,
-              labelPadding: EdgeInsets.zero,
-              tabs: const [
-                Tab(
-                  height: 36,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.edit_note, size: 18),
-                      SizedBox(width: 6),
-                      Text('Editor'),
-                    ],
-                  ),
-                ),
-                Tab(
-                  height: 36,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.visibility, size: 18),
-                      SizedBox(width: 6),
-                      Text('Vista Previa'),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+        title: Text(
+          'Nueva Publicación',
+          style: TextStyle(
+            fontFamily: _fontDisplay,
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
+            letterSpacing: -0.3,
           ),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: IconButton.filled(
+            child: FilledButton.icon(
               onPressed: _isLoading ? null : _publicar,
+              style: FilledButton.styleFrom(
+                backgroundColor: _primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
               icon: _isLoading
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.send_rounded, size: 20),
-              style: IconButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                minimumSize: const Size(40, 40),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  : const Icon(Icons.send_rounded, size: 17),
+              label: const Text(
+                'Publicar',
+                style: TextStyle(
+                  fontFamily: _fontBody,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              tooltip: 'Enviar',
             ),
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(50),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: borderColor, width: 1)),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: elevatedColor,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: borderColor, width: 1),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: _primaryBlue,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _primaryBlue.withValues(alpha: 0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: textSecondary,
+                labelStyle: const TextStyle(
+                  fontFamily: _fontBody,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.edit_note_rounded, size: 18),
+                        SizedBox(width: 6),
+                        Text('Editor'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.visibility_outlined, size: 17),
+                        SizedBox(width: 6),
+                        Text('Vista Previa'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
+          // PESTAÑA 1: EDITOR
           SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_cargandoClubes)
-                  const LinearProgressIndicator()
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: LinearProgressIndicator(color: _primaryBlue),
+                  )
                 else
-                  DropdownButtonFormField<String>(
-                    value: _clubSeleccionadoId,
-                    decoration: InputDecoration(
-                      labelText: 'Club destino',
-                      prefixIcon: const Icon(Icons.groups_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      filled: true,
-                      fillColor: colorScheme.surface,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
                     ),
-                    items: _clubes
-                        .map(
-                          (c) => DropdownMenuItem<String>(
-                            value: c.id,
-                            child: Text(c.nombre),
+                    decoration: BoxDecoration(
+                      color: surfaceColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor, width: 1),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.groups_rounded,
+                          size: 20,
+                          color: isDarkMode ? _softBlue : _primaryBlue,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _nombreClubSeleccionado,
+                            style: TextStyle(
+                              fontFamily: _fontBody,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: textPrimary,
+                            ),
                           ),
-                        )
-                        .toList(),
-                    onChanged: _clubBloqueado
-                        ? null
-                        : (val) => setState(() => _clubSeleccionadoId = val),
+                        ),
+                      ],
+                    ),
                   ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: _tituloController,
                   maxLength: 120,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: 'Título del anuncio',
-                    hintText: 'Ej. Convocatoria abierta 2026-2',
-                    prefixIcon: const Icon(Icons.title_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    filled: true,
-                    fillColor: colorScheme.surface,
+                  style: TextStyle(
+                    fontFamily: _fontDisplay,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
+                  decoration: _inputDecoration(
+                    label: 'Título del anuncio',
+                    hint: 'Ej. Convocatoria abierta 2026-2',
+                    icon: Icons.title_rounded,
+                    isDarkMode: isDarkMode,
+                    surfaceColor: surfaceColor,
+                    borderColor: borderColor,
+                    textSecondary: textSecondary,
                   ),
                 ),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.center,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 12),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withOpacity(
-                        0.4,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Wrap(
-                      spacing: 4,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.format_bold, size: 20),
-                          onPressed: () => _aplicarFormato('**'),
-                          tooltip: 'Negrita',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.format_italic, size: 20),
-                          onPressed: () => _aplicarFormato('*'),
-                          tooltip: 'Cursiva',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.title, size: 20),
-                          onPressed: () => _aplicarFormato('', prefix: '### '),
-                          tooltip: 'Subtítulo',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.link, size: 20),
-                          onPressed: _insertarEnlace,
-                          tooltip: 'Enlace',
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.format_list_bulleted,
-                            size: 20,
-                          ),
-                          onPressed: () => _aplicarFormato('', prefix: '- '),
-                          tooltip: 'Lista',
-                        ),
-                      ],
-                    ),
+
+                // Barra de herramientas Markdown estilo Academic Vanguard
+                Text(
+                  'CONTENIDO Y FORMATO',
+                  style: TextStyle(
+                    fontFamily: _fontBody,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: textSecondary,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    alignment: WrapAlignment.spaceEvenly,
+                    children: [
+                      _buildFormatButton(
+                        icon: Icons.format_bold_rounded,
+                        tooltip: 'Negrita',
+                        onTap: () => _aplicarFormato('**'),
+                        elevatedColor: elevatedColor,
+                        accentColor: accentColor,
+                      ),
+                      _buildFormatButton(
+                        icon: Icons.format_italic_rounded,
+                        tooltip: 'Cursiva',
+                        onTap: () => _aplicarFormato('*'),
+                        elevatedColor: elevatedColor,
+                        accentColor: accentColor,
+                      ),
+                      _buildFormatButton(
+                        icon: Icons.title_rounded,
+                        tooltip: 'Subtítulo',
+                        onTap: () => _aplicarFormato('', prefix: '### '),
+                        elevatedColor: elevatedColor,
+                        accentColor: accentColor,
+                      ),
+                      _buildFormatButton(
+                        icon: Icons.link_rounded,
+                        tooltip: 'Enlace',
+                        onTap: _insertarEnlace,
+                        elevatedColor: elevatedColor,
+                        accentColor: accentColor,
+                      ),
+                      _buildFormatButton(
+                        icon: Icons.format_list_bulleted_rounded,
+                        tooltip: 'Lista',
+                        onTap: () => _aplicarFormato('', prefix: '- '),
+                        elevatedColor: elevatedColor,
+                        accentColor: accentColor,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
                 TextField(
                   controller: _contenidoController,
                   maxLines: 7,
                   maxLength: 1000,
                   textCapitalization: TextCapitalization.sentences,
+                  style: TextStyle(
+                    fontFamily: _fontBody,
+                    fontSize: 14.5,
+                    height: 1.5,
+                    color: textPrimary,
+                  ),
                   decoration: InputDecoration(
                     hintText:
-                        'Escribe tu anuncio aquí con formato...\n\n(Usa doble Enter para separar párrafos)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                        'Escribe tu anuncio aquí con formato Markdown...\n\n(Usa doble Enter para separar párrafos)',
+                    hintStyle: TextStyle(
+                      fontFamily: _fontBody,
+                      fontSize: 14,
+                      color: textSecondary.withValues(alpha: 0.75),
                     ),
                     filled: true,
-                    fillColor: colorScheme.surface,
+                    fillColor: surfaceColor,
+                    contentPadding: const EdgeInsets.all(16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: borderColor, width: 1),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: borderColor, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(
+                        color: _primaryBlue,
+                        width: 1.8,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Adjuntar Imagen o Afiche',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+
+                // Sección Multimedia
+                Text(
+                  'IMAGEN O AFICHE DEL EVENTO',
+                  style: TextStyle(
+                    fontFamily: _fontBody,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment<bool>(
-                      value: false,
-                      label: Text('Archivo Local'),
-                      icon: Icon(Icons.phone_android, size: 18),
-                    ),
-                    ButtonSegment<bool>(
-                      value: true,
-                      label: Text('Enlace Web URL'),
-                      icon: Icon(Icons.link, size: 18),
-                    ),
-                  ],
-                  selected: {_usarUrlExterna},
-                  onSelectionChanged: (Set<bool> newSelection) {
-                    setState(() {
-                      _usarUrlExterna = newSelection.first;
-                      if (_usarUrlExterna) {
-                        _imagenSeleccionada = null;
-                      } else {
-                        _urlController.clear();
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 14),
-                if (_usarUrlExterna)
-                  TextField(
-                    controller: _urlController,
-                    decoration: InputDecoration(
-                      hintText: 'https://ejemplo.com/imagen.jpg',
-                      prefixIcon: const Icon(Icons.link_rounded),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SegmentedButton<bool>(
+                        style: SegmentedButton.styleFrom(
+                          selectedBackgroundColor: _primaryBlue,
+                          selectedForegroundColor: Colors.white,
+                          foregroundColor: textSecondary,
+                          side: BorderSide(color: borderColor, width: 1),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        segments: const [
+                          ButtonSegment<bool>(
+                            value: false,
+                            label: Text(
+                              'Archivo Local',
+                              style: TextStyle(
+                                fontFamily: _fontBody,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            icon: Icon(Icons.photo_library_outlined, size: 18),
+                          ),
+                          ButtonSegment<bool>(
+                            value: true,
+                            label: Text(
+                              'Enlace Web URL',
+                              style: TextStyle(
+                                fontFamily: _fontBody,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            icon: Icon(Icons.link_rounded, size: 18),
+                          ),
+                        ],
+                        selected: {_usarUrlExterna},
+                        onSelectionChanged: (Set<bool> newSelection) {
+                          setState(() {
+                            _usarUrlExterna = newSelection.first;
+                            if (_usarUrlExterna) {
+                              _imagenSeleccionada = null;
+                            } else {
+                              _urlController.clear();
+                            }
+                          });
+                        },
                       ),
-                    ),
-                  )
-                else
-                  _imagenSeleccionada != null
-                      ? Stack(
+                      const SizedBox(height: 14),
+                      if (_usarUrlExterna)
+                        TextField(
+                          controller: _urlController,
+                          style: TextStyle(
+                            fontFamily: _fontBody,
+                            fontSize: 14,
+                            color: textPrimary,
+                          ),
+                          decoration: _inputDecoration(
+                            label: 'URL de la imagen',
+                            hint: 'https://ejemplo.com/afiche.jpg',
+                            icon: Icons.language_rounded,
+                            isDarkMode: isDarkMode,
+                            surfaceColor: elevatedColor,
+                            borderColor: borderColor,
+                            textSecondary: textSecondary,
+                          ),
+                        )
+                      else if (_imagenSeleccionada != null)
+                        Stack(
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: kIsWeb
                                   ? Image.network(
                                       _imagenSeleccionada!.path,
-                                      height: 180,
+                                      height: 190,
                                       width: double.infinity,
                                       fit: BoxFit.cover,
                                     )
                                   : Image.file(
                                       File(_imagenSeleccionada!.path),
-                                      height: 180,
+                                      height: 190,
                                       width: double.infinity,
                                       fit: BoxFit.cover,
                                     ),
                             ),
                             Positioned(
-                              top: 6,
-                              right: 6,
-                              child: CircleAvatar(
-                                backgroundColor: Colors.black54,
-                                radius: 16,
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                  onPressed: () => setState(
+                              top: 8,
+                              right: 8,
+                              child: Material(
+                                color: Colors.black.withValues(alpha: 0.65),
+                                shape: const CircleBorder(),
+                                child: InkWell(
+                                  customBorder: const CircleBorder(),
+                                  onTap: () => setState(
                                     () => _imagenSeleccionada = null,
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ],
                         )
-                      : OutlinedButton.icon(
-                          onPressed: _seleccionarImagen,
-                          icon: const Icon(Icons.image_outlined),
-                          label: const Text('Elegir imagen de la galería'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 48),
-                            shape: RoundedRectangleBorder(
+                      else
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _seleccionarImagen,
+                          child: Container(
+                            height: 110,
+                            decoration: BoxDecoration(
+                              color: elevatedColor,
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _primaryBlue.withValues(alpha: 0.35),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: _primaryBlue.withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    color: accentColor,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Seleccionar imagen de la galería',
+                                  style: TextStyle(
+                                    fontFamily: _fontBody,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: accentColor,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
+
+          // PESTAÑA 2: VISTA PREVIA EN EL FEED
           SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12, left: 4),
-                  child: Text(
-                    'Previsualización en el Feed:',
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(
+                          0xFF0F172A,
+                        ).withValues(alpha: isDarkMode ? 0.25 : 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ),
-                Card(
-                  margin: EdgeInsets.zero,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -608,14 +923,26 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                       children: [
                         Row(
                           children: [
-                            CircleAvatar(
-                              backgroundColor: colorScheme.primaryContainer,
-                              radius: 20,
-                              child: Text(
-                                'U',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onPrimaryContainer,
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [_primaryBlue, _deepSapphire],
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  inicialAutor,
+                                  style: const TextStyle(
+                                    fontFamily: _fontDisplay,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -624,21 +951,22 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Tu Nombre',
+                                  Text(
+                                    nombreAutor,
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                      fontFamily: _fontDisplay,
+                                      fontWeight: FontWeight.w700,
                                       fontSize: 15,
+                                      color: textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Hace 0 min',
+                                    'Ahora',
                                     style: TextStyle(
+                                      fontFamily: _fontBody,
                                       fontSize: 12,
-                                      color: colorScheme.onSurface.withOpacity(
-                                        0.5,
-                                      ),
+                                      color: textSecondary,
                                     ),
                                   ),
                                 ],
@@ -647,37 +975,56 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                           ],
                         ),
                         if (_tituloController.text.trim().isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           Text(
                             _tituloController.text.trim(),
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
+                            style: TextStyle(
+                              fontFamily: _fontDisplay,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                              letterSpacing: -0.2,
                             ),
                           ),
                         ],
                         const SizedBox(height: 10),
                         MarkdownBody(
                           data: _contenidoController.text.isEmpty
-                              ? '*Tu publicación aparecerá aquí...*'
+                              ? '*El contenido de tu publicación aparecerá aquí...*'
                               : _contenidoController.text,
                           selectable: true,
                           styleSheet: MarkdownStyleSheet(
-                            p: const TextStyle(fontSize: 15, height: 1.4),
-                            strong: const TextStyle(
-                              fontWeight: FontWeight.bold,
+                            p: TextStyle(
+                              fontFamily: _fontBody,
+                              fontSize: 14.5,
+                              height: 1.5,
+                              color: textPrimary,
                             ),
-                            em: const TextStyle(fontStyle: FontStyle.italic),
-                            a: const TextStyle(
-                              color: Colors.blueAccent,
+                            h3: TextStyle(
+                              fontFamily: _fontDisplay,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                            strong: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
+                            em: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: textSecondary,
+                            ),
+                            a: TextStyle(
+                              color: accentColor,
+                              fontWeight: FontWeight.w600,
                               decoration: TextDecoration.underline,
-                              decorationColor: Colors.blueAccent,
+                              decorationColor: accentColor,
                             ),
                           ),
                         ),
                         if (_imagenSeleccionada != null ||
                             _urlController.text.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: _usarUrlExterna
@@ -704,26 +1051,26 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                                         )),
                           ),
                         ],
-                        const SizedBox(height: 14),
-                        Divider(
-                          color: colorScheme.outlineVariant.withOpacity(0.3),
-                          height: 1,
-                        ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
+                        Divider(color: borderColor, height: 1),
+                        const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
                             _buildDummyAction(
                               Icons.favorite_border_rounded,
                               'Me gusta',
+                              textSecondary,
                             ),
                             _buildDummyAction(
                               Icons.chat_bubble_outline_rounded,
                               'Comentar',
+                              textSecondary,
                             ),
                             _buildDummyAction(
                               Icons.share_outlined,
                               'Compartir',
+                              textSecondary,
                             ),
                           ],
                         ),
@@ -739,17 +1086,43 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     );
   }
 
-  Widget _buildDummyAction(IconData icon, String label) {
+  Widget _buildFormatButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    required Color elevatedColor,
+    required Color accentColor,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: elevatedColor,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: SizedBox(
+            width: 38,
+            height: 36,
+            child: Icon(icon, size: 19, color: accentColor),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDummyAction(IconData icon, String label, Color color) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: Colors.grey),
+        Icon(icon, size: 18, color: color),
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
+            fontFamily: _fontBody,
             fontSize: 13,
-            color: Colors.grey,
-            fontWeight: FontWeight.w500,
+            color: color,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

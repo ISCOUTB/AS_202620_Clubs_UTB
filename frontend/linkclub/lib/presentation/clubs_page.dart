@@ -16,6 +16,24 @@ class ClubsPage extends StatefulWidget {
 }
 
 class _ClubsPageState extends State<ClubsPage> {
+  static const String _fontFamily = 'DMSans';
+  static const Color _darkBg = Color(0xFF080C14);
+  static const Color _darkSurface = Color(0xFF0F1623);
+  static const Color _darkElevated = Color(0xFF131B2E);
+  static const Color _darkBorder = Color(0xFF1E293B);
+  static const Color _darkTextPrimary = Color(0xFFE2E8F0);
+  static const Color _darkTextSecondary = Color(0xFF8A99AD);
+
+  static const Color _lightBg = Color(0xFFF8FAFC);
+  static const Color _lightSurface = Color(0xFFFFFFFF);
+  static const Color _lightElevated = Color(0xFFF1F5F9);
+  static const Color _lightBorder = Color(0xFFE2E8F0);
+  static const Color _lightTextPrimary = Color(0xFF0F172A);
+  static const Color _lightTextSecondary = Color(0xFF64748B);
+
+  static const Color _brandBlue = Color(0xFF1D4ED8);
+  static const Color _brandBlueSoft = Color(0xFF60A5FA);
+
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
@@ -27,91 +45,202 @@ class _ClubsPageState extends State<ClubsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final isDarkMode = theme.brightness == Brightness.dark;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? _darkBg : _lightBg;
+    final headerBg = isDarkMode ? _darkBg : _lightSurface;
+    final borderColor = isDarkMode ? _darkBorder : _lightBorder;
+    final titleColor = isDarkMode ? _darkTextPrimary : _lightTextPrimary;
 
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: theme.scaffoldBackgroundColor,
-          elevation: 0,
-          title: Row(
-            children: [
-              Image.asset(
-                'assets/icon/logo_clean.png',
-                width: 32,
-                height: 32,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'LinkClub',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ],
+        preferredSize: const Size.fromHeight(62),
+        child: Container(
+          decoration: BoxDecoration(
+            color: headerBg,
+            border: Border(bottom: BorderSide(color: borderColor, width: 1)),
           ),
-          actions: [
-            IconButton(
-              icon: Icon(
-                isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                color: colorScheme.onSurface,
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: isDarkMode ? _darkElevated : _lightSurface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: borderColor, width: 1),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(7),
+                          child: Image.asset(
+                            'assets/icon/logo_clean.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'LinkClub',
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          color: titleColor,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Material(
+                    color: isDarkMode ? _darkElevated : _lightElevated,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: borderColor, width: 1),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => ThemeController.toggle(),
+                      child: SizedBox(
+                        width: 38,
+                        height: 38,
+                        child: Icon(
+                          isDarkMode
+                              ? Icons.wb_sunny_outlined
+                              : Icons.dark_mode_rounded,
+                          size: 19,
+                          color: isDarkMode
+                              ? const Color(0xFFEAB308)
+                              : const Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              onPressed: () => ThemeController.toggle(),
             ),
-            const SizedBox(width: 8),
-          ],
+          ),
         ),
       ),
       body: _pages[_currentIndex],
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: colorScheme.outlineVariant.withOpacity(0.3),
-              width: 1,
+        color: bgColor,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isDarkMode ? _darkSurface : _lightSurface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: borderColor, width: 1),
+              ),
+              child: Row(
+                children: [
+                  _buildNavItem(
+                    index: 0,
+                    label: 'Feed',
+                    icon: Icons.dynamic_feed_outlined,
+                    activeIcon: Icons.dynamic_feed_rounded,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildNavItem(
+                    index: 1,
+                    label: 'Eventos',
+                    icon: Icons.event_outlined,
+                    activeIcon: Icons.event_rounded,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildNavItem(
+                    index: 2,
+                    label: 'Clubes',
+                    icon: Icons.groups_outlined,
+                    activeIcon: Icons.groups_rounded,
+                    isDarkMode: isDarkMode,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildNavItem(
+                    index: 3,
+                    label: 'Ajustes',
+                    icon: Icons.settings_outlined,
+                    activeIcon: Icons.settings_rounded,
+                    isDarkMode: isDarkMode,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: theme.scaffoldBackgroundColor,
-          selectedItemColor: colorScheme.primary,
-          unselectedItemColor: colorScheme.onSurface.withOpacity(0.4),
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dynamic_feed_outlined),
-              activeIcon: Icon(Icons.dynamic_feed_rounded),
-              label: 'Feed',
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required String label,
+    required IconData icon,
+    required IconData activeIcon,
+    required bool isDarkMode,
+  }) {
+    final isSelected = _currentIndex == index;
+    final activeBg = isDarkMode
+        ? _brandBlue.withValues(alpha: 0.18)
+        : _brandBlue.withValues(alpha: 0.10);
+    final activeBorder = isDarkMode
+        ? const Color(0xFF3B82F6).withValues(alpha: 0.30)
+        : _brandBlue.withValues(alpha: 0.22);
+    final activeColor = isDarkMode ? _brandBlueSoft : _brandBlue;
+    final inactiveColor = isDarkMode ? _darkTextSecondary : _lightTextSecondary;
+
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _currentIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected ? activeBorder : Colors.transparent,
+              width: 1,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.event_outlined),
-              activeIcon: Icon(Icons.event_rounded),
-              label: 'Eventos',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.groups_outlined),
-              activeIcon: Icon(Icons.groups_rounded),
-              label: 'Clubes',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.menu_rounded),
-              activeIcon: Icon(Icons.menu_rounded),
-              label: 'Ajustes',
-            ),
-          ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSelected ? activeIcon : icon,
+                size: 20,
+                color: isSelected ? activeColor : inactiveColor,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? activeColor : inactiveColor,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -126,6 +255,22 @@ class ClubsListScreen extends StatefulWidget {
 }
 
 class _ClubsListScreenState extends State<ClubsListScreen> {
+  static const String _fontFamily = 'DMSans';
+  static const Color _darkSurface = Color(0xFF0F1623);
+  static const Color _darkElevated = Color(0xFF131B2E);
+  static const Color _darkBorder = Color(0xFF1E293B);
+  static const Color _darkTextPrimary = Color(0xFFF1F5F9);
+  static const Color _darkTextSecondary = Color(0xFF94A3B8);
+
+  static const Color _lightSurface = Color(0xFFFFFFFF);
+  static const Color _lightElevated = Color(0xFFF1F5F9);
+  static const Color _lightBorder = Color(0xFFE2E8F0);
+  static const Color _lightTextPrimary = Color(0xFF0F172A);
+  static const Color _lightTextSecondary = Color(0xFF64748B);
+
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _softBlue = Color(0xFF60A5FA);
+
   final ClubRepository _clubRepository = ClubRepository();
   final TextEditingController _searchController = TextEditingController();
 
@@ -207,61 +352,114 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDarkMode ? _darkSurface : _lightSurface;
+    final elevatedColor = isDarkMode ? _darkElevated : _lightElevated;
+    final borderColor = isDarkMode ? _darkBorder : _lightBorder;
+    final textPrimary = isDarkMode ? _darkTextPrimary : _lightTextPrimary;
+    final textSecondary = isDarkMode ? _darkTextSecondary : _lightTextSecondary;
+    final accentColor = isDarkMode ? _softBlue : _primaryBlue;
     final filtrados = _clubesFiltrados;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'Clubes disponibles',
-                style: theme.textTheme.displayLarge?.copyWith(fontSize: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Clubes disponibles',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Explora y conéctate con los capítulos activos de la UTB',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 13.5,
+                        color: textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (!_isLoading && _errorMensaje == null)
+              if (!_isLoading && _errorMensaje == null) ...[
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+                    horizontal: 12,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${filtrados.length}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
+                    color: _primaryBlue.withValues(
+                      alpha: isDarkMode ? 0.16 : 0.09,
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: _primaryBlue.withValues(alpha: 0.30),
+                      width: 1,
                     ),
                   ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.groups_rounded, size: 14, color: accentColor),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${filtrados.length}',
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
             ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Explora y conéctate con los clubes activos de la UTB',
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.onSurface.withOpacity(0.6),
-            ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _searchController,
             onChanged: (value) => setState(() => _queryBusqueda = value.trim()),
+            style: TextStyle(
+              fontFamily: _fontFamily,
+              fontSize: 14,
+              color: textPrimary,
+            ),
             decoration: InputDecoration(
               hintText: 'Buscar por nombre, categoría o tema...',
-              prefixIcon: const Icon(Icons.search_rounded),
+              hintStyle: TextStyle(
+                fontFamily: _fontFamily,
+                fontSize: 14,
+                color: textSecondary,
+              ),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                size: 20,
+                color: textSecondary,
+              ),
               suffixIcon: _queryBusqueda.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 20),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: textSecondary,
+                      ),
                       onPressed: () {
                         _searchController.clear();
                         setState(() => _queryBusqueda = '');
@@ -269,8 +467,23 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                     )
                   : null,
               filled: true,
-              fillColor: colorScheme.surface,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              fillColor: surfaceColor,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: borderColor, width: 1),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: borderColor, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _primaryBlue, width: 1.5),
+              ),
             ),
           ),
           if (!_isLoading && _categoriasDisponibles.length > 1) ...[
@@ -284,18 +497,35 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                 itemBuilder: (context, index) {
                   final cat = _categoriasDisponibles[index];
                   final seleccionada = cat == _categoriaSeleccionada;
-                  return ChoiceChip(
-                    label: Text(cat),
-                    selected: seleccionada,
-                    onSelected: (_) =>
-                        setState(() => _categoriaSeleccionada = cat),
-                    selectedColor: colorScheme.primary,
-                    labelStyle: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: seleccionada
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurface,
+                  return GestureDetector(
+                    onTap: () => setState(() => _categoriaSeleccionada = cat),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: seleccionada ? _primaryBlue : surfaceColor,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: seleccionada ? _primaryBlue : borderColor,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 12.5,
+                            fontWeight: seleccionada
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: seleccionada ? Colors.white : textSecondary,
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -308,153 +538,328 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMensaje != null
                 ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.cloud_off_rounded,
-                          size: 44,
-                          color: Colors.redAccent,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _errorMensaje!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _cargarClubes,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Reintentar'),
-                        ),
-                      ],
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: surfaceColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.cloud_off_rounded,
+                            size: 42,
+                            color: Colors.redAccent,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _errorMensaje!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: _fontFamily,
+                              fontSize: 14,
+                              color: textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _cargarClubes,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primaryBlue,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            label: const Text('Reintentar'),
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : RefreshIndicator(
                     onRefresh: _cargarClubes,
-                    color: colorScheme.primary,
+                    color: accentColor,
                     child: filtrados.isEmpty
                         ? ListView(
                             children: [
-                              const SizedBox(height: 100),
+                              const SizedBox(height: 80),
                               Center(
-                                child: Text(
-                                  _todosLosClubes.isEmpty
-                                      ? 'No hay clubes registrados en la base de datos.'
-                                      : 'No se encontraron clubes con ese filtro.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.onSurface.withOpacity(
-                                      0.6,
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.search_off_rounded,
+                                      size: 42,
+                                      color: textSecondary.withValues(
+                                        alpha: 0.5,
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      _todosLosClubes.isEmpty
+                                          ? 'No hay clubes registrados en la base de datos.'
+                                          : 'No se encontraron clubes con ese filtro.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: _fontFamily,
+                                        fontSize: 14,
+                                        color: textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           )
-                        : ListView.builder(
+                        : ListView.separated(
+                            padding: const EdgeInsets.only(bottom: 20),
                             itemCount: filtrados.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
                             itemBuilder: (context, index) {
                               final club = filtrados[index];
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () => _abrirDetalleClub(club),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 52,
-                                          height: 52,
-                                          decoration: BoxDecoration(
-                                            color: colorScheme.primary
-                                                .withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            club.iconoCategoria,
-                                            color: colorScheme.primary,
-                                            size: 26,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 14),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                club.nombre,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                club.categoria,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: colorScheme.primary,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                club.descripcion,
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: colorScheme.onSurface
-                                                      .withOpacity(0.65),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        SizedBox(
-                                          height: 36,
-                                          child: ElevatedButton(
-                                            onPressed: () =>
-                                                _abrirDetalleClub(club),
-                                            style: ElevatedButton.styleFrom(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 14,
-                                                  ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                              ),
-                                            ),
-                                            child: const Text(
-                                              'Ver',
-                                              style: TextStyle(fontSize: 13),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                              return _buildClubDirectoryCard(
+                                club: club,
+                                isDarkMode: isDarkMode,
+                                surfaceColor: surfaceColor,
+                                elevatedColor: elevatedColor,
+                                borderColor: borderColor,
+                                textPrimary: textPrimary,
+                                textSecondary: textSecondary,
+                                accentColor: accentColor,
                               );
                             },
                           ),
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildClubDirectoryCard({
+    required ClubModel club,
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color elevatedColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    return Material(
+      color: surfaceColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: borderColor, width: 1),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _abrirDetalleClub(club),
+        child: Padding(
+          padding: const EdgeInsets.all(15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                      ),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primaryBlue.withValues(alpha: 0.22),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      club.iconoCategoria,
+                      color: Colors.white,
+                      size: 25,
+                    ),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _primaryBlue.withValues(
+                                  alpha: isDarkMode ? 0.16 : 0.08,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: _primaryBlue.withValues(alpha: 0.25),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                club.categoria,
+                                style: TextStyle(
+                                  fontFamily: _fontFamily,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: accentColor,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            if (club.inscripcionesAbiertas)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 3,
+                                      backgroundColor: Color(0xFF34D399),
+                                    ),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'Abierto',
+                                      style: TextStyle(
+                                        fontFamily: _fontFamily,
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF34D399),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          club.nombre,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          club.descripcion,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 13,
+                            height: 1.4,
+                            color: textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: elevatedColor,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(
+                    color: borderColor.withValues(alpha: 0.7),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.schedule_rounded, size: 14, color: accentColor),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        club.horario,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        club.lugar,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: _primaryBlue,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -477,6 +882,31 @@ class EventsScreen extends StatelessWidget {
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  static const String _fontDisplay = 'DMSans';
+  static const String _fontBody = 'DMSans';
+
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _deepSapphire = Color(0xFF004AC6);
+  static const Color _softBlue = Color(0xFF60A5FA);
+  static const Color _secondaryIndigo = Color(0xFF3323CC);
+  static const Color _secondaryFixed = Color(0xFFE2DFFF);
+
+  static const Color _lightSurface = Color(0xFFFFFFFF);
+  static const Color _lightSurfaceLow = Color(0xFFEFF4FF);
+  static const Color _lightSurfaceHigh = Color(0xFFDCE9FF);
+  static const Color _lightBorder = Color(0xFFE2E8F0);
+  static const Color _lightTextPrimary = Color(0xFF0B1C30);
+  static const Color _lightTextSecondary = Color(0xFF434655);
+
+  static const Color _darkSurface = Color(0xFF0F1623);
+  static const Color _darkElevated = Color(0xFF131B2E);
+  static const Color _darkBorder = Color(0xFF1E293B);
+  static const Color _darkTextPrimary = Color(0xFFF1F5F9);
+  static const Color _darkTextSecondary = Color(0xFF94A3B8);
+
+  static const Color _errorRed = Color(0xFFBA1A1A);
+  static const Color _errorContainer = Color(0xFFFFDAD6);
+
   Future<void> _signOut(BuildContext context) async {
     await SessionController.instance.cerrarSesion();
 
@@ -497,20 +927,36 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Editar Perfil Institucional'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Editar Perfil Institucional',
+          style: TextStyle(
+            fontFamily: _fontDisplay,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nombreCtrl,
-              decoration: const InputDecoration(labelText: 'Nombre completo'),
+              decoration: InputDecoration(
+                labelText: 'Nombre completo',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: descCtrl,
               maxLines: 3,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Biografía o descripción (opcional)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -520,7 +966,13 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: _primaryBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () async {
               try {
                 await authRepo.actualizarMiPerfil(
@@ -533,7 +985,8 @@ class SettingsScreen extends StatelessWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Perfil actualizado'),
-                      backgroundColor: Colors.green,
+                      backgroundColor: Color(0xFF10B981),
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 }
@@ -542,7 +995,8 @@ class SettingsScreen extends StatelessWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Error al actualizar perfil: $e'),
-                      backgroundColor: Colors.redAccent,
+                      backgroundColor: _errorRed,
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 }
@@ -563,21 +1017,37 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cambiar contraseña'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Cambiar contraseña',
+          style: TextStyle(
+            fontFamily: _fontDisplay,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: actualCtrl,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Contraseña actual'),
+              decoration: InputDecoration(
+                labelText: 'Contraseña actual',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: nuevaCtrl,
               obscureText: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Nueva contraseña (mín. 8 caracteres)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],
@@ -587,7 +1057,13 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: _primaryBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () async {
               if (nuevaCtrl.text.length < 8) return;
               try {
@@ -597,7 +1073,8 @@ class SettingsScreen extends StatelessWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Contraseña actualizada correctamente'),
-                      backgroundColor: Colors.green,
+                      backgroundColor: Color(0xFF10B981),
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 }
@@ -606,7 +1083,8 @@ class SettingsScreen extends StatelessWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('La contraseña actual no es correcta'),
-                      backgroundColor: Colors.redAccent,
+                      backgroundColor: _errorRed,
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 }
@@ -623,17 +1101,31 @@ class SettingsScreen extends StatelessWidget {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar cuenta'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Eliminar cuenta',
+          style: TextStyle(
+            fontFamily: _fontDisplay,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
         content: const Text(
           'Esta acción es permanente y eliminará tu acceso institucional a LinkClub. ¿Deseas continuar?',
+          style: TextStyle(fontFamily: _fontBody, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: _errorRed,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Eliminar definitivamente'),
           ),
@@ -656,7 +1148,14 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDarkMode ? _darkSurface : _lightSurface;
+    final elevatedColor = isDarkMode ? _darkElevated : _lightSurfaceHigh;
+    final pillBg = isDarkMode ? _darkElevated : _lightSurfaceLow;
+    final borderColor = isDarkMode ? _darkBorder : _lightBorder;
+    final textPrimary = isDarkMode ? _darkTextPrimary : _lightTextPrimary;
+    final textSecondary = isDarkMode ? _darkTextSecondary : _lightTextSecondary;
+    final accentColor = isDarkMode ? _softBlue : _deepSapphire;
 
     return ListenableBuilder(
       listenable: SessionController.instance,
@@ -674,74 +1173,249 @@ class SettingsScreen extends StatelessWidget {
           etiquetaRol = 'Estudiante (Solicitud de Admin pendiente)';
         }
 
+        final List<Widget> opcionesCuenta = [];
+
+        if (session.esSuperAdminReal) {
+          opcionesCuenta.add(
+            _buildAccountMenuItem(
+              icon: Icons.terminal_rounded,
+              title: 'Consola Desarrollador',
+              subtitle: 'Aprobar admins y crear clubes',
+              badgeText: 'Admin',
+              isDarkMode: isDarkMode,
+              elevatedColor: elevatedColor,
+              accentColor: accentColor,
+              textPrimary: textPrimary,
+              textSecondary: textSecondary,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DevAdminScreen()),
+                );
+              },
+            ),
+          );
+        }
+
+        if (session.esAdminClubReal && usuario?.clubAdministradoId != null) {
+          opcionesCuenta.add(
+            _buildAccountMenuItem(
+              icon: Icons.admin_panel_settings_outlined,
+              title: 'Gestionar mi club',
+              subtitle: usuario?.clubAdministradoNombre ?? '',
+              badgeText: 'Club',
+              isDarkMode: isDarkMode,
+              elevatedColor: elevatedColor,
+              accentColor: accentColor,
+              textPrimary: textPrimary,
+              textSecondary: textSecondary,
+              onTap: () async {
+                final club = await ClubRepository().obtenerClubPorId(
+                  usuario!.clubAdministradoId!,
+                );
+                if (context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ClubDetailPage(club: club),
+                    ),
+                  );
+                }
+              },
+            ),
+          );
+        }
+
+        if (usuario != null) {
+          opcionesCuenta.add(
+            _buildAccountMenuItem(
+              icon: Icons.badge_outlined,
+              title: 'Editar Perfil Institucional',
+              isDarkMode: isDarkMode,
+              elevatedColor: elevatedColor,
+              accentColor: accentColor,
+              textPrimary: textPrimary,
+              textSecondary: textSecondary,
+              onTap: () => _abrirEditarPerfil(context, usuario),
+            ),
+          );
+          opcionesCuenta.add(
+            _buildAccountMenuItem(
+              icon: Icons.lock_reset_rounded,
+              title: 'Cambiar contraseña',
+              isDarkMode: isDarkMode,
+              elevatedColor: elevatedColor,
+              accentColor: accentColor,
+              textPrimary: textPrimary,
+              textSecondary: textSecondary,
+              onTap: () => _abrirCambiarPassword(context),
+            ),
+          );
+        }
+
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Configuración y Perfil',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontFamily: _fontDisplay,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                  letterSpacing: -0.5,
+                ),
               ),
               const SizedBox(height: 16),
+
+              // Tarjeta Principal de Perfil
               if (usuario != null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
+                Container(
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: borderColor, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(
+                          0xFF0F172A,
+                        ).withValues(alpha: isDarkMode ? 0.25 : 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Stack(
                       children: [
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundColor: colorScheme.primaryContainer,
-                          child: Text(
-                            usuario.nombre.isNotEmpty
-                                ? usuario.nombre[0].toUpperCase()
-                                : 'U',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onPrimaryContainer,
+                        Positioned(
+                          right: -24,
+                          top: -24,
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _primaryBlue.withValues(
+                                alpha: isDarkMode ? 0.14 : 0.07,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                usuario.nombre,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '${usuario.matricula} • ${usuario.correo}',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: colorScheme.onSurface.withOpacity(
-                                    0.65,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 3,
-                                ),
+                                width: 62,
+                                height: 62,
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  etiquetaRol,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.primary,
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [_primaryBlue, _deepSapphire],
                                   ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _primaryBlue.withValues(
+                                        alpha: 0.28,
+                                      ),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    usuario.nombre.isNotEmpty
+                                        ? usuario.nombre[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      fontFamily: _fontDisplay,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      usuario.nombre,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: _fontDisplay,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                        color: textPrimary,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${usuario.matricula} • ${usuario.correo}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: _fontBody,
+                                        fontSize: 12.5,
+                                        color: textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: pillBg,
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: _primaryBlue.withValues(
+                                            alpha: 0.22,
+                                          ),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.verified_user_rounded,
+                                            size: 14,
+                                            color: accentColor,
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Flexible(
+                                            child: Text(
+                                              etiquetaRol,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontFamily: _fontBody,
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: accentColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -751,103 +1425,362 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+
+              // Tarjeta Modo Vista Estudiante
               if (session.esAdminClubReal || session.esSuperAdminReal) ...[
                 const SizedBox(height: 16),
-                Card(
-                  child: SwitchListTile(
-                    secondary: const Icon(Icons.visibility_outlined),
-                    title: const Text(
-                      'Modo Vista Estudiante',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text(
-                      'Oculta controles de edición para previsualizar la app como estudiante',
-                    ),
-                    value: session.forzarVistaEstudiante,
-                    onChanged: session.alternarVistaEstudiante,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              if (session.esAdminClubReal &&
-                  usuario?.clubAdministradoId != null)
-                ListTile(
-                  leading: const Icon(Icons.admin_panel_settings_outlined),
-                  title: const Text('Gestionar mi club'),
-                  subtitle: Text(usuario?.clubAdministradoNombre ?? ''),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () async {
-                    final club = await ClubRepository().obtenerClubPorId(
-                      usuario!.clubAdministradoId!,
-                    );
-                    if (context.mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ClubDetailPage(club: club),
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: pillBg,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      );
-                    }
-                  },
-                ),
-              if (session.esSuperAdminReal)
-                ListTile(
-                  leading: const Icon(Icons.developer_mode_rounded),
-                  title: const Text('Consola Desarrollador (Superadmin)'),
-                  subtitle: const Text('Aprobar admins y crear clubes'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DevAdminScreen()),
-                    );
-                  },
-                ),
-              if (usuario != null) ...[
-                ListTile(
-                  leading: const Icon(Icons.person_outline_rounded),
-                  title: const Text('Editar Perfil Institucional'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _abrirEditarPerfil(context, usuario),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.lock_reset_rounded),
-                  title: const Text('Cambiar contraseña'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _abrirCambiarPassword(context),
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.delete_forever_outlined,
-                    color: Colors.redAccent,
+                        child: Icon(
+                          Icons.visibility_outlined,
+                          size: 21,
+                          color: accentColor,
+                        ),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Modo Vista Estudiante',
+                              style: TextStyle(
+                                fontFamily: _fontDisplay,
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              'Previsualiza la vista estudiantil',
+                              style: TextStyle(
+                                fontFamily: _fontBody,
+                                fontSize: 12.5,
+                                color: textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: session.forzarVistaEstudiante,
+                        activeColor: _primaryBlue,
+                        onChanged: session.alternarVistaEstudiante,
+                      ),
+                    ],
                   ),
-                  title: const Text(
-                    'Eliminar cuenta',
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
-                  onTap: () => _confirmarEliminarCuenta(context),
                 ),
               ],
-              const SizedBox(height: 12),
-              Divider(color: colorScheme.onSurface.withOpacity(0.1)),
-              ListTile(
-                leading: const Icon(
-                  Icons.logout_rounded,
-                  color: Colors.redAccent,
-                ),
-                title: const Text(
-                  'Cerrar sesión',
-                  style: TextStyle(
-                    color: Colors.redAccent,
-                    fontWeight: FontWeight.w600,
+
+              // Grupo: MI CUENTA
+              if (opcionesCuenta.isNotEmpty) ...[
+                const SizedBox(height: 22),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    'MI CUENTA',
+                    style: TextStyle(
+                      fontFamily: _fontBody,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.9,
+                      color: textSecondary,
+                    ),
                   ),
                 ),
-                onTap: () => _signOut(context),
+                Container(
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Column(
+                    children: [
+                      for (int i = 0; i < opcionesCuenta.length; i++) ...[
+                        opcionesCuenta[i],
+                        if (i < opcionesCuenta.length - 1)
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: borderColor.withValues(alpha: 0.7),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+
+              // Grupo: Acciones de Sesión y Cuenta
+              const SizedBox(height: 18),
+              Container(
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: borderColor, width: 1),
+                ),
+                child: Column(
+                  children: [
+                    if (usuario != null) ...[
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
+                          onTap: () => _confirmarEliminarCuenta(context),
+                          child: Padding(
+                            padding: const EdgeInsets.all(15),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode
+                                        ? _errorRed.withValues(alpha: 0.2)
+                                        : _errorContainer.withValues(
+                                            alpha: 0.65,
+                                          ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 20,
+                                    color: isDarkMode
+                                        ? const Color(0xFFFFB4AB)
+                                        : _errorRed,
+                                  ),
+                                ),
+                                const SizedBox(width: 13),
+                                Expanded(
+                                  child: Text(
+                                    'Eliminar cuenta',
+                                    style: TextStyle(
+                                      fontFamily: _fontDisplay,
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDarkMode
+                                          ? const Color(0xFFFFB4AB)
+                                          : _errorRed,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 20,
+                                  color:
+                                      (isDarkMode
+                                              ? const Color(0xFFFFB4AB)
+                                              : _errorRed)
+                                          .withValues(alpha: 0.65),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        indent: 16,
+                        endIndent: 16,
+                        color: borderColor.withValues(alpha: 0.7),
+                      ),
+                    ],
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.vertical(
+                          top: usuario == null
+                              ? const Radius.circular(16)
+                              : Radius.zero,
+                          bottom: const Radius.circular(16),
+                        ),
+                        onTap: () => _signOut(context),
+                        child: Padding(
+                          padding: const EdgeInsets.all(15),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: _errorRed,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.logout_rounded,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 13),
+                              Expanded(
+                                child: Text(
+                                  'Cerrar sesión',
+                                  style: TextStyle(
+                                    fontFamily: _fontDisplay,
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDarkMode
+                                        ? const Color(0xFFFFB4AB)
+                                        : _errorRed,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.logout_rounded,
+                                size: 20,
+                                color: isDarkMode
+                                    ? const Color(0xFFFFB4AB)
+                                    : _errorRed,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Pie Institucional
+              const SizedBox(height: 24),
+              Center(
+                child: Text(
+                  'Universidad Tecnológica de Bolívar',
+                  style: TextStyle(
+                    fontFamily: _fontBody,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: textSecondary.withValues(alpha: 0.75),
+                  ),
+                ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAccountMenuItem({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    String? badgeText,
+    required bool isDarkMode,
+    required Color elevatedColor,
+    required Color accentColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(15),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: elevatedColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 21, color: accentColor),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: _fontDisplay,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                        color: textPrimary,
+                      ),
+                    ),
+                    if (subtitle != null && subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: _fontBody,
+                          fontSize: 12,
+                          color: textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (badgeText != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? const Color(0xFF4B41E1).withValues(alpha: 0.25)
+                        : _secondaryFixed,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: TextStyle(
+                      fontFamily: _fontBody,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: isDarkMode
+                          ? const Color(0xFFC3C0FF)
+                          : _secondaryIndigo,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 6),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: textSecondary.withValues(alpha: 0.6),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

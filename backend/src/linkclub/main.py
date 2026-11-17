@@ -16,10 +16,12 @@ from linkclub.adapters.inbound.api.health_router import router as health_router
 from linkclub.adapters.inbound.api.publicacion_router import router as publicacion_router
 from linkclub.adapters.inbound.api.recurso_router import router as recurso_router
 from linkclub.adapters.inbound.api.usuario_router import router as usuario_router
+from linkclub.adapters.inbound.api.evento_router import router as evento_router
 from linkclub.adapters.outbound.persistence.in_memory_club_adapter import _SEMILLA
 from linkclub.adapters.outbound.postgres.database import Base, SessionLocal, engine
 from linkclub.adapters.outbound.postgres.models import (
     club_model,
+    evento_model,
     publicacion_model,
     solicitud_admin_model,
     usuario_model,
@@ -100,3 +102,4 @@ app.include_router(club_router)
 app.include_router(auth_router)
 app.include_router(usuario_router)
 app.include_router(recurso_router)
+app.include_router(evento_router)

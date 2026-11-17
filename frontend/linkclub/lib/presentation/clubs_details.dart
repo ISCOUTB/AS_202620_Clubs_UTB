@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:linkclub/core/session/session_controller.dart';
@@ -16,10 +17,29 @@ class ClubDetailPage extends StatefulWidget {
 }
 
 class _ClubDetailPageState extends State<ClubDetailPage> {
+  static const String _fontFamily = 'DMSans';
+  static const Color _darkBg = Color(0xFF080C14);
+  static const Color _darkSurface = Color(0xFF0F1623);
+  static const Color _darkElevated = Color(0xFF151E2E);
+  static const Color _darkBorder = Color(0xFF1E293B);
+  static const Color _darkTextPrimary = Color(0xFFF1F5F9);
+  static const Color _darkTextSecondary = Color(0xFF94A3B8);
+
+  static const Color _lightBg = Color(0xFFF8FAFC);
+  static const Color _lightSurface = Color(0xFFFFFFFF);
+  static const Color _lightElevated = Color(0xFFF1F5F9);
+  static const Color _lightBorder = Color(0xFFE2E8F0);
+  static const Color _lightTextPrimary = Color(0xFF0F172A);
+  static const Color _lightTextSecondary = Color(0xFF64748B);
+
+  static const Color _primaryBlue = Color(0xFF2563EB);
+  static const Color _softBlue = Color(0xFF60A5FA);
+
   final ClubRepository _clubRepository = ClubRepository();
   late ClubModel _club;
   List<PublicacionModel> _publicaciones = [];
   bool _cargandoPublicaciones = true;
+  int _tabSeleccionada = 0; // 0: Avisos & Feed, 1: Detalles & Convocatoria
 
   @override
   void initState() {
@@ -80,6 +100,25 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
         ),
       );
     }
+  }
+
+  Future<void> _compartirInfoClub() async {
+    final resumen =
+        '${_club.nombre} (${_club.categoria}) - UTB\nHorario: ${_club.horario} • Lugar: ${_club.lugar}';
+    await Clipboard.setData(ClipboardData(text: resumen));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Información del club copiada al portapapeles'),
+      ),
+    );
+  }
+
+  String _iniciales(String nombre) {
+    final partes = nombre.trim().split(RegExp(r'\s+'));
+    if (partes.isEmpty || partes.first.isEmpty) return 'UTB';
+    if (partes.length == 1) return partes.first[0].toUpperCase();
+    return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
   }
 
   void _abrirModalEditarClub() {
@@ -268,8 +307,14 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDarkMode ? _darkBg : _lightBg;
+    final surfaceColor = isDarkMode ? _darkSurface : _lightSurface;
+    final elevatedColor = isDarkMode ? _darkElevated : _lightElevated;
+    final borderColor = isDarkMode ? _darkBorder : _lightBorder;
+    final textPrimary = isDarkMode ? _darkTextPrimary : _lightTextPrimary;
+    final textSecondary = isDarkMode ? _darkTextSecondary : _lightTextSecondary;
+    final accentColor = isDarkMode ? _softBlue : _primaryBlue;
 
     return ListenableBuilder(
       listenable: SessionController.instance,
@@ -282,298 +327,137 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
             _club.msFormsUrl!.trim().startsWith('http');
 
         return Scaffold(
+          backgroundColor: bgColor,
           appBar: AppBar(
-            title: const Text(
-              'Información del club',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            backgroundColor: bgColor,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 20,
+                color: textPrimary,
+              ),
+              onPressed: () => Navigator.pop(context),
             ),
+            title: Text(
+              _club.categoria,
+              style: TextStyle(
+                fontFamily: _fontFamily,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: textSecondary,
+              ),
+            ),
+            centerTitle: true,
             actions: [
               if (puedeGestionar)
                 IconButton(
                   tooltip: 'Editar información e inscripciones',
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: Icon(Icons.edit_outlined, size: 20, color: textPrimary),
                   onPressed: _abrirModalEditarClub,
                 ),
               IconButton(
                 tooltip: 'Actualizar publicaciones',
-                icon: const Icon(Icons.refresh_rounded),
+                icon: Icon(Icons.refresh_rounded, size: 21, color: textPrimary),
                 onPressed: _recargarTodo,
               ),
             ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1),
+              child: Divider(height: 1, thickness: 1, color: borderColor),
+            ),
           ),
           floatingActionButton: puedeGestionar
               ? FloatingActionButton.extended(
                   onPressed: _abrirCrearPublicacion,
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  elevation: 0,
+                  backgroundColor: _primaryBlue,
+                  foregroundColor: Colors.white,
+                  elevation: 2,
                   icon: const Icon(Icons.campaign_outlined),
-                  label: const Text('Nuevo aviso'),
+                  label: const Text(
+                    'Nuevo aviso',
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 )
               : null,
           body: RefreshIndicator(
             onRefresh: _recargarTodo,
-            color: colorScheme.primary,
+            color: accentColor,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 68,
-                                height: 68,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: Icon(
-                                  _club.iconoCategoria,
-                                  size: 34,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.primary.withOpacity(
-                                          0.1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        _club.categoria,
-                                        style: TextStyle(
-                                          color: colorScheme.primary,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _club.nombre,
-                                      style: theme.textTheme.titleLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          Text(
-                            'Acerca del club',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            (_club.descripcionCompleta != null &&
-                                    _club.descripcionCompleta!.isNotEmpty)
-                                ? _club.descripcionCompleta!
-                                : _club.descripcion,
-                            style: TextStyle(
-                              fontSize: 15,
-                              height: 1.5,
-                              color: colorScheme.onSurface.withOpacity(0.75),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // 1. HERO BANNER CARD (Estilo code_5.html)
+                  _buildHeroCard(
+                    isDarkMode: isDarkMode,
+                    surfaceColor: surfaceColor,
+                    elevatedColor: elevatedColor,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
+                    tieneUrlValida: tieneUrlValida,
                   ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                _club.inscripcionesAbiertas
-                                    ? Icons.how_to_reg_rounded
-                                    : Icons.lock_clock_outlined,
-                                color: _club.inscripcionesAbiertas
-                                    ? Colors.green
-                                    : colorScheme.onSurface.withOpacity(0.55),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _club.inscripcionesAbiertas
-                                      ? 'Convocatoria e inscripciones abiertas'
-                                      : 'Inscripciones cerradas',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_club.avisoInscripcion != null &&
-                              _club.avisoInscripcion!.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _club.avisoInscripcion!,
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                color: colorScheme.onSurface.withOpacity(0.7),
-                              ),
-                            ),
-                          ],
-                          if (_club.inscripcionesAbiertas &&
-                              tieneUrlValida) ...[
-                            const SizedBox(height: 14),
-                            ElevatedButton.icon(
-                              onPressed: () => _abrirFormularioInscripcion(
-                                _club.msFormsUrl!,
-                              ),
-                              icon: const Icon(Icons.open_in_new_rounded),
-                              label: const Text(
-                                'Inscribirme en Microsoft Forms',
-                              ),
-                            ),
-                          ] else if (!_club.inscripcionesAbiertas &&
-                              (_club.avisoInscripcion == null ||
-                                  _club.avisoInscripcion!.isEmpty)) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'Este club no tiene un formulario activo en este momento.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: colorScheme.onSurface.withOpacity(0.6),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                  const SizedBox(height: 14),
+
+                  // 2. LEADER / COORDINACIÓN SHOWCASE CARD
+                  _buildLeaderCard(
+                    isDarkMode: isDarkMode,
+                    surfaceColor: surfaceColor,
+                    elevatedColor: elevatedColor,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
                   ),
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: Column(
-                        children: [
-                          _buildInfoRow(
-                            colorScheme,
-                            Icons.person_outline_rounded,
-                            'Coordinación',
-                            _club.lider,
-                          ),
-                          Divider(
-                            height: 1,
-                            color: colorScheme.outlineVariant.withOpacity(0.3),
-                          ),
-                          _buildInfoRow(
-                            colorScheme,
-                            Icons.schedule_outlined,
-                            'Horario habitual',
-                            _club.horario,
-                          ),
-                          Divider(
-                            height: 1,
-                            color: colorScheme.outlineVariant.withOpacity(0.3),
-                          ),
-                          _buildInfoRow(
-                            colorScheme,
-                            Icons.location_on_outlined,
-                            'Lugar de encuentro',
-                            _club.lugar,
-                          ),
-                        ],
-                      ),
-                    ),
+                  const SizedBox(height: 14),
+
+                  // 3. SOBRE EL CLUB CARD
+                  _buildAboutCard(
+                    surfaceColor: surfaceColor,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
                   ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Publicaciones del club',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontSize: 19,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (!_cargandoPublicaciones)
-                        Text(
-                          '${_publicaciones.length} ${_publicaciones.length == 1 ? 'aviso' : 'avisos'}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                    ],
+                  const SizedBox(height: 18),
+
+                  // 4. INTERACTIVE SEGMENTED TABS
+                  _buildSegmentedTabs(
+                    isDarkMode: isDarkMode,
+                    elevatedColor: elevatedColor,
+                    borderColor: borderColor,
+                    textSecondary: textSecondary,
+                    accentColor: accentColor,
                   ),
-                  const SizedBox(height: 12),
-                  if (_cargandoPublicaciones)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (_publicaciones.isEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.feed_outlined,
-                                size: 36,
-                                color: colorScheme.onSurface.withOpacity(0.35),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Este club aún no tiene publicaciones.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurface.withOpacity(0.6),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                  const SizedBox(height: 14),
+
+                  // 5. TAB CONTENT
+                  if (_tabSeleccionada == 0)
+                    _buildFeedTabContent(
+                      isDarkMode: isDarkMode,
+                      surfaceColor: surfaceColor,
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      accentColor: accentColor,
                     )
                   else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _publicaciones.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final pub = _publicaciones[index];
-                        return _buildClubPostCard(theme, pub);
-                      },
+                    _buildDetailsTabContent(
+                      isDarkMode: isDarkMode,
+                      surfaceColor: surfaceColor,
+                      elevatedColor: elevatedColor,
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      accentColor: accentColor,
+                      tieneUrlValida: tieneUrlValida,
                     ),
                 ],
               ),
@@ -584,114 +468,872 @@ class _ClubDetailPageState extends State<ClubDetailPage> {
     );
   }
 
-  Widget _buildInfoRow(
-    ColorScheme colorScheme,
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: colorScheme.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, size: 20, color: colorScheme.primary),
+  Widget _buildHeroCard({
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color elevatedColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+    required bool tieneUrlValida,
+  }) {
+    final puedeInscribirse = _club.inscripcionesAbiertas && tieneUrlValida;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 1),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 13,
-          color: colorScheme.onSurface.withOpacity(0.65),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            if (isDarkMode)
+              Positioned(
+                right: -35,
+                top: -35,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        _primaryBlue.withValues(alpha: 0.22),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 62,
+                        height: 62,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _primaryBlue.withValues(alpha: 0.28),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          _club.iconoCategoria,
+                          size: 30,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _club.nombre,
+                              style: TextStyle(
+                                fontFamily: _fontFamily,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: textPrimary,
+                                letterSpacing: -0.3,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Universidad Tecnológica de Bolívar',
+                              style: TextStyle(
+                                fontFamily: _fontFamily,
+                                fontSize: 12.5,
+                                color: textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Bento Quick Metrics Bar (Horario & Lugar)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: elevatedColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: borderColor.withValues(alpha: 0.8),
+                        width: 1,
+                      ),
+                    ),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  _club.horario,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: _fontFamily,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: accentColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Horario',
+                                  style: TextStyle(
+                                    fontFamily: _fontFamily,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          VerticalDivider(
+                            width: 16,
+                            thickness: 1,
+                            color: borderColor,
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  _club.lugar,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: _fontFamily,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: accentColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Lugar',
+                                  style: TextStyle(
+                                    fontFamily: _fontFamily,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // CTA Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 46,
+                          child: ElevatedButton.icon(
+                            onPressed: puedeInscribirse
+                                ? () => _abrirFormularioInscripcion(
+                                    _club.msFormsUrl!,
+                                  )
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primaryBlue,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: elevatedColor,
+                              disabledForegroundColor: textSecondary,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: puedeInscribirse
+                                    ? BorderSide.none
+                                    : BorderSide(color: borderColor),
+                              ),
+                            ),
+                            icon: Icon(
+                              puedeInscribirse
+                                  ? Icons.person_add_alt_1_rounded
+                                  : Icons.lock_clock_outlined,
+                              size: 19,
+                            ),
+                            label: Text(
+                              puedeInscribirse
+                                  ? 'Inscribirme en Forms'
+                                  : 'Inscripciones cerradas',
+                              style: const TextStyle(
+                                fontFamily: _fontFamily,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Material(
+                        color: elevatedColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: borderColor, width: 1),
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _compartirInfoClub,
+                          child: SizedBox(
+                            width: 46,
+                            height: 46,
+                            child: Icon(
+                              Icons.share_outlined,
+                              size: 20,
+                              color: textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_club.avisoInscripcion != null &&
+                      _club.avisoInscripcion!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primaryBlue.withValues(
+                          alpha: isDarkMode ? 0.12 : 0.06,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _primaryBlue.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.campaign_outlined,
+                            size: 16,
+                            color: accentColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _club.avisoInscripcion!,
+                              style: TextStyle(
+                                fontFamily: _fontFamily,
+                                fontSize: 12.5,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildClubPostCard(ThemeData theme, PublicacionModel pub) {
-    final colorScheme = theme.colorScheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+  Widget _buildLeaderCard({
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color elevatedColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4F46E5),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _iniciales(_club.lider),
+                  style: const TextStyle(
+                    fontFamily: _fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: _primaryBlue,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.verified_rounded,
+                    size: 11,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: colorScheme.primaryContainer,
-                  child: Text(
-                    pub.autorNombre.isNotEmpty
-                        ? pub.autorNombre[0].toUpperCase()
-                        : 'U',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onPrimaryContainer,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _club.lider,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    pub.autorNombre,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                    const SizedBox(width: 7),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(
+                          0xFF4F46E5,
+                        ).withValues(alpha: isDarkMode ? 0.25 : 0.10),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: const Color(
+                            0xFF6366F1,
+                          ).withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        'Coordinación',
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: isDarkMode
+                              ? const Color(0xFFA5B4FC)
+                              : const Color(0xFF4F46E5),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${pub.creadoEn.day}/${pub.creadoEn.month}/${pub.creadoEn.year}',
+                  'Líder de capítulo · ${_club.categoria}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurface.withOpacity(0.5),
+                    fontFamily: _fontFamily,
+                    fontSize: 12.5,
+                    color: textSecondary,
                   ),
                 ),
               ],
             ),
-            if (pub.titulo.isNotEmpty) ...[
-              const SizedBox(height: 10),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAboutCard({
+    required Color surfaceColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    final textoDescripcion =
+        (_club.descripcionCompleta != null &&
+            _club.descripcionCompleta!.trim().isNotEmpty)
+        ? _club.descripcionCompleta!
+        : _club.descripcion;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 19, color: accentColor),
+              const SizedBox(width: 8),
               Text(
-                pub.titulo,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                'Sobre el club',
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
                 ),
               ),
             ],
-            const SizedBox(height: 6),
-            MarkdownBody(
-              data: pub.contenido,
-              selectable: true,
-              styleSheet: MarkdownStyleSheet(
-                p: const TextStyle(fontSize: 14, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            textoDescripcion,
+            style: TextStyle(
+              fontFamily: _fontFamily,
+              fontSize: 14,
+              height: 1.55,
+              color: textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSegmentedTabs({
+    required bool isDarkMode,
+    required Color elevatedColor,
+    required Color borderColor,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: elevatedColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTabButton(
+              index: 0,
+              icon: Icons.dynamic_feed_rounded,
+              label: 'Avisos & Feed (${_publicaciones.length})',
+              isDarkMode: isDarkMode,
+              borderColor: borderColor,
+              textSecondary: textSecondary,
+              accentColor: accentColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _buildTabButton(
+              index: 1,
+              icon: Icons.badge_outlined,
+              label: 'Ficha & Horarios',
+              isDarkMode: isDarkMode,
+              borderColor: borderColor,
+              textSecondary: textSecondary,
+              accentColor: accentColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton({
+    required int index,
+    required IconData icon,
+    required String label,
+    required bool isDarkMode,
+    required Color borderColor,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    final selected = _tabSeleccionada == index;
+    final activeCardColor = isDarkMode
+        ? const Color(0xFF1E293B)
+        : const Color(0xFFFFFFFF);
+
+    return GestureDetector(
+      onTap: () => setState(() => _tabSeleccionada = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected ? activeCardColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? (isDarkMode ? const Color(0xFF334155) : borderColor)
+                : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: selected ? accentColor : textSecondary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? accentColor : textSecondary,
+                ),
               ),
             ),
-            if (pub.imagenUrl != null && pub.imagenUrl!.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  pub.imagenUrl!,
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeedTabContent({
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    if (_cargandoPublicaciones) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 36),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_publicaciones.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor, width: 1),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.feed_outlined,
+              size: 36,
+              color: textSecondary.withValues(alpha: 0.45),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Este club aún no tiene avisos publicados.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: _fontFamily,
+                fontSize: 14,
+                color: textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _publicaciones.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final pub = _publicaciones[index];
+        return _buildClubPostCard(
+          pub: pub,
+          isDarkMode: isDarkMode,
+          surfaceColor: surfaceColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          accentColor: accentColor,
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailsTabContent({
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color elevatedColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+    required bool tieneUrlValida,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow(
+            icon: Icons.person_outline_rounded,
+            title: 'Coordinación',
+            subtitle: _club.lider,
+            isDarkMode: isDarkMode,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            accentColor: accentColor,
+          ),
+          Divider(height: 16, color: borderColor),
+          _buildInfoRow(
+            icon: Icons.schedule_outlined,
+            title: 'Horario habitual',
+            subtitle: _club.horario,
+            isDarkMode: isDarkMode,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            accentColor: accentColor,
+          ),
+          Divider(height: 16, color: borderColor),
+          _buildInfoRow(
+            icon: Icons.location_on_outlined,
+            title: 'Lugar de encuentro',
+            subtitle: _club.lugar,
+            isDarkMode: isDarkMode,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            accentColor: accentColor,
+          ),
+          Divider(height: 16, color: borderColor),
+          _buildInfoRow(
+            icon: _club.inscripcionesAbiertas
+                ? Icons.how_to_reg_rounded
+                : Icons.lock_clock_outlined,
+            title: 'Estado de convocatoria',
+            subtitle: _club.inscripcionesAbiertas
+                ? (tieneUrlValida
+                      ? 'Convocatoria abierta mediante Microsoft Forms'
+                      : 'Convocatoria abierta')
+                : 'Inscripciones cerradas temporalmente',
+            isDarkMode: isDarkMode,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+            accentColor: _club.inscripcionesAbiertas
+                ? const Color(0xFF34D399)
+                : accentColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isDarkMode,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: isDarkMode ? 0.14 : 0.10),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, size: 19, color: accentColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 13,
+                  color: textSecondary,
                 ),
               ),
             ],
-          ],
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildClubPostCard({
+    required PublicacionModel pub,
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: _primaryBlue.withValues(
+                  alpha: isDarkMode ? 0.22 : 0.12,
+                ),
+                child: Text(
+                  pub.autorNombre.isNotEmpty
+                      ? pub.autorNombre[0].toUpperCase()
+                      : 'U',
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: accentColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  pub.autorNombre,
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
+              Text(
+                '${pub.creadoEn.day}/${pub.creadoEn.month}/${pub.creadoEn.year}',
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 12,
+                  color: textSecondary,
+                ),
+              ),
+            ],
+          ),
+          if (pub.titulo.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              pub.titulo,
+              style: TextStyle(
+                fontFamily: _fontFamily,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+          MarkdownBody(
+            data: pub.contenido,
+            selectable: true,
+            styleSheet: MarkdownStyleSheet(
+              p: TextStyle(
+                fontFamily: _fontFamily,
+                fontSize: 14,
+                height: 1.45,
+                color: textSecondary,
+              ),
+            ),
+          ),
+          if (pub.imagenUrl != null && pub.imagenUrl!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                pub.imagenUrl!,
+                width: double.infinity,
+                height: 180,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

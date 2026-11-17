@@ -35,6 +35,8 @@ tags:
     description: Consulta, búsqueda, creación y edición de clubes.
   - name: publicaciones
     description: Avisos, encuestas y noticias de los clubes.
+  - name: eventos
+    description: Programación, consulta y confirmación de asistencia a eventos de clubes.
   - name: recursos
     description: Carga y descarga de imágenes.
 
@@ -394,6 +396,75 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/Publicacion" }
 
+  /eventos:
+    get:
+      operationId: listarEventos
+      tags: [eventos]
+      summary: Lista eventos próximos y pasados visibles para el usuario.
+      security:
+        - {}
+        - bearerAuth: []
+      x-estado: implementado
+      parameters:
+        - name: club_id
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lista de eventos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Evento" }
+    post:
+      operationId: crearEvento
+      tags: [eventos]
+      summary: Programa un evento nuevo para un club (ADMIN_CLUB verificado o SUPERADMIN).
+      x-estado: implementado
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CrearEventoRequest" }
+      responses:
+        "201":
+          description: Evento creado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evento" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "403":
+          $ref: "#/components/responses/SinPermiso"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
+
+  /eventos/{evento_id}/asistencia:
+    post:
+      operationId: alternarAsistenciaEvento
+      tags: [eventos]
+      summary: Confirma o cancela la asistencia del usuario autenticado a un evento.
+      x-estado: implementado
+      parameters:
+        - $ref: "#/components/parameters/EventoId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Estado de asistencia actualizado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AsistenciaToggleResponse" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+
   /recursos/upload:
     post:
       operationId: subirImagen
@@ -453,6 +524,11 @@ components:
   parameters:
     ClubId:
       name: club_id
+      in: path
+      required: true
+      schema: { type: string }
+    EventoId:
+      name: evento_id
       in: path
       required: true
       schema: { type: string }
@@ -709,6 +785,73 @@ components:
           items: { type: string }
         imagen_url: { type: [string, "null"] }
         creado_en: { type: string, format: date-time }
+      additionalProperties: false
+
+    VisibilidadEvento:
+      type: string
+      enum: [PUBLICO, SOLO_CLUB]
+
+    CrearEventoRequest:
+      type: object
+      required: [titulo, descripcion, fecha_inicio, lugar]
+      properties:
+        club_id: { type: [string, "null"] }
+        titulo: { type: string, minLength: 1, maxLength: 180 }
+        descripcion: { type: string, minLength: 1 }
+        fecha_inicio: { type: string, format: date-time }
+        fecha_fin: { type: [string, "null"], format: date-time }
+        lugar: { type: string, minLength: 1, maxLength: 200 }
+        visibilidad:
+          allOf: [{ $ref: "#/components/schemas/VisibilidadEvento" }]
+          default: PUBLICO
+        enlace_registro_ms: { type: [string, "null"] }
+        imagen_url: { type: [string, "null"] }
+      additionalProperties: false
+
+    Evento:
+      type: object
+      required:
+        [
+          id,
+          club_id,
+          club_nombre,
+          club_categoria,
+          autor_matricula,
+          titulo,
+          descripcion,
+          fecha_inicio,
+          lugar,
+          creado_en,
+          visibilidad,
+          total_asistentes,
+          usuario_asiste,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        club_id: { type: string, format: uuid }
+        club_nombre: { type: string }
+        club_categoria: { type: string }
+        club_logo_url: { type: [string, "null"] }
+        autor_matricula: { type: string }
+        titulo: { type: string }
+        descripcion: { type: string }
+        fecha_inicio: { type: string, format: date-time }
+        fecha_fin: { type: [string, "null"], format: date-time }
+        lugar: { type: string }
+        creado_en: { type: string, format: date-time }
+        visibilidad: { $ref: "#/components/schemas/VisibilidadEvento" }
+        enlace_registro_ms: { type: [string, "null"] }
+        imagen_url: { type: [string, "null"] }
+        total_asistentes: { type: integer, minimum: 0 }
+        usuario_asiste: { type: boolean }
+      additionalProperties: false
+
+    AsistenciaToggleResponse:
+      type: object
+      required: [usuario_asiste, total_asistentes]
+      properties:
+        usuario_asiste: { type: boolean }
+        total_asistentes: { type: integer, minimum: 0 }
       additionalProperties: false
 
     ArchivoSubido:
