@@ -276,7 +276,6 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   List<ClubModel> _todosLosClubes = [];
-  String _categoriaSeleccionada = 'Todos';
   String _queryBusqueda = '';
   bool _isLoading = true;
   String? _errorMensaje;
@@ -317,30 +316,13 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
     }
   }
 
-  List<String> get _categoriasDisponibles {
-    final cats = <String>{'Todos'};
-    for (final c in _todosLosClubes) {
-      if (c.categoria.trim().isNotEmpty) {
-        cats.add(c.categoria.trim());
-      }
-    }
-    return cats.toList();
-  }
-
   List<ClubModel> get _clubesFiltrados {
+    final q = _queryBusqueda.toLowerCase();
+    if (q.isEmpty) return _todosLosClubes;
+
     return _todosLosClubes.where((club) {
-      final coincideCategoria =
-          _categoriaSeleccionada == 'Todos' ||
-          club.categoria.toLowerCase() == _categoriaSeleccionada.toLowerCase();
-
-      final q = _queryBusqueda.toLowerCase();
-      final coincideTexto =
-          q.isEmpty ||
-          club.nombre.toLowerCase().contains(q) ||
-          club.categoria.toLowerCase().contains(q) ||
+      return club.nombre.toLowerCase().contains(q) ||
           club.descripcion.toLowerCase().contains(q);
-
-      return coincideCategoria && coincideTexto;
     }).toList();
   }
 
@@ -371,21 +353,15 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Clubes disponibles',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: textPrimary,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                  ],
+                child: Text(
+                  'Clubes disponibles',
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
               if (!_isLoading && _errorMensaje == null) ...[
@@ -425,7 +401,7 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
               ],
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TextField(
             controller: _searchController,
             onChanged: (value) => setState(() => _queryBusqueda = value.trim()),
@@ -435,7 +411,7 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
               color: textPrimary,
             ),
             decoration: InputDecoration(
-              hintText: 'Buscar por nombre, categoría o tema...',
+              hintText: 'Buscar club por nombre o tema...',
               hintStyle: TextStyle(
                 fontFamily: _fontFamily,
                 fontSize: 14,
@@ -479,53 +455,7 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
               ),
             ),
           ),
-          if (!_isLoading && _categoriasDisponibles.length > 1) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 36,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categoriasDisponibles.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final cat = _categoriasDisponibles[index];
-                  final seleccionada = cat == _categoriaSeleccionada;
-                  return GestureDetector(
-                    onTap: () => setState(() => _categoriaSeleccionada = cat),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: seleccionada ? _primaryBlue : surfaceColor,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: seleccionada ? _primaryBlue : borderColor,
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          cat,
-                          style: TextStyle(
-                            fontFamily: _fontFamily,
-                            fontSize: 12.5,
-                            fontWeight: seleccionada
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: seleccionada ? Colors.white : textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -594,7 +524,7 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                                     Text(
                                       _todosLosClubes.isEmpty
                                           ? 'No hay clubes registrados en la base de datos.'
-                                          : 'No se encontraron clubes con ese filtro.',
+                                          : 'No se encontraron clubes con esa búsqueda.',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         fontFamily: _fontFamily,
@@ -616,7 +546,6 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                               final club = filtrados[index];
                               return _buildClubDirectoryCard(
                                 club: club,
-                                isDarkMode: isDarkMode,
                                 surfaceColor: surfaceColor,
                                 elevatedColor: elevatedColor,
                                 borderColor: borderColor,
@@ -635,7 +564,6 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
 
   Widget _buildClubDirectoryCard({
     required ClubModel club,
-    required bool isDarkMode,
     required Color surfaceColor,
     required Color elevatedColor,
     required Color borderColor,
@@ -658,7 +586,7 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     width: 52,
@@ -691,34 +619,22 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                       children: [
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _primaryBlue.withValues(
-                                  alpha: isDarkMode ? 0.16 : 0.08,
-                                ),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: _primaryBlue.withValues(alpha: 0.25),
-                                  width: 1,
-                                ),
-                              ),
+                            Expanded(
                               child: Text(
-                                club.categoria,
+                                club.nombre,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: _fontFamily,
-                                  fontSize: 11,
+                                  fontSize: 16.5,
                                   fontWeight: FontWeight.w700,
-                                  color: accentColor,
-                                  letterSpacing: 0.2,
+                                  color: textPrimary,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
                             ),
-                            const Spacer(),
-                            if (club.inscripcionesAbiertas)
+                            if (club.inscripcionesAbiertas) ...[
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -750,22 +666,10 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                                   ],
                                 ),
                               ),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          club.nombre,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: _fontFamily,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 5),
                         Text(
                           club.descripcion,
                           maxLines: 2,
@@ -780,13 +684,34 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _primaryBlue,
+                      borderRadius: BorderRadius.circular(11),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primaryBlue.withValues(alpha: 0.24),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 19,
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 11,
-                  vertical: 8,
+                  vertical: 9,
                 ),
                 decoration: BoxDecoration(
                   color: elevatedColor,
@@ -799,7 +724,7 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                 child: Row(
                   children: [
                     Icon(Icons.schedule_rounded, size: 14, color: accentColor),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         club.horario,
@@ -813,13 +738,13 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Icon(
                       Icons.location_on_outlined,
                       size: 14,
                       color: accentColor,
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         club.lugar,
@@ -831,20 +756,6 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                           fontWeight: FontWeight.w500,
                           color: textSecondary,
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: _primaryBlue,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 15,
-                        color: Colors.white,
                       ),
                     ),
                   ],

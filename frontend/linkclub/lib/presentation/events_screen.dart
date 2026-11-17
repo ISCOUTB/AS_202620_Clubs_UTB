@@ -139,6 +139,19 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Future<void> _abrirCrearEvento() async {
+    if (!SessionController.instance.puedeGestionarAlgunClub) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Solo los administradores de club verificados pueden programar eventos.',
+            style: TextStyle(fontFamily: _fontFamily),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final creado = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const CreateEventScreen()),
@@ -149,6 +162,19 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Future<void> _toggleAsistencia(EventoModel evento) async {
+    if (!SessionController.instance.estaAutenticado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Inicia sesión con tu cuenta institucional para confirmar asistencia.',
+            style: TextStyle(fontFamily: _fontFamily),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (_procesandoAsistencia.contains(evento.id)) return;
 
     final idx = _todosLosEventos.indexWhere((e) => e.id == evento.id);
@@ -207,69 +233,90 @@ class _EventsScreenState extends State<EventsScreen> {
     final accentColor = isDarkMode ? _brandBlueSoft : _brandBlue;
     final filtrados = _eventosFiltrados;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: bgColor,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Text(
-          'Eventos Disponibles',
-          style: TextStyle(
-            fontFamily: _fontFamily,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: isDarkMode ? _darkTextPrimary : _lightTextPrimary,
-          ),
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _cargarEventos,
-        color: accentColor,
-        backgroundColor: isDarkMode ? _darkCard : _lightCard,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 92),
-          children: [
-            _buildWeekCalendarCard(isDarkMode),
-            const SizedBox(height: 12),
-            _buildCategoryStrip(isDarkMode),
-            if (_mostrarBuscador) ...[
-              const SizedBox(height: 12),
-              _buildSearchField(isDarkMode),
-            ],
-            const SizedBox(height: 16),
-            _buildSectionHeader(
-              isDarkMode: isDarkMode,
-              totalActivos: filtrados.length,
-            ),
-            const SizedBox(height: 12),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Center(
-                  child: CircularProgressIndicator(strokeWidth: 2.4),
-                ),
-              )
-            else if (_errorMensaje != null)
-              _buildErrorState(isDarkMode)
-            else if (filtrados.isEmpty)
-              _buildEmptyState(isDarkMode)
-            else
-              ...filtrados.map(
-                (ev) => _buildEventCard(evento: ev, isDarkMode: isDarkMode),
+    return ListenableBuilder(
+      listenable: SessionController.instance,
+      builder: (context, _) {
+        final session = SessionController.instance;
+        final puedeCrearEventos = session.puedeGestionarAlgunClub;
+
+        return Scaffold(
+          backgroundColor: bgColor,
+          appBar: AppBar(
+            backgroundColor: bgColor,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            title: Text(
+              'Eventos Disponibles',
+              style: TextStyle(
+                fontFamily: _fontFamily,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: isDarkMode ? _darkTextPrimary : _lightTextPrimary,
               ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _abrirCrearEvento,
-        backgroundColor: _brandBlue,
-        foregroundColor: _buttonTextLight,
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add_rounded, size: 26),
-      ),
+            ),
+          ),
+          body: RefreshIndicator(
+            onRefresh: _cargarEventos,
+            color: accentColor,
+            backgroundColor: isDarkMode ? _darkCard : _lightCard,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                puedeCrearEventos ? 92 : 28,
+              ),
+              children: [
+                _buildWeekCalendarCard(isDarkMode),
+                const SizedBox(height: 12),
+                _buildCategoryStrip(isDarkMode),
+                if (_mostrarBuscador) ...[
+                  const SizedBox(height: 12),
+                  _buildSearchField(isDarkMode),
+                ],
+                const SizedBox(height: 16),
+                _buildSectionHeader(
+                  isDarkMode: isDarkMode,
+                  totalActivos: filtrados.length,
+                ),
+                const SizedBox(height: 12),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    ),
+                  )
+                else if (_errorMensaje != null)
+                  _buildErrorState(isDarkMode)
+                else if (filtrados.isEmpty)
+                  _buildEmptyState(
+                    isDarkMode: isDarkMode,
+                    puedeCrearEventos: puedeCrearEventos,
+                  )
+                else
+                  ...filtrados.map(
+                    (ev) => _buildEventCard(evento: ev, isDarkMode: isDarkMode),
+                  ),
+              ],
+            ),
+          ),
+          floatingActionButton: puedeCrearEventos
+              ? FloatingActionButton(
+                  onPressed: _abrirCrearEvento,
+                  tooltip: 'Programar evento',
+                  backgroundColor: _brandBlue,
+                  foregroundColor: _buttonTextLight,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.add_rounded, size: 26),
+                )
+              : null,
+        );
+      },
     );
   }
 
@@ -1061,6 +1108,9 @@ class _EventsScreenState extends State<EventsScreen> {
         ? _darkTextSecondary
         : _lightTextSecondary;
     final accentColor = isDarkMode ? _brandBlueSoft : _brandBlue;
+    final esOrganizadorActivo = SessionController.instance.puedeGestionarClub(
+      evento.clubId,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -1092,7 +1142,9 @@ class _EventsScreenState extends State<EventsScreen> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1117,7 +1169,6 @@ class _EventsScreenState extends State<EventsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -1138,6 +1189,30 @@ class _EventsScreenState extends State<EventsScreen> {
                         ),
                       ),
                     ),
+                    if (esOrganizadorActivo)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _emerald.withOpacity(isDarkMode ? 0.16 : 0.10),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _emerald.withOpacity(0.35),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'Organizador',
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: _emerald,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -1329,7 +1404,10 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  Widget _buildEmptyState(bool isDarkMode) {
+  Widget _buildEmptyState({
+    required bool isDarkMode,
+    required bool puedeCrearEventos,
+  }) {
     final cardBg = isDarkMode ? _darkCard : _lightCard;
     final borderColor = isDarkMode ? _darkBorder : _lightBorder;
     final titleColor = isDarkMode ? _darkTextPrimary : _lightTextPrimary;
@@ -1337,6 +1415,10 @@ class _EventsScreenState extends State<EventsScreen> {
         ? _darkTextSecondary
         : _lightTextSecondary;
     final accentColor = isDarkMode ? _brandBlueSoft : _brandBlue;
+    final hayFiltrosActivos =
+        _diaSeleccionado != null ||
+        _categoriaSeleccionada != 'Todos los eventos' ||
+        _queryBusqueda.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(28),
@@ -1376,10 +1458,11 @@ class _EventsScreenState extends State<EventsScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            _diaSeleccionado != null ||
-                    _categoriaSeleccionada != 'Todos los eventos'
-                ? 'Prueba seleccionando otro día de la semana o cambiando la categoría.'
-                : 'Cuando los clubes programen talleres, torneos o convocatorias, aparecerán aquí.',
+            hayFiltrosActivos
+                ? 'Prueba seleccionando otro día de la semana, cambiando la categoría o limpiando tu búsqueda.'
+                : (puedeCrearEventos
+                      ? 'Aún no hay eventos programados. Usa el botón para publicar la próxima actividad de tu club.'
+                      : 'Cuando los clubes programen talleres, torneos o convocatorias, aparecerán aquí.'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: _fontFamily,
@@ -1388,6 +1471,33 @@ class _EventsScreenState extends State<EventsScreen> {
               color: secondaryColor,
             ),
           ),
+          if (puedeCrearEventos && !hayFiltrosActivos) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _abrirCrearEvento,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _brandBlue,
+                foregroundColor: _buttonTextLight,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 11,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text(
+                'Programar evento',
+                style: TextStyle(
+                  fontFamily: _fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
