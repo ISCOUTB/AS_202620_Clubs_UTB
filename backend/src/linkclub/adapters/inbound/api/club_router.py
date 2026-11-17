@@ -4,7 +4,6 @@ from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from linkclub.adapters.inbound.api.auth_dependency import get_current_user
@@ -116,19 +115,22 @@ def listar_clubes(
     q: Optional[str] = Query(default=None, description="Texto a buscar en nombre o descripción"),
     categoria: Optional[str] = Query(default=None, description="Categoría exacta del club"),
 ):
-    query = db.query(ClubModel)
+    clubes = db.query(ClubModel).order_by(ClubModel.nombre.asc()).all()
     if q and q.strip():
-        patron = f"%{q.strip()}%"
-        query = query.filter(
-            or_(
-                ClubModel.nombre.ilike(patron),
-                ClubModel.descripcion.ilike(patron),
-            )
-        )
+        texto = q.strip().casefold()
+        clubes = [
+            c
+            for c in clubes
+            if texto in (c.nombre or "").casefold()
+            or texto in (c.descripcion or "").casefold()
+        ]
     if categoria and categoria.strip():
-        query = query.filter(ClubModel.categoria.ilike(categoria.strip()))
-
-    clubes = query.order_by(ClubModel.nombre.asc()).all()
+        cat = categoria.strip().casefold()
+        clubes = [
+            c
+            for c in clubes
+            if (c.categoria or "").strip().casefold() == cat
+        ]
     return [_serializar_club(c, db) for c in clubes]
 
 

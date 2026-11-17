@@ -2,24 +2,29 @@ import os
 import sys
 import uuid
 from pathlib import Path
-import yaml
-from jsonschema import Draft202012Validator
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
-os.environ.setdefault("JWT_SECRET", "clave-secreta-de-prueba-para-ci-local-2026")
 
 import pytest
-from fastapi.testclient import TestClient
+import yaml
+from jsonschema import Draft202012Validator
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+os.environ.setdefault("JWT_SECRET", "clave-secreta-de-prueba-para-ci-local-2026")
+
 from linkclub.adapters.inbound.api.auth_dependency import get_auth_port
+from linkclub.adapters.outbound.persistence.in_memory_club_adapter import _SEMILLA
 from linkclub.adapters.outbound.postgres.database import Base, get_db
+from linkclub.adapters.outbound.postgres.models import (  # noqa: F401
+    club_model,
+    publicacion_model,
+    solicitud_admin_model,
+    usuario_model,
+)
 from linkclub.adapters.outbound.postgres.models.club_model import ClubModel
-from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 from linkclub.application.ports.outbound_auth_port import AuthPort, TokenInvalido
 from linkclub.main import app
@@ -66,17 +71,26 @@ def entorno_de_prueba():
     Sesion = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
     with Sesion() as db:
-        db.add(UsuarioModel(
-            matricula=AUTOR_DE_PRUEBA,
-            nombre="Usuario de prueba",
-            correo="usuario123@utb.edu.co",
-            password_hash="x",
-            rol="SUPERADMIN",
-        ))
-        db.add_all([
-            ClubModel(id=CLUB_IDS[i - 1], nombre=f"Club {i}", descripcion="d", categoria="c")
-            for i in range(1, 6)
-        ])
+        db.add(
+            UsuarioModel(
+                matricula=AUTOR_DE_PRUEBA,
+                nombre="Usuario de prueba",
+                correo="usuario123@utb.edu.co",
+                password_hash="x",
+                rol="SUPERADMIN",
+            )
+        )
+        db.add_all(
+            [
+                ClubModel(
+                    id=CLUB_IDS[i],
+                    nombre=nombre,
+                    descripcion=descripcion,
+                    categoria=categoria,
+                )
+                for i, (nombre, descripcion, categoria) in enumerate(_SEMILLA)
+            ]
+        )
         db.commit()
 
     def _get_db():
