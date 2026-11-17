@@ -71,6 +71,7 @@ def entorno_de_prueba():
             nombre="Usuario de prueba",
             correo="usuario123@utb.edu.co",
             password_hash="x",
+            rol="SUPERADMIN",
         ))
         db.add_all([
             ClubModel(id=CLUB_IDS[i - 1], nombre=f"Club {i}", descripcion="d", categoria="c")

@@ -180,9 +180,14 @@ def aprobar_solicitud_admin(
     admin_dev: Annotated[UsuarioModel, Depends(require_superadmin)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    try:
+        solicitud_uuid = uuid.UUID(solicitud_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.") from exc
+
     solicitud = (
         db.query(SolicitudAdminClubModel)
-        .filter(SolicitudAdminClubModel.id == uuid.UUID(solicitud_id))
+        .filter(SolicitudAdminClubModel.id == solicitud_uuid)
         .first()
     )
     if not solicitud:
@@ -211,9 +216,14 @@ def rechazar_solicitud_admin(
     admin_dev: Annotated[UsuarioModel, Depends(require_superadmin)],
     db: Annotated[Session, Depends(get_db)],
 ):
+    try:
+        solicitud_uuid = uuid.UUID(solicitud_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.") from exc
+
     solicitud = (
         db.query(SolicitudAdminClubModel)
-        .filter(SolicitudAdminClubModel.id == uuid.UUID(solicitud_id))
+        .filter(SolicitudAdminClubModel.id == solicitud_uuid)
         .first()
     )
     if not solicitud:

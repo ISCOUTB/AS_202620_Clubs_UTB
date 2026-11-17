@@ -4,31 +4,26 @@ import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from linkclub.adapters.inbound.api.auth_dependency import require_auth
-from linkclub.adapters.outbound.messaging.in_memory_broker import InMemoryBroker
-from linkclub.adapters.outbound.messaging.outbox import OutboxWorker
-from linkclub.adapters.outbound.persistence.postgres_publicacion_adapter import (
-    PostgresPublicacionAdapter,
-)
 from linkclub.adapters.outbound.postgres.database import get_db
 from linkclub.adapters.outbound.postgres.models.club_model import ClubModel
+from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
-from linkclub.application.use_cases.crear_publicacion import (
-    CrearPublicacion,
-    DatosInvalidos,
+from linkclub.adapters.outbound.postgres.publicacion_repository import (
+    PublicacionRepositoryPostgres,
 )
-from linkclub.domain.publicacion import Publicacion
+from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
+from linkclub.domain.publicacion import Publicacion, PublicacionDuplicada
 
 router = APIRouter(tags=["publicaciones"])
-broker = InMemoryBroker()
 
 
-def get_use_case(db: Session = Depends(get_db)) -> CrearPublicacion:
-    repo = PostgresPublicacionAdapter(db)
-    outbox = OutboxWorker(db, broker)
-    return CrearPublicacion(repo, outbox)
+def get_use_case(db: Session = Depends(get_db)) -> CrearPublicacionUseCase:
+    repo = PublicacionRepositoryPostgres(db)
+    return CrearPublicacionUseCase(repo)
 
 
 class CrearPublicacionBody(BaseModel):
@@ -72,7 +67,11 @@ class PublicacionResponse(BaseModel):
     creado_en: datetime
 
 
-def _serializar_publicacion(p: Publicacion, db: Session) -> PublicacionResponse:
+def _serializar_publicacion(
+    p: Publicacion,
+    db: Session,
+    imagen_url: Optional[str] = None,
+) -> PublicacionResponse:
     autor = db.query(UsuarioModel).filter(UsuarioModel.matricula == p.autor_id).first()
     club_nombre = None
     try:
@@ -82,6 +81,9 @@ def _serializar_publicacion(p: Publicacion, db: Session) -> PublicacionResponse:
     except ValueError:
         pass
 
+    tipo_valor = p.tipo.value if hasattr(p.tipo, "value") else str(p.tipo)
+    fecha_creacion = getattr(p, "creada_en", None) or datetime.now(timezone.utc)
+
     return PublicacionResponse(
         id=str(p.id),
         club_id=str(p.club_id),
@@ -90,10 +92,10 @@ def _serializar_publicacion(p: Publicacion, db: Session) -> PublicacionResponse:
         autor_nombre=autor.nombre if autor else p.autor_id,
         titulo=p.titulo,
         contenido=p.contenido,
-        tipo=p.tipo,
+        tipo=tipo_valor,
         opciones=p.opciones,
-        imagen_url=p.imagen_url,
-        creado_en=getattr(p, "creado_en", None) or datetime.now(timezone.utc),
+        imagen_url=getattr(p, "imagen_url", None) or imagen_url,
+        creado_en=fecha_creacion,
     )
 
 
@@ -132,21 +134,28 @@ def _verificar_permiso_publicar(club_id: str, autor_id: str, db: Session) -> Non
 def listar_publicaciones_feed(
     db: Annotated[Session, Depends(get_db)],
     club_id: Optional[str] = None,
-    use_case: CrearPublicacion = Depends(get_use_case),
 ):
-    publicaciones = use_case.listar_todas()
+    query = db.query(PublicacionModel)
     if club_id:
-        publicaciones = [p for p in publicaciones if str(p.club_id) == str(club_id)]
-    return [_serializar_publicacion(p, db) for p in publicaciones]
+        try:
+            query = query.filter(PublicacionModel.club_id == uuid.UUID(str(club_id)))
+        except ValueError:
+            return []
+    registros = query.order_by(PublicacionModel.creado_en.desc()).all()
+    repo = PublicacionRepositoryPostgres(db)
+    return [_serializar_publicacion(repo._mapear_a_dominio(r), db) for r in registros]
 
 
 @router.get("/clubes/{club_id}/publicaciones", response_model=List[PublicacionResponse])
 def listar_publicaciones_por_club(
     club_id: str,
     db: Annotated[Session, Depends(get_db)],
-    use_case: CrearPublicacion = Depends(get_use_case),
 ):
-    publicaciones = [p for p in use_case.listar_todas() if str(p.club_id) == str(club_id)]
+    repo = PublicacionRepositoryPostgres(db)
+    try:
+        publicaciones = repo.listar_por_club(club_id)
+    except ValueError:
+        return []
     return [_serializar_publicacion(p, db) for p in publicaciones]
 
 
@@ -162,7 +171,7 @@ def crear_publicacion_endpoint(
     db: Annotated[Session, Depends(get_db)],
     autor_id: str = Depends(require_auth),
     idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
-    use_case: CrearPublicacion = Depends(get_use_case),
+    use_case: CrearPublicacionUseCase = Depends(get_use_case),
 ):
     if idempotency_key is not None and not idempotency_key.strip():
         raise HTTPException(
@@ -180,11 +189,15 @@ def crear_publicacion_endpoint(
             contenido=body.contenido,
             tipo=body.tipo,
             opciones=body.opciones,
-            imagen_url=body.imagen_url,
             idempotency_key=idempotency_key,
         )
-    except DatosInvalidos as exc:
+    except PublicacionDuplicada as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Club o autor no encontrado.") from exc
 
     response.status_code = 201
-    return _serializar_publicacion(publicacion, db)
+    return _serializar_publicacion(publicacion, db, imagen_url=body.imagen_url)
