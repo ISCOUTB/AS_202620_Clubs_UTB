@@ -7,6 +7,7 @@ import 'package:linkclub/presentation/clubs_details.dart';
 import 'package:linkclub/presentation/dev_admin_screen.dart';
 import 'package:linkclub/presentation/feed_screen.dart';
 import 'package:linkclub/presentation/login_screen.dart';
+import 'package:linkclub/presentation/events_screen.dart';
 
 class ClubsPage extends StatefulWidget {
   const ClubsPage({super.key});
@@ -384,14 +385,6 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      'Explora y conéctate con los capítulos activos de la UTB',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontSize: 13.5,
-                        color: textSecondary,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -860,20 +853,6 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class EventsScreen extends StatelessWidget {
-  const EventsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Eventos Disponibles',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       ),
     );
   }

@@ -209,72 +209,66 @@ class _EventsScreenState extends State<EventsScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: accentColor,
-                strokeWidth: 2.4,
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: _cargarEventos,
-              color: accentColor,
-              backgroundColor: isDarkMode ? _darkCard : _lightCard,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 92),
-                children: [
-                  _buildWeekCalendarCard(isDarkMode),
-                  const SizedBox(height: 12),
-                  _buildCategoryStrip(isDarkMode),
-                  if (_mostrarBuscador) ...[
-                    const SizedBox(height: 12),
-                    _buildSearchField(isDarkMode),
-                  ],
-                  const SizedBox(height: 16),
-                  _buildSectionHeader(
-                    isDarkMode: isDarkMode,
-                    totalActivos: filtrados.length,
-                  ),
-                  const SizedBox(height: 12),
-                  if (_errorMensaje != null)
-                    _buildErrorState(isDarkMode)
-                  else if (filtrados.isEmpty)
-                    _buildEmptyState(isDarkMode)
-                  else
-                    ...filtrados.map(
-                      (ev) =>
-                          _buildEventCard(evento: ev, isDarkMode: isDarkMode),
-                    ),
-                ],
-              ),
+      appBar: AppBar(
+        backgroundColor: bgColor,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Text(
+          'Eventos Disponibles',
+          style: TextStyle(
+            fontFamily: _fontFamily,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: isDarkMode ? _darkTextPrimary : _lightTextPrimary,
+          ),
+        ),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _cargarEventos,
+        color: accentColor,
+        backgroundColor: isDarkMode ? _darkCard : _lightCard,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 92),
+          children: [
+            _buildWeekCalendarCard(isDarkMode),
+            const SizedBox(height: 12),
+            _buildCategoryStrip(isDarkMode),
+            if (_mostrarBuscador) ...[
+              const SizedBox(height: 12),
+              _buildSearchField(isDarkMode),
+            ],
+            const SizedBox(height: 16),
+            _buildSectionHeader(
+              isDarkMode: isDarkMode,
+              totalActivos: filtrados.length,
             ),
-      floatingActionButton: ListenableBuilder(
-        listenable: SessionController.instance,
-        builder: (context, _) {
-          if (!SessionController.instance.puedeGestionarAlgunClub) {
-            return const SizedBox.shrink();
-          }
-          return SizedBox(
-            width: 54,
-            height: 54,
-            child: FloatingActionButton(
-              onPressed: _abrirCrearEvento,
-              backgroundColor: _brandBlue,
-              foregroundColor: _buttonTextLight,
-              elevation: 0,
-              highlightElevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.45),
-                  width: 1,
+            const SizedBox(height: 12),
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
                 ),
+              )
+            else if (_errorMensaje != null)
+              _buildErrorState(isDarkMode)
+            else if (filtrados.isEmpty)
+              _buildEmptyState(isDarkMode)
+            else
+              ...filtrados.map(
+                (ev) => _buildEventCard(evento: ev, isDarkMode: isDarkMode),
               ),
-              child: const Icon(Icons.add_rounded, size: 26),
-            ),
-          );
-        },
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _abrirCrearEvento,
+        backgroundColor: _brandBlue,
+        foregroundColor: _buttonTextLight,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add_rounded, size: 26),
       ),
     );
   }
@@ -374,12 +368,10 @@ class _EventsScreenState extends State<EventsScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _brandBlue.withValues(
-                        alpha: isDarkMode ? 0.16 : 0.08,
-                      ),
+                      color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: accentColor.withValues(alpha: 0.25),
+                        color: accentColor.withOpacity(0.25),
                         width: 1,
                       ),
                     ),
@@ -429,7 +421,7 @@ class _EventsScreenState extends State<EventsScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: seleccionado
-                              ? const Color(0xFF3B82F6).withValues(alpha: 0.5)
+                              ? const Color(0xFF3B82F6).withOpacity(0.5)
                               : Colors.transparent,
                           width: 1,
                         ),
@@ -444,7 +436,7 @@ class _EventsScreenState extends State<EventsScreen> {
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: seleccionado
-                                  ? _buttonTextLight.withValues(alpha: 0.85)
+                                  ? _buttonTextLight.withOpacity(0.85)
                                   : secondaryColor,
                             ),
                           ),
@@ -539,7 +531,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: activa
-                      ? const Color(0xFF3B82F6).withValues(alpha: 0.45)
+                      ? const Color(0xFF3B82F6).withOpacity(0.45)
                       : borderColor,
                   width: 1,
                 ),
@@ -654,10 +646,10 @@ class _EventsScreenState extends State<EventsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _brandBlue.withValues(alpha: isDarkMode ? 0.16 : 0.08),
+                color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: accentColor.withValues(alpha: 0.25),
+                  color: accentColor.withOpacity(0.25),
                   width: 1,
                 ),
               ),
@@ -707,7 +699,7 @@ class _EventsScreenState extends State<EventsScreen> {
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: Colors.black.withOpacity(0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -739,7 +731,7 @@ class _EventsScreenState extends State<EventsScreen> {
                         colors: [
                           Colors.transparent,
                           (isDarkMode ? _darkCard : const Color(0xFF0F172A))
-                              .withValues(alpha: 0.85),
+                              .withOpacity(0.85),
                         ],
                       ),
                     ),
@@ -754,12 +746,10 @@ class _EventsScreenState extends State<EventsScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFF080C14,
-                          ).withValues(alpha: 0.78),
+                          color: const Color(0xFF080C14).withOpacity(0.78),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.14),
+                            color: Colors.white.withOpacity(0.14),
                             width: 1,
                           ),
                         ),
@@ -966,7 +956,7 @@ class _EventsScreenState extends State<EventsScreen> {
           child: Icon(
             evento.iconoCategoria,
             size: 52,
-            color: Colors.white.withValues(alpha: 0.14),
+            color: Colors.white.withOpacity(0.14),
           ),
         ),
       ),
@@ -1012,16 +1002,13 @@ class _EventsScreenState extends State<EventsScreen> {
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: _emerald.withValues(alpha: isDarkMode ? 0.16 : 0.10),
+            color: _emerald.withOpacity(isDarkMode ? 0.16 : 0.10),
             borderRadius: BorderRadius.circular(11),
-            border: Border.all(
-              color: _emerald.withValues(alpha: 0.35),
-              width: 1,
-            ),
+            border: Border.all(color: _emerald.withOpacity(0.35), width: 1),
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Icon(Icons.check_rounded, size: 15, color: _emerald),
               SizedBox(width: 5),
               Text(
@@ -1113,12 +1100,10 @@ class _EventsScreenState extends State<EventsScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _brandBlue.withValues(
-                          alpha: isDarkMode ? 0.16 : 0.08,
-                        ),
+                        color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: accentColor.withValues(alpha: 0.25),
+                          color: accentColor.withOpacity(0.25),
                           width: 1,
                         ),
                       ),
@@ -1366,10 +1351,10 @@ class _EventsScreenState extends State<EventsScreen> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: _brandBlue.withValues(alpha: isDarkMode ? 0.16 : 0.08),
+              color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: accentColor.withValues(alpha: 0.25),
+                color: accentColor.withOpacity(0.25),
                 width: 1,
               ),
             ),
@@ -1503,8 +1488,12 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   int _numeroSemana(DateTime fecha) {
-    final inicioAnio = DateTime(fecha.year, 1, 1);
-    final dias = fecha.difference(inicioAnio).inDays;
-    return ((dias + inicioAnio.weekday) / 7).ceil();
+    try {
+      final primerDiaAnio = DateTime(fecha.year, 1, 1);
+      final diasDiferencia = fecha.difference(primerDiaAnio).inDays;
+      return ((diasDiferencia + primerDiaAnio.weekday - 1) / 7).floor() + 1;
+    } catch (_) {
+      return 1;
+    }
   }
 }

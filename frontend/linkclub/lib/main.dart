@@ -9,7 +9,8 @@ import 'package:linkclub/presentation/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  FlutterError.onError = (FlutterErrorDetails details) {};
+  // FlutterError.onError = (FlutterErrorDetails details) {};
+  FlutterError.onError = FlutterError.presentError;
 
   await dotenv.load(fileName: ".env");
   await ThemeController.init();
