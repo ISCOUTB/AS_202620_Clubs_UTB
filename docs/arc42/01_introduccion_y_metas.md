@@ -33,11 +33,7 @@ La seguridad no figura entre las cuatro metas priorizadas, pero se trata como as
 
 ## 1.4 Alcance funcional actual
 
-| Capacidad | Estado |
-|---|---|
-| Registro con correo institucional y matrícula, e inicio de sesión | Implementada |
-| Consulta de publicaciones (feed) y creación de avisos, encuestas y noticias, con imagen opcional | Implementada |
-| Catálogo de clubes con búsqueda y filtro por categoría en la API | Implementada con datos en memoria; la aplicación móvil aún muestra datos locales |
-| Inscripción a clubes y gestión de miembros | Definida en el contrato, pendiente |
-| Eventos y confirmación de asistencia | Definidos en el contrato y en el esquema de datos, pendientes |
-| Notificaciones | Diferidas ([ADR 0003](../adr/0003-%20integacion%20rest%20openapi.md)); existe un prototipo de mensajería verificado solo por pruebas |
+* **Usuarios y autenticación:** Implementado con emisión y validación nativa de JWT firmados por FastAPI y persistencia en PostgreSQL (`auth_router.py`, `usuario_router.py`, `local_jwt_adapter.py`).
+* **Catálogo de clubes y membresías:** Implementado con persistencia en PostgreSQL (`clubes`, `membresias_club`, `solicitudes_admin_club`), filtros de búsqueda y gestión de roles/solicitudes (`club_router.py`, `usuario_router.py`).
+* **Publicaciones:** Implementado con persistencia en PostgreSQL (`publicaciones`), tipos `aviso`, `encuesta` y `noticia`, e idempotencia aislada por autor (`publicacion_router.py`, `crear_publicacion.py`).
+* **Eventos y confirmación de asistencia:** Implementado con persistencia en PostgreSQL (`eventos`, `asistencias`), visibilidad `PUBLICO` y `SOLO_CLUB`, y alternancia de asistencia (`evento_router.py`).
