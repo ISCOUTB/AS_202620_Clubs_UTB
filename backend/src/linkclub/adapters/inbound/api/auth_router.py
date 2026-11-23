@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from linkclub.adapters.outbound.postgres.database import get_db
+from linkclub.adapters.outbound.postgres.models.club_model import ClubModel
 from linkclub.adapters.outbound.postgres.models.solicitud_admin_model import (
     SolicitudAdminClubModel,
 )
@@ -111,9 +112,10 @@ def registrar_usuario(
 ):
     correo_normalizado = payload.correo.strip().lower()
     matricula_normalizada = payload.matricula.strip().upper()
+    club_uuid: Optional[uuid.UUID] = None
 
     if payload.solicitar_admin:
-        if not payload.club_id or not payload.justificacion_admin:
+        if not payload.club_id or not payload.justificacion_admin or not payload.justificacion_admin.strip():
             raise HTTPException(
                 status_code=422,
                 detail="Debes seleccionar un club y escribir una justificación para solicitar Admin de Club.",
@@ -122,6 +124,9 @@ def registrar_usuario(
             club_uuid = uuid.UUID(payload.club_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail="ID de club inválido.") from exc
+
+        if not db.query(ClubModel).filter(ClubModel.id == club_uuid).first():
+            raise HTTPException(status_code=404, detail="El club seleccionado no existe.")
 
     if db.query(UsuarioModel).filter(func.lower(UsuarioModel.correo) == correo_normalizado).first():
         raise HTTPException(status_code=409, detail="El correo ya está registrado")
@@ -142,7 +147,7 @@ def registrar_usuario(
         db.add(nuevo_usuario)
         db.flush()
 
-        if payload.solicitar_admin:
+        if payload.solicitar_admin and club_uuid is not None:
             db.add(
                 SolicitudAdminClubModel(
                     usuario_matricula=matricula_normalizada,
@@ -183,7 +188,12 @@ async def iniciar_sesion(
 ):
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
-        body = await request.json()
+        try:
+            body = await request.json()
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail="Cuerpo JSON inválido.") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=422, detail="El cuerpo debe ser un objeto JSON.")
         identificador = str(body.get("correo") or body.get("username") or "").strip().lower()
         password = str(body.get("password") or "")
     else:

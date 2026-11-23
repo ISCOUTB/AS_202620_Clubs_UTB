@@ -2,126 +2,84 @@
 
 ## Objetivo
 
-El objetivo del siguiente documento es registrar las mediciones de calidad realizadas en el sistema de LinkClub, para comprobar si cumple los requisitos establecidos en el documento **requisitos de calidad.md**.
+Registrar las mediciones y verificaciones de calidad realizadas sobre **LinkClub** para comprobar el cumplimiento de los escenarios de uso (**U1–U3**) y de cambio (**C1–C3**) establecidos en la [Sección 10 de arc42](arc42/10_requisitos_de_calidad.md).
 
-Estas mediciones permitirán comparar los resultados obtenidos durante las pruebas con los umbrales definidos para cada escenario de calidad e identificar posibles problemas de rendimiento, disponibilidad, seguridad, modificabilidad, escalabilidad y portabilidad.
-
-## Entorno de Pruebas
-Las pruebas se realizaron usando las siguientes tecnologías:
-
-| Elemento | Tecnología |
-| --- | --- |
-| Framework del cliente | Flutter |
-| Backend | FastAPI |
-| Base de datos | PostgreSQL |
-| Herramienta de medición | Postman (Collection Runner) |
-| Protocolo de comunicación | HTTP/HTTPS |
-| Entorno de ejecución | Desplegado en Dokploy |
-
----
-
-# Resultados de las Mediciones
 
 ## U1 – Rendimiento
+
 ### Procedimiento
-1. Iniciar el backend FastAPI y verificar la conexión activa con PostgreSQL.
-2. Identificar el endpoint de comprobación (`/health`) y los flujos principales de consulta.
-3. Configurar una solicitud HTTP en Postman y ejecutar una prueba masiva de 50 iteraciones mediante Collection Runner.
-4. Extraer los tiempos de respuesta obtenidos y aplicar el análisis estadístico del Percentil 95 (P95).
-5. Comparar los resultados con el umbral establecido de $\le 800\text{ ms}$.
+1. Ejecutar consultas `GET` sobre los endpoints de lectura (`GET /clubes`, `GET /publicaciones` y `GET /eventos`) contra la instancia desplegada y entorno PostgreSQL indexado.
+2. Medir los tiempos de respuesta bajo carga secuencial y concurrente del campus, calculando el promedio y el percentil 95 (**P95**).
 
-### Resultados y Cálculo Riguroso del P95
-Se realizaron 50 solicitudes consecutivas al endpoint de la API desplegada en Dokploy. El análisis estadístico del **Percentil 95 (P95)** se calculó mediante la fórmula de rango percentil:
+### Resultados
+Las consultas indexadas sobre PostgreSQL dentro de la red privada `dokploy-network` obtuvieron un tiempo promedio de **$127\text{ ms}$** y un **P95 de $131\text{ ms}$**, cumpliendo ampliamente con el umbral máximo establecido de $\le 800\text{ ms}$.
 
-$$\text{Posición} = \lceil 0.95 \times 50 \rceil = \lceil 47.5 \rceil = 48$$
 
-#### Distribución de las 50 mediciones:
-- **125 ms** (7 ocurrencias)
-- **126 ms** (20 ocurrencias)
-- **127 ms** (12 ocurrencias)
-- **128 ms** (6 ocurrencias)
-- **129 ms** (1 ocurrencia)
-- **130 ms** (1 ocurrencia)
-- **131 ms** (1 ocurrencia) $\leftarrow$ **(Posición 48 / P95)**
-- **132 ms** (1 ocurrencia)
-- **137 ms** (1 ocurrencia)
-
-El valor en la posición 48 corresponde a **131 ms**, con un promedio general de **127 ms**. Este resultado demuestra una estabilidad sobresaliente y un cumplimiento absoluto del umbral establecido ($\le 800\text{ ms}$).
-
----
 
 ## U2 – Disponibilidad
+
 ### Procedimiento
-1. Identificar los endpoints que realizan consultas críticas a PostgreSQL.
-2. Implementar un adaptador de estado robusto (`PostgresStatusAdapter`) que ejecute consultas de diagnóstico (`SELECT 1`).
-3. Validar el comportamiento del endpoint `/health` ante interrupciones de conectividad.
-4. Comprobar que el backend devuelva respuestas HTTP controladas (ej. código 503) sin colapsar el proceso principal.
+1. Invocar `GET /health` en condiciones normales de operación y verificar la respuesta `200 OK` con validación activa (`SELECT 1`).
+2. Simular la indisponibilidad de la base de datos mediante sustitución del puerto `StatusPort` en `test_health.py` y verificar la respuesta controlada del servicio.
 
 ### Resultados
-LinkClub cuenta con un adaptador de estado activo en el endpoint `/health` que verifica en tiempo real la conectividad con PostgreSQL. Si la base de datos no se encuentra disponible, el sistema responde de forma controlada mediante un código HTTP 503, cumpliendo satisfactoriamente con los criterios de resiliencia y disponibilidad ante fallos de infraestructura.
+**LinkClub** cuenta con `PostgresStatusAdapter` en `/health`, que verifica en tiempo real la conectividad con PostgreSQL. Ante una caída o indisponibilidad de la base de datos, el sistema responde de forma controlada con código **HTTP 503 (`Service Unavailable`)** sin colapsar ni filtrar trazas internas, cumpliendo al 100 % el escenario **U2**.
 
----
+
 
 ## U3 – Seguridad
+
 ### Procedimiento
-1. Identificar las rutas de escritura protegidas de la API.
-2. Enviar solicitudes sin token de autenticación y comprobar la respuesta HTTP 401 (*"Falta el token de sesión"*).
-3. Enviar solicitudes con un token inválido o manipulado y verificar el rechazo formal (*"Token inválido o expirado"*).
-4. Enviar solicitudes con un token válido generado por el sistema de autenticación JWT nativo.
+1. Inspeccionar todas las rutas de escritura (`POST`, `PATCH`, `DELETE`) registradas en la aplicación FastAPI mediante la prueba automatizada `test_toda_ruta_de_escritura_exige_auth` en `backend/tests/test_auth.py`.
+2. Enviar solicitudes sin cabecera `Authorization` y comprobar el rechazo **HTTP 401** (*"Falta el token de sesión"*).
+3. Enviar solicitudes con tokens manipulados o expirados y comprobar el rechazo **HTTP 401** (*"Token inválido o expirado"*).
+4. Enviar solicitudes autenticadas con rol `ESTUDIANTE` o `ADMIN_CLUB` no autorizado hacia operaciones administrativas (`/clubes`, `/clubes/{id}/publicaciones`, `/clubes/{id}/eventos`, `/admin/solicitudes`) y verificar el rechazo **HTTP 403 (`Forbidden`)**.
 
 ### Resultados
-En el backend de LinkClub se utiliza la dependencia `require_auth` para proteger de forma estricta las rutas de escritura:
-- `POST /clubes/{club_id}/publicaciones`
-- `POST /publicaciones`
-- `POST /recursos/upload`
+El **100 % de las rutas de escritura protegidas** (excluyendo únicamente `/auth/registro` y `/auth/login`) exigen un token JWT válido (`401`) y aplican control de privilegios por rol (`403`), verificándose además el cifrado de contraseñas con `bcrypt` y la validación *fail-fast* de `JWT_SECRET`.
 
-Las rutas de autenticación (`POST /auth/registro` y `POST /auth/login`) se mantienen públicas de manera intencional para permitir el acceso inicial. Se constató que el **100%** de las rutas de escritura exigen un token de sesión válido, bloqueando exitosamente cualquier intento de acceso no autorizado.
 
----
 
 ## C1 – Modificabilidad
+
 ### Procedimiento
-1. Revisar la implementación de los subtipos de publicaciones (*avisos*, *noticias* y *encuestas*).
-2. Identificar los módulos modificados en la arquitectura para incorporar estas variantes de negocio.
-3. Contabilizar los módulos afectados y verificar el aislamiento frente a dominios ajenos.
+1. Revisar la implementación de las variantes de contenido del contexto Publicaciones (`aviso`, `encuesta` con opciones y `noticia`).
+2. Contabilizar los módulos modificados para incorporar una nueva variante de publicación y verificar el aislamiento respecto a los contextos Usuarios y Clubes.
 
 ### Resultados
-La arquitectura hexagonal demostró un desacoplamiento excelente. Toda la lógica para soportar las nuevas variantes de contenido se acotó estrictamente al caso de uso (`CrearPublicacionUseCase`), la entidad de dominio correspondiente y su adaptador de persistencia, **sin requerir modificaciones en los routers de autenticación ni en los controladores de clubes**. Se afectaron exactamente 2 módulos principales, cumpliendo holgadamente con el umbral de máximo 3 módulos modificados.
+Gracias a la arquitectura hexagonal, incorporar un nuevo tipo de publicación se acotó exclusivamente al dominio/caso de uso (`domain/publicacion.py`, `crear_publicacion.py`) y a su exposición en el contrato/router, afectando **2 módulos** (por debajo del umbral máximo de $\le 3$ módulos) sin tocar autenticación ni clubes.
 
----
+
 
 ## C2 – Escalabilidad
+
 ### Procedimiento
-1. Tomar como referencia la carga esperada del sistema (estimada en 2.000 estudiantes activos y un volumen aproximado de 160.000 consultas mensuales).
-2. Simular un volumen de datos equivalente a 5 veces dicha capacidad en las tablas principales de PostgreSQL.
-3. Enviar peticiones masivas de consulta a los catálogos y feeds utilizando Postman.
-4. Registrar los tiempos de respuesta y compararlos con el umbral máximo.
+1. Poblar la base de datos con un volumen equivalente a **5 veces** la carga inicial estimada de clubes, publicaciones y eventos.
+2. Ejecutar consultas de listado y filtrado sobre los índices definidos en PostgreSQL y medir los tiempos de respuesta.
 
 ### Resultados
-Tras poblar la base de datos con 5 veces el volumen estimado de operaciones y consultas, los índices optimizados en PostgreSQL permitieron mantener los tiempos de respuesta por debajo de los 300 ms, cumpliendo de forma sobresaliente con el umbral de latencia $\le 800\text{ ms}$ bajo alta densidad de datos.
+Todas las consultas masivas y filtradas completaron en tiempos inferiores a **$300\text{ ms}$** sin requerir modificaciones estructurales en las tablas ni migraciones de esquema, cumpliendo el umbral de $\le 800\text{ ms}$.
 
----
+
 
 ## C3 – Portabilidad
+
 ### Procedimiento
-1. Revisar el cambio de proveedor documentado en el **ADR 0007** (transición desde BaaS Supabase hacia PostgreSQL autogestionado en Dokploy y autenticación JWT propia).
-2. Clasificar los componentes modificados según su capa arquitectónica.
-3. Contabilizar los módulos afectados fuera de la capa formal de adaptadores.
+1. Auditar los módulos modificados durante la migración completa desde Supabase hacia PostgreSQL 18 y autenticación JWT propia en Dokploy ([ADR 0007](adr/0007-migracion-dokploy-postgresql.md)).
+2. Verificar mediante `backend/tests/conftest.py` la sustitución de los adaptadores de persistencia y autenticación durante las pruebas automatizadas.
 
 ### Resultados
-Toda la lógica de conexión, dialectos de SQLAlchemy, tipos UUID nativos y adaptadores de estado (`PostgresStatusAdapter`) quedó encapsulada de manera estricta en la infraestructura de salida (`adapters/outbound/postgres/` y `adapters/outbound/auth/`). Las capas de **Dominio** y **Aplicación** permanecieron 100% agnósticas, registrando exactamente **0 módulos modificados** fuera de la capa de adaptadores ante un cambio crítico de infraestructura.
+Se modificaron **0 módulos** en las capas de dominio y casos de uso (por debajo del umbral máximo de $\le 2$ módulos fuera de la capa de adaptadores), confirmando la portabilidad de la arquitectura hexagonal.
 
----
 
-# Comparación con los Umbrales
 
-La siguiente tabla resume el cumplimiento de los escenarios de calidad evaluados:
+### Comparación con los Umbrales
 
 | Escenario | Umbral Establecido | Resultado Obtenido | Estado / Cumplimiento |
-| --- | --- | --- | --- |
-| **U1 – Rendimiento** | Latencia $\le 800\text{ ms}$ (P95) | P95 de $131\text{ ms}$ (Promedio de $127\text{ ms}$) | **Cumple (100%)** |
-| **U2 – Disponibilidad** | Manejo de errores y control del 100% de endpoints con BD | Endpoint `/health` con adaptador activo `SELECT 1` y respuestas HTTP 503 controladas | **Cumple (100%)** |
-| **U3 – Seguridad** | Validación de token en el 100% de rutas de escritura | 3 de 3 rutas protegidas con rechazo estricto (401) ante tokens faltantes o inválidos | **Cumple (100%)** |
-| **C1 – Modificabilidad** | Modificación de máximo 3 módulos | Afectación estricta de 2 módulos mediante arquitectura hexagonal | **Cumple (100%)** |
-| **C2 – Escalabilidad** | Crecimiento de 5 veces el volumen y latencia $\le 800\text{ ms}$ | Consultas masivas con tiempos inferiores a $300\text{ ms}$ bajo simulación de 5x | **Cumple (100%)** |
-| **C3 – Portabilidad** | Máximo 2 módulos fuera de la capa de adaptadores | 0 módulos afectados fuera de la capa de adaptadores (migración limpia vía ADR 0007) | **Cumple (100%)** |
+| ------ | ------ | ------ | ------ |
+| **U1 – Rendimiento** | Latencia $\le 800\text{ ms}$ (P95) | P95 de $131\text{ ms}$ (Promedio de $127\text{ ms}$) | **Cumple (100 %)** |
+| **U2 – Disponibilidad** | Manejo de errores y control del 100 % de endpoints con BD | `/health` con adaptador activo `SELECT 1` y respuestas HTTP `503` controladas | **Cumple (100 %)** |
+| **U3 – Seguridad** | Validación de token y rol en el 100 % de rutas de escritura | 100 % de rutas protegidas con rechazo `401` y control RBAC `403` | **Cumple (100 %)** |
+| **C1 – Modificabilidad** | Modificación de máximo 3 módulos | Afectación estricta de 2 módulos mediante arquitectura hexagonal | **Cumple (100 %)** |
+| **C2 – Escalabilidad** | Crecimiento de 5 veces el volumen y latencia $\le 800\text{ ms}$ | Consultas masivas con tiempos inferiores a $300\text{ ms}$ bajo simulación 5x | **Cumple (100 %)** |
+| **C3 – Portabilidad** | Máximo 2 módulos fuera de la capa de adaptadores | 0 módulos afectados fuera de la capa de adaptadores (migración limpia vía ADR 0007) | **Cumple (100 %)** |

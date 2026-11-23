@@ -111,6 +111,11 @@ paths:
               schema: { $ref: "#/components/schemas/TokenResponse" }
         "401":
           $ref: "#/components/responses/CredencialesInvalidas"
+        "403":
+          description: Cuenta suspendida o inactiva.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -146,6 +151,8 @@ paths:
               schema: { $ref: "#/components/schemas/PerfilUsuario" }
         "401":
           $ref: "#/components/responses/NoAutenticado"
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
     delete:
       operationId: eliminarMiCuenta
       tags: [usuarios]
@@ -178,6 +185,8 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "401":
           $ref: "#/components/responses/NoAutenticado"
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
 
   /admin/solicitudes:
     get:
@@ -212,6 +221,9 @@ paths:
       responses:
         "200":
           description: Solicitud aprobada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "401":
           $ref: "#/components/responses/NoAutenticado"
         "403":
@@ -233,6 +245,9 @@ paths:
       responses:
         "200":
           description: Solicitud rechazada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "401":
           $ref: "#/components/responses/NoAutenticado"
         "403":
@@ -289,6 +304,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
 
   /clubes/{club_id}:
     get:
@@ -331,6 +348,8 @@ paths:
           $ref: "#/components/responses/SinPermiso"
         "404":
           $ref: "#/components/responses/NoEncontrado"
+        "422":
+          $ref: "#/components/responses/DatosInvalidos"
 
   /clubes/{club_id}/publicaciones:
     get:
@@ -364,7 +383,7 @@ paths:
             schema: { $ref: "#/components/schemas/CrearPublicacionClubRequest" }
       responses:
         "201":
-          description: Publicación creada.
+          description: Publicación creada (o respuesta idempotente con la misma clave y payload).
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Publicacion" }
@@ -372,6 +391,13 @@ paths:
           $ref: "#/components/responses/NoAutenticado"
         "403":
           $ref: "#/components/responses/SinPermiso"
+        "404":
+          $ref: "#/components/responses/NoEncontrado"
+        "409":
+          description: La Idempotency-Key ya fue utilizada con un contenido diferente.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "422":
           $ref: "#/components/responses/DatosInvalidos"
 
@@ -489,12 +515,17 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ArchivoSubido" }
         "400":
-          description: Archivo inválido.
+          description: Archivo inválido o superior a 5 MB.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "401":
           $ref: "#/components/responses/NoAutenticado"
+        "500":
+          description: Error interno al guardar el archivo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
 
   /static/{archivo}:
     get:
@@ -626,7 +657,7 @@ components:
       required: [password_actual, password_nueva]
       properties:
         password_actual: { type: string }
-        password_nueva: { type: string, minLength: 8 }
+        password_nueva: { type: string, minLength: 8, maxLength: 72 }
       additionalProperties: false
 
     SolicitudAdmin:
@@ -651,7 +682,7 @@ components:
         nombre: { type: string, minLength: 1 }
         matricula: { type: string, pattern: "^T[0-9]{7,8}$" }
         correo: { type: string, pattern: '^[^@\s]+@utb\.edu\.co$' }
-        password: { type: string, minLength: 6 }
+        password: { type: string, minLength: 6, maxLength: 72 }
         solicitar_admin: { type: boolean }
         club_id: { type: [string, "null"] }
         justificacion_admin: { type: [string, "null"] }
@@ -691,9 +722,9 @@ components:
       type: object
       required: [nombre, descripcion, categoria]
       properties:
-        nombre: { type: string, minLength: 1 }
-        descripcion: { type: string, minLength: 1 }
-        categoria: { type: string, minLength: 1 }
+        nombre: { type: string, minLength: 1, maxLength: 120 }
+        descripcion: { type: string, minLength: 1, maxLength: 500 }
+        categoria: { type: string, minLength: 1, maxLength: 60 }
         descripcion_completa: { type: [string, "null"] }
         icono: { type: [string, "null"] }
         logo_url: { type: [string, "null"] }

@@ -1,17 +1,17 @@
 # 6. Vista de ejecución
 
-Esta sección documenta, mediante diagramas de secuencia, cómo se comporta **LinkClub** en tiempo de ejecución en los tres recorridos que hoy están implementados de extremo a extremo: consulta de estado, inicio de sesión y creación de una publicación.
+Esta sección documenta, mediante diagramas de secuencia, cómo se comporta **LinkClub** en tiempo de ejecución en sus recorridos principales implementados de extremo a extremo: comprobación de salud, autenticación y carga de sesión, creación idempotente de publicaciones y gestión de eventos/asistencia.
 
 ## 6.1. Escenario: consulta de estado (`GET /health`)
 
 ```mermaid
 sequenceDiagram
-    actor C as Cliente (HTTP)
+    actor C as Cliente / Operador
     participant R as health_router<br/>(Adaptador de entrada)
     participant UC as CheckHealthUseCase<br/>(Aplicación)
     participant P as StatusPort<br/>(Puerto de salida)
     participant A as PostgresStatusAdapter<br/>(Adaptador de salida)
-    participant DB as PostgreSQL
+    participant DB as PostgreSQL 18
 
     C->>R: GET /health
     R->>UC: check()
@@ -20,112 +20,113 @@ sequenceDiagram
     A->>DB: SELECT 1
     alt Base de datos disponible
         DB-->>A: 1
-        A-->>P: {"status": "ok", "database": "online"}
-        P-->>UC: {"status": "ok", "database": "online"}
+        A-->>P: "ok"
+        P-->>UC: "ok"
         UC-->>R: {"status": "ok", "database": "online"}
         R-->>C: 200 OK {"status": "ok", "database": "online"}
     else Base de datos no disponible
         DB-->>A: Error de conexión
-        A-->>P: Excepción de disponibilidad
-        P-->>UC: Excepción de disponibilidad
-        UC-->>R: Excepción de disponibilidad
-        R-->>C: 503 Service Unavailable {"detail": "..."}
+        A-->>P: "error"
+        P-->>UC: "error"
+        UC-->>R: ServicioNoDisponible
+        R-->>C: 503 Service Unavailable {"detail": "Base de datos no disponible"}
     end
 ```
 
-1. El cliente envía `GET /health` a la API.
-2. El adaptador de entrada (`health_router.py`) delega en el caso de uso, sin lógica de negocio propia.
-3. `CheckHealthUseCase` llama a `get_status()` sobre el puerto `StatusPort`; solo conoce la interfaz.
-4. `PostgresStatusAdapter` ejecuta `SELECT 1` contra PostgreSQL para verificar la conectividad real.
-5. Si la base responde, devuelve `200 OK {"status": "ok", "database": "online"}`; si falla, responde de forma controlada con `503 Service Unavailable`.
-
-Cubierto por [`backend/tests/test_health.py`](../../backend/tests/test_health.py).
-
-## 6.2. Escenario: inicio de sesión (`POST /auth/login`)
+## 6.2. Escenario: inicio de sesión y resolución de rol (`POST /auth/login` + `GET /usuarios/me`)
 
 ```mermaid
 sequenceDiagram
-    actor U as Usuario
-    participant APP as App Flutter
-    participant R as auth_router<br/>(Adaptador de entrada)
-    participant DB as PostgreSQL
-    participant S as Almacenamiento seguro<br/>(dispositivo)
+    actor U as Usuario (Flutter)
+    participant UI as LoginScreen / SessionController
+    participant API as auth_router / usuario_router
+    participant DB as PostgreSQL 18 (usuarios)
 
-    U->>APP: Ingresa correo institucional y contraseña
-    APP->>R: POST /auth/login (form-data: username, password)
-    R->>DB: Consulta el usuario por correo (username)
-    DB-->>R: Usuario (con password_hash) o ninguno
-    R->>R: Verifica hash bcrypt de la contraseña
+    U->>UI: Ingresa correo/matrícula y contraseña
+    UI->>API: POST /auth/login (JSON o form-urlencoded)
+    API->>DB: Consulta usuario por correo o matrícula
+    DB-->>API: Registro UsuarioModel (password_hash, rol, verificado, estado_cuenta)
+    API->>API: Verifica hash bcrypt y estado_cuenta == "ACTIVO"
     alt Credenciales válidas
-        R-->>APP: 200 con access_token y token_type
-        APP->>S: Guarda el token
-        APP-->>U: Muestra la pantalla principal
-    else Credenciales inválidas
-        R-->>APP: 401 {"detail": "Correo o contraseña incorrectos"}
-        APP-->>U: Muestra un mensaje de error
+        API-->>UI: 200 OK {"access_token": "<JWT HS256>", "token_type": "bearer"}
+        UI->>UI: Guarda JWT en flutter_secure_storage
+        UI->>API: GET /usuarios/me (Authorization: Bearer <JWT>)
+        API->>DB: Consulta perfil, club administrado y solicitud pendiente
+        DB-->>API: Datos de perfil
+        API-->>UI: 200 OK PerfilUsuario
+        UI-->>U: Navega a ClubsPage con permisos según rol
+    else Credenciales inválidas o cuenta inactiva
+        API-->>UI: 401 Unauthorized / 403 Forbidden {"detail": "..."}
+        UI-->>U: Muestra mensaje de error
     end
 ```
 
-1. La app valida en el formulario que el correo termine en `@utb.edu.co` y envía las credenciales bajo el estándar `OAuth2PasswordRequestForm` (`username` y `password`).
-2. La API busca al usuario por correo, verifica el hash `bcrypt` de la contraseña y emite un token JWT HS256 firmado con `JWT_SECRET` (vigencia por defecto de 7 días) cuyo sujeto es la matrícula.
-3. La app guarda el token en almacenamiento seguro; un interceptor lo agrega como cabecera `Authorization: Bearer` en las peticiones siguientes, excepto las de `/auth/`.
-4. Ante un `401`, la app informa que las credenciales son incorrectas.
-
-Este recorrido aún no pasa por un caso de uso ni un puerto; es una desviación declarada (ver [diagrama de componentes](../c4/contexto.md)).
-
-## 6.3. Escenario: creación de una publicación (`POST /publicaciones`)
+## 6.3. Escenario: creación idempotente de una publicación (`POST /clubes/{club_id}/publicaciones`)
 
 ```mermaid
 sequenceDiagram
-    actor U as Usuario
-    participant APP as App Flutter
-    participant R as publicacion_router<br/>(Adaptador de entrada)
-    participant AUTH as require_auth<br/>(AuthPort, LocalJwtAuthAdapter)
-    participant UC as CrearPublicacionUseCase<br/>(Aplicación)
-    participant REP as PublicacionRepositoryPostgres<br/>(Adaptador de salida)
-    participant DB as PostgreSQL
+    actor A as Admin de Club (Flutter)
+    participant UI as CreatePublicationScreen / ApiClient
+    participant R as publicacion_router
+    participant AUTH as auth_dependency
+    participant UC as CrearPublicacionUseCase
+    participant REPO as PublicacionRepositoryPostgres
+    participant DB as PostgreSQL 18
 
-    U->>APP: Redacta la publicación y la envía
-    APP->>R: POST /publicaciones con Bearer token e Idempotency-Key
-    R->>AUTH: Verifica el token
-    alt Token ausente, inválido o expirado
-        AUTH-->>R: Token inválido
-        R-->>APP: 401 {"detail": "..."}
-    else Token válido
-        AUTH-->>R: Identidad del autor
-        R->>DB: Resuelve al autor por identidad
-        R->>UC: ejecutar(club, autor, titulo, contenido, tipo, opciones, clave)
-        UC->>REP: obtener_por_idempotencia(autor_id, clave)
-        REP->>DB: Consulta por (autor_id, idempotency_key)
-        alt La clave ya fue usada con el mismo contenido
-            DB-->>REP: Publicación existente (UUID)
-            REP-->>UC: Publicación existente
-            UC-->>R: Publicación original, sin duplicar
-        else La clave ya fue usada con distinto contenido
-            DB-->>REP: Publicación existente con otro payload
-            REP-->>UC: Conflicto de idempotencia
-            UC-->>R: 409 Conflict {"detail": "..."}
-        else Primera vez
-            UC->>UC: Valida tipo y opciones de encuesta
-            UC->>REP: guardar(publicación)
-            REP->>DB: Inserta el registro
-            DB-->>REP: Registro creado
-            REP-->>UC: Publicación
-            UC-->>R: Publicación
+    A->>UI: Redacta aviso/encuesta/noticia y confirma
+    UI->>UI: Interceptor inyecta Bearer JWT e Idempotency-Key (UUID v4)
+    UI->>R: POST /clubes/{club_id}/publicaciones
+    R->>AUTH: require_auth(Bearer token)
+    AUTH-->>R: autor_id (matrícula)
+    R->>DB: Verifica rol (ADMIN_CLUB verificado del club o SUPERADMIN)
+    alt Sin permisos sobre el club
+        R-->>UI: 403 Forbidden {"detail": "..."}
+    else Autorizado
+        R->>UC: ejecutar(club_id, autor_id, titulo, contenido, tipo, opciones, idempotency_key)
+        UC->>REPO: obtener_por_idempotencia(autor_id, idempotency_key)
+        REPO->>DB: SELECT en publicaciones por (autor_matricula, idempotency_key)
+        alt Clave ya usada con mismo payload
+            DB-->>REPO: PublicacionModel existente
+            REPO-->>UC: Publicacion existente
+            UC-->>R: Publicacion existente
+            R-->>UI: 201 Created (respuesta idempotente sin duplicar)
+        else Clave ya usada con distinto payload
+            UC-->>R: PublicacionDuplicada
+            R-->>UI: 409 Conflict {"detail": "..."}
+        else Nueva publicación
+            UC->>REPO: guardar(publicacion)
+            REPO->>DB: INSERT INTO publicaciones
+            DB-->>REPO: Registro persistido
+            REPO-->>UC: Publicacion
+            UC-->>R: Publicacion
+            R-->>UI: 201 Created PublicacionResponse
         end
-        R-->>APP: 201 (o 200 en reintento) con la publicación y el nombre del autor
     end
+    UI-->>A: Actualiza feed y muestra confirmación
 ```
 
-1. Si la publicación incluye una imagen local, la app la sube antes con `POST /recursos/upload` (verificando extensión válida y token) y usa la URL devuelta como `imagen_url`.
-2. El interceptor de la app agrega una `Idempotency-Key` (UUID v4) a cada `POST`. Ante un timeout, el reintento reutiliza la misma clave aislada por autor `(autor_id, idempotency_key)` y devuelve la publicación original en lugar de duplicarla (ver [`docs/resilience/idempotencia.md`](../resilience/idempotencia.md)).
-3. La identidad del autor se toma siempre del token, nunca del cuerpo de la petición.
-4. Un tipo de publicación no soportado o una encuesta sin opciones producen `422` con el formato uniforme `{"detail": "..."}`.
+## 6.4. Escenario: programación de evento y confirmación de asistencia (`POST /eventos` y `POST /eventos/{evento_id}/asistencia`)
 
-Cubierto por `backend/tests/test_publicaciones.py`, `test_auth.py` y `test_contrato_openapi.py`.
+```mermaid
+sequenceDiagram
+    actor E as Estudiante / Admin (Flutter)
+    participant UI as App Flutter (EventRepository)
+    participant R as evento_router
+    participant AUTH as auth_dependency
+    participant DB as PostgreSQL 18
 
-## 6.4. Relación con los escenarios de calidad
-
-- **U2 (Disponibilidad):** `/health` sondea activamente PostgreSQL (`SELECT 1`) mediante `PostgresStatusAdapter` y responde de forma controlada con `503 Service Unavailable` si la base no responde, sin afectar la arquitectura hexagonal.
-- **U3 (Seguridad):** el recorrido 6.3 muestra el rechazo con `401` antes de llegar al caso de uso.
-- **Resiliencia:** el recorrido 6.3 es el que ejerce la idempotencia aislada por autor definida en la [Sección 8](./08_conceptos_transversales.md) y en el [ADR 0008](../adr/0008-no-extraer-publicaciones.md).
+    E->>UI: Pulsa "Asistir" en un evento
+    UI->>R: POST /eventos/{evento_id}/asistencia (Bearer JWT + Idempotency-Key)
+    R->>AUTH: get_current_user()
+    AUTH->>DB: Valida JWT y usuario activo
+    DB-->>AUTH: UsuarioModel
+    R->>DB: Consulta registro en asistencias (evento_id, usuario_matricula)
+    alt No estaba confirmado
+        R->>DB: INSERT INTO asistencias (estado="confirmado")
+        R-->>UI: 200 OK {"usuario_asiste": true, "total_asistentes": N+1}
+    else Ya estaba confirmado
+        R->>DB: DELETE FROM asistencias
+        R-->>UI: 200 OK {"usuario_asiste": false, "total_asistentes": N-1}
+    end
+    UI-->>E: Actualiza botón y contador en tiempo real
+```

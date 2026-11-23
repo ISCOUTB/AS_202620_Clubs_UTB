@@ -70,7 +70,6 @@ class PublicacionResponse(BaseModel):
 def _serializar_publicacion(
     p: Publicacion,
     db: Session,
-    imagen_url: Optional[str] = None,
 ) -> PublicacionResponse:
     autor = db.query(UsuarioModel).filter(UsuarioModel.matricula == p.autor_id).first()
     club_nombre = None
@@ -94,7 +93,7 @@ def _serializar_publicacion(
         contenido=p.contenido,
         tipo=tipo_valor,
         opciones=p.opciones,
-        imagen_url=getattr(p, "imagen_url", None) or imagen_url,
+        imagen_url=p.imagen_url,
         creado_en=fecha_creacion,
     )
 
@@ -106,7 +105,10 @@ def _verificar_permiso_publicar(club_id: str, autor_id: str, db: Session) -> Non
         .first()
     )
     if usuario is None:
-        return
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario inactivo o no encontrado.",
+        )
 
     if usuario.estado_cuenta != "ACTIVO":
         raise HTTPException(
@@ -181,6 +183,8 @@ def crear_publicacion_endpoint(
 
     _verificar_permiso_publicar(club_id, autor_id, db)
 
+    imagen_limpia = body.imagen_url.strip() if body.imagen_url else None
+
     try:
         publicacion = use_case.ejecutar(
             club_id=club_id,
@@ -190,6 +194,7 @@ def crear_publicacion_endpoint(
             tipo=body.tipo,
             opciones=body.opciones,
             idempotency_key=idempotency_key,
+            imagen_url=imagen_limpia,
         )
     except PublicacionDuplicada as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -200,4 +205,4 @@ def crear_publicacion_endpoint(
         raise HTTPException(status_code=404, detail="Club o autor no encontrado.") from exc
 
     response.status_code = 201
-    return _serializar_publicacion(publicacion, db, imagen_url=body.imagen_url)
+    return _serializar_publicacion(publicacion, db)

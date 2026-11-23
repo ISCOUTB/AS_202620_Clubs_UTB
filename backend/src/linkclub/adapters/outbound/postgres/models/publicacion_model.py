@@ -31,5 +31,6 @@ class PublicacionModel(Base):
     contenido = Column(Text, nullable=False)
     tipo = Column(String, nullable=False, server_default="aviso")
     opciones = Column(JSONB, nullable=True)
+    imagen_url = Column(Text, nullable=True)
     creado_en = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     idempotency_key = Column(String, nullable=True)

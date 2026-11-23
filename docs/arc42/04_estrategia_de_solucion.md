@@ -1,43 +1,38 @@
-# 4. Estrategia de Solución
+### 4. Estrategia de solución
 
-## 4.1. Decisiones tecnológicas
+La arquitectura de **LinkClub** prioriza la autonomía operativa, el aislamiento de la lógica de negocio y la coherencia estricta entre el cliente móvil y el servidor mediante un contrato formal verificable.
 
-Siguiendo las restricciones técnicas declaradas en la [Sección 2](./02_restricciones.md) (T1-T5), el sistema se construye con:
+#### 4.1. Decisiones tecnológicas fundamentales
 
-| Elemento | Tecnología | Decisión de referencia |
-|---|---|---|
-| Frontend / app móvil | Flutter (Dart), con Dio para HTTP y almacenamiento seguro del token | T1 |
-| Backend / API | FastAPI (Python) con arquitectura hexagonal | T2, [ADR 0001](../adr/0001-hexagonal.md) |
-| Persistencia | PostgreSQL en contenedor, acceso con SQLAlchemy; esquema en `backend/migrations/` | T3, T4, [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md) |
-| Autenticación | JWT firmado emitido y validado por la propia API | T4, [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md) |
-| Integración | API REST síncrona con contrato OpenAPI verificado en el pipeline | [ADR 0003](../adr/0003-%20integacion%20rest%20openapi.md) |
-| Despliegue | Contenedores Docker en el servidor del laboratorio con Dokploy | T5, [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md) |
-| Integración continua | GitHub Actions y SonarCloud | [Sección 7](./07_vista_de_despliegue.md) |
+* **Cliente móvil nativo multiplataforma:** Flutter con Material 3, gestión centralizada de red mediante `Dio` y estado de sesión reactivo (`SessionController`) respaldado por `flutter_secure_storage`.
+* **Backend monolítico modular con arquitectura hexagonal ([ADR 0001](../adr/0001-hexagonal.md), [ADR 0008](../adr/0008-no-extraer-publicaciones.md)):** Un único servicio FastAPI organiza el núcleo (`domain/` y `application/`) independiente de los adaptadores HTTP (`adapters/inbound/api/`) y de persistencia/autenticación (`adapters/outbound/`).
+* **Infraestructura autónoma en contenedores ([ADR 0007](../adr/0007-migracion-dokploy-postgresql.md)):** PostgreSQL 18 y la API FastAPI operan en contenedores Docker administrados por Dokploy dentro de la red privada del servidor del laboratorio, eliminando dependencias externas (BaaS) y costos recurrentes.
+* **Contrato API-first ([ADR 0003](../adr/0003-%20integacion%20rest%20openapi.md)):** `docs/api/openapi.yaml` (`v3.1.0`) gobierna la evolución de todos los endpoints y se valida automáticamente en cada Pull Request.
 
-## 4.2. Decisión de estilo arquitectónico
+#### 4.2. Estrategia para alcanzar las metas de calidad
 
-El backend adopta el estilo **hexagonal (puertos y adaptadores)**, separando dominio, aplicación y adaptadores de entrada y de salida. Esta decisión responde a la meta de calidad de disponibilidad (Sección 1) y a la necesidad de cambiar la infraestructura sin reescribir la lógica de negocio. Esa capacidad ya se ejerció en la práctica: el reemplazo de Supabase por PostgreSQL y autenticación propia (ADR 0007) se resolvió sustituyendo adaptadores.
+| Meta de calidad | Estrategia arquitectónica aplicada |
+| ------ | ------ |
+| **Disponibilidad (U2)** | Despliegue en servidor propio con reinicio automático en Dokploy, eliminación de dependencias externas en tiempo de ejecución y endpoint `GET /health` que verifica activamente PostgreSQL mediante `SELECT 1`. |
+| **Rendimiento (U1)** | Comunicación interna de baja latencia entre contenedores en `dokploy-network`, ausencia de saltos entre microservicios y filtrado eficiente sobre consultas indexadas en PostgreSQL. |
+| **Seguridad (U3)** | Contraseñas almacenadas únicamente con hash `bcrypt`, tokens JWT firmados con `HS256` (`JWT_SECRET` obligatorio al arrancar), autorización basada en roles (`ESTUDIANTE`, `ADMIN_CLUB`, `SUPERADMIN`) y validación estricta de entradas con Pydantic (`extra="forbid"`). |
+| **Mantenibilidad (C1, C2, C3)** | Separación de puertos y adaptadores en el núcleo del backend, validación automatizada de esquema con `Draft202012Validator`, `Spectral` y `oasdiff`, y análisis estático continuo con SonarCloud. |
+| **Usabilidad y resiliencia (R1, R2)** | Inyección automática de `Idempotency-Key` en peticiones `POST` desde el cliente móvil para evitar duplicados ante reintentos de red, mensajes de error uniformes (`{"detail": "..."}`) y modo de vista previa estudiante para administradores. |
 
-La comparación completa frente a las alternativas descartadas (capas, monolito modular) está documentada en [`docs/arc42/matriz_comparativa_estilos.md`](./matriz_comparativa_estilos.md), y la decisión formal con sus consecuencias en [`docs/adr/0001-hexagonal.md`](../adr/0001-hexagonal.md). Se mantiene un único backend desplegable con contextos aislados ([ADR 0008](../adr/0008-no-extraer-publicaciones.md)).
+#### 4.3. Descomposición funcional (Contextos delimitados)
 
-El estilo se aplica completo en los casos de uso de salud, clubes y publicaciones. Algunos adaptadores de entrada aún acceden directamente a la sesión de base de datos o al sistema de archivos sin pasar por un puerto; esas desviaciones están detalladas en el [diagrama de componentes](../c4/contexto.md) y se tratan como deuda técnica.
+El dominio se divide en tres contextos internos bajo la regla de dueño único ([ADR 0002](../adr/0002-ajuste-contextos-publicaciones.md), detallada en [tabla_modulo.md](./tabla_modulo.md)):
 
-## 4.3. Enfoques para alcanzar las metas de calidad
+1. **Usuarios:** Identidad institucional (matrícula, correo), credenciales, emisión/validación de JWT, perfil personal y solicitudes de rol de administrador.
+2. **Clubes:** Directorio de clubes estudiantiles, metadatos públicos, estado de convocatoria y enlace institucional de inscripción (`ms_forms_url`).
+3. **Publicaciones y Eventos:** Contenido generado en nombre de un club (`aviso`, `encuesta`, `noticia` y programación de `eventos` con control de asistencia), referenciando `club_id` y `autor_matricula` sin duplicar datos.
 
-| Meta de calidad | Enfoque en esta estrategia |
-|---|---|
-| Disponibilidad | Aislamiento del dominio respecto a la infraestructura vía puertos. Comprobación real de disponibilidad de PostgreSQL en `/health` (`SELECT 1` con respuesta controlada `503` si falla). Idempotencia en la creación de publicaciones mediante la cabecera `Idempotency-Key`, para que un reintento tras un fallo parcial no duplique datos. Mensajes de error controlados en el cliente ante fallos de red. Previsto: tiempos de espera y respaldo periódico. |
-| Rendimiento | Base de datos y API en la misma red interna del servidor. Índices por club y fecha definidos en la migración inicial. La estrategia de caché y su política de invalidación se definen en la [Sección 8](./08_conceptos_transversales.md). Medición preliminar de latencia P95 registrada en [`mediciones_calidad.md`](../mediciones_calidad.md) (131 ms ≤ 800 ms). |
-| Seguridad (escenario U3, [Sección 10](./10_requisitos_de_calidad.md)) | Token JWT exigido por una dependencia de autenticación en las rutas de escritura, secreto `JWT_SECRET` obligatorio al arrancar, contraseñas protegidas con hash `bcrypt` y la identidad del autor tomada siempre del token. Comunicación por HTTPS. Lecturas públicas según el contrato. |
-| Usabilidad | No condicionada por esta decisión de backend; se aborda en el diseño de la app Flutter, fuera del alcance de esta sección. |
-| Mantenibilidad | Separación por responsabilidad (dominio, aplicación, adaptadores). Contrato OpenAPI comprobado en cada Pull Request, pruebas automatizadas con pytest y análisis estático en SonarCloud. |
-
-## 4.4. Estado de aplicación de la estrategia
+#### 4.4. Estado de aplicación de la estrategia
 
 | Aspecto | Estado |
-|---|---|
-| Arquitectura hexagonal | Aplicada en salud, clubes y publicaciones. Desviaciones declaradas en autenticación, carga de imágenes y listados de publicaciones. |
-| Persistencia en PostgreSQL | Operativa para usuarios y publicaciones con identificadores `UUID` sincronizados con el esquema SQL. El catálogo de clubes se sirve aún desde un adaptador en memoria. |
-| Autenticación propia | Operativa: registro con hash `bcrypt` y validación de matrícula única, inicio de sesión OAuth2 (`username`) y validación de token con `JWT_SECRET` obligatorio. Pendiente: autorización por rol dentro de cada club. |
-| Contrato OpenAPI | Verificado en el pipeline (`v3.0.0`). Algunas rutas del contrato aún no están implementadas (membresías, eventos, asistencia). |
-| Despliegue | Operativo en Dokploy con dominio HTTPS. |
+| ------ | ------ |
+| **Arquitectura hexagonal** | Aplicada en salud (`CheckHealthUseCase`), creación de publicaciones (`CrearPublicacionUseCase`), dominio de clubes/publicaciones y prototipo de mensajería. Desviaciones declaradas en routers que acceden directamente a la sesión SQLAlchemy para operaciones CRUD y RBAC (ver [Sección 5.3](./05_vista_de_bloques.md)). |
+| **Persistencia en PostgreSQL** | Operativa de extremo a extremo para `usuarios`, `clubes` (con semilla inicial idempotente en `main.py` y migraciones `001` y `002`), `publicaciones`, `eventos`, `asistencias` y `solicitudes_admin_club`. |
+| **Autenticación y autorización propia** | Operativa: registro con hash `bcrypt`, validación de matrícula única, inicio de sesión JSON y OAuth2, validación de token con `JWT_SECRET` obligatorio y control de permisos por rol (`403 Forbidden`) en clubes, publicaciones, eventos y consola Superadmin. |
+| **Contrato OpenAPI** | Verificado en el pipeline (`v3.1.0`) con 100 % de las rutas y esquemas del código alineados con `docs/api/openapi.yaml`. |
+| **Despliegue** | Operativo en Dokploy (`[https://api-linkclub.iscoutb.dev](https://api-linkclub.iscoutb.dev)`) con PostgreSQL 18 y volumen persistente `linkclub_uploads`. |

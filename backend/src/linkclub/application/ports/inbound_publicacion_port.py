@@ -14,5 +14,6 @@ class CrearPublicacionPort(ABC):
         tipo: str,
         opciones: dict | list | None = None,
         idempotency_key: str | None = None,
+        imagen_url: str | None = None,
     ) -> Publicacion:
         ...

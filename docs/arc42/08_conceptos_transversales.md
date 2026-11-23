@@ -4,118 +4,76 @@ Esta sección reúne los conceptos que atraviesan varios módulos de **LinkClub*
 
 ## 8.1. Lenguaje ubicuo
 
-El lenguaje ubicuo se organiza por contexto delimitado (ver 8.2), porque algunos términos cambian de significado o de nivel de detalle según el contexto que los usa. Cuando un término es ambiguo entre contextos, se aclara en la columna "Notas".
+El lenguaje ubicuo se organiza por contexto delimitado (ver 8.2), porque algunos términos cambian de significado o de nivel de detalle según el contexto que los usa.
 
-### Contexto Usuarios
-
-| Término | Definición | Notas |
-|---|---|---|
-| Usuario | Persona registrada en LinkClub, dueña de un perfil (nombre, matrícula, correo, rol) y de sus credenciales. | Es el único contexto que almacena el perfil completo; los demás lo referencian por identidad. |
-| Rol | Nivel de permisos de un usuario dentro del sistema (hoy `estudiante`). | No debe confundirse con "Administrador de club": el rol es un atributo del usuario, no una relación de membresía. |
-| Identidad | Referencia mínima a un usuario que otros contextos usan para apuntar a él sin copiar su perfil. | Hoy es la matrícula, el mismo valor que viaja como sujeto del token. |
-| Sesión / Token | Credencial JWT emitida por la propia API tras validar el correo y la contraseña. | Su formato está aislado detrás del puerto `AuthPort`; los demás contextos solo conocen la identidad que ese puerto devuelve. |
-
-### Contexto Clubes
-
-| Término | Definición | Notas |
-|---|---|---|
-| Club | Agrupación estudiantil con nombre, categoría y descripción. | Dueño único de estos datos: el contexto Clubes (ver [`tabla_modulo.md`](./tabla_modulo.md)). |
-| Miembro | Usuario vinculado a un club como parte de su comunidad. | Clubes almacena la relación de membresía, no el perfil del miembro. |
-| Administrador de club | Miembro con permiso para gestionar el club. | Es un rol dentro de la membresía de un club específico, distinto del rol global de Usuarios. |
-
-### Contexto Publicaciones
-
-| Término | Definición | Notas |
-|---|---|---|
-| Publicación | Elemento de comunicación emitido en nombre de un club. | Concepto raíz de este contexto; toda escritura pasa por aquí (`crear_publicacion.py`). |
-| Tipo de publicación | Aviso, encuesta o noticia, resueltos con una sola entidad. | El evento se modela como recurso propio en el contrato y en el esquema (tabla `eventos`), aún sin implementar en la API. |
-| Autor | Referencia a la identidad del usuario que originó la publicación. | Publicaciones no guarda el perfil del autor; el nombre mostrado en el feed se resuelve consultando a Usuarios. |
-| Idempotency-Key | Cabecera con un UUID v4 que identifica un intento de creación. | Permite que un reintento del mismo autor no duplique la publicación (ver 8.6). |
+| Término | Contexto | Significado en el sistema | Notas / Distinción |
+| ------ | ------ | ------ | ------ |
+| **Usuario / Matrícula** | Usuarios | Persona registrada con correo `@utb.edu.co` y matrícula (`^T[0-9]{7,8}$`). La matrícula es el identificador único (`sub` del JWT). | No se duplica el nombre ni el correo en otros contextos; se referencia por `autor_matricula` o `usuario_matricula`. |
+| **Rol (`ESTUDIANTE`, `ADMIN_CLUB`, `SUPERADMIN`)** | Usuarios | Nivel de privilegio asignado al usuario. Un `ADMIN_CLUB` requiere `verificado = true` y un `club_administrado_id` asignado. | Un solicitante de `ADMIN_CLUB` nace con `verificado = false` hasta que un `SUPERADMIN` aprueba su solicitud. |
+| **Solicitud de Admin** | Usuarios | Petición registrada en `solicitudes_admin_club` (`PENDIENTE`, `APROBADA`, `RECHAZADA`) vinculando un usuario con un club. | Gobernanza exclusiva de `SUPERADMIN` (`/admin/solicitudes`). |
+| **Club** | Clubes | Organización estudiantil oficial de la UTB con ficha pública (nombre, categoría, descripción, líder, horario, lugar, redes). | Persistido en PostgreSQL (`clubes`). |
+| **Inscripción externa (`ms_forms_url`)** | Clubes | Enlace a un formulario institucional externo (Microsoft Forms) controlado por `inscripciones_abiertas` y `aviso_inscripcion`. | LinkClub no gestiona listas internas de miembros vía API; delega el registro formal al formulario institucional. |
+| **Publicación** | Publicaciones | Contenido emitido en nombre de un club (`aviso`, `encuesta` con opciones, o `noticia`) con imagen opcional. | Pertenece a un `club_id` y a un `autor_matricula`. |
+| **Evento y Asistencia** | Publicaciones | Actividad programada por un club (`PUBLICO` o `SOLO_CLUB`) a la cual los usuarios pueden confirmar asistencia (`asistencias`). | Referencia `club_id` y `autor_matricula` sin copiar metadatos del club ni del usuario. |
 
 ## 8.2. Mapa de contextos delimitados
 
-LinkClub se divide en tres contextos internos y no tiene contextos externos en ejecución desde el [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md). El detalle de cada frontera está en [`mapa-contextos-fundamentacion.md`](./mapa-contextos-fundamentacion.md).
+LinkClub se divide en tres contextos internos y no tiene contextos externos de datos ni de identidad en ejecución desde el [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md). El detalle de cada frontera está en [mapa-contextos-fundamentacion.md](./mapa-contextos-fundamentacion.md).
 
 ```mermaid
 graph TB
     subgraph LinkClub["Sistema LinkClub"]
-        Clubes["Clubes<br/>(club, membresía,<br/>administradores)"]
-        Publicaciones["Publicaciones<br/>(avisos, encuestas, noticias)"]
-        Usuarios["Usuarios<br/>(perfil, credenciales,<br/>emisión y validación de token)"]
+        Clubes["Clubes<br/>(ficha, convocatoria,<br/>enlace Microsoft Forms)"]
+        Publicaciones["Publicaciones<br/>(avisos, encuestas, noticias,<br/>eventos y asistencias)"]
+        Usuarios["Usuarios<br/>(perfil, credenciales, roles,<br/>solicitudes de admin y JWT)"]
     end
 
     Publicaciones -->|"referencia club_id<br/>(no copia datos del club)"| Clubes
-    Publicaciones -->|"referencia al autor<br/>(no copia datos del usuario)"| Usuarios
-    Clubes -->|"referencia identidad de sus miembros<br/>(no copia datos del usuario)"| Usuarios
+    Publicaciones -->|"referencia autor_matricula / usuario_matricula<br/>(no copia datos del usuario)"| Usuarios
+    Clubes -->|"referencia club_administrado_id<br/>(no copia datos del usuario)"| Usuarios
 ```
 
 | Contexto | Relación con los demás | Tipo de relación (DDD) |
-|---|---|---|
-| Usuarios | Es referenciado por Clubes y Publicaciones | Núcleo compartido: la identidad se comparte como referencia, no como copia |
-| Clubes | Referencia a Usuarios; es referenciado por Publicaciones | Cliente de Usuarios y proveedor de Publicaciones |
-| Publicaciones | Referencia a Clubes y a Usuarios | Cliente-proveedor: consume, no escribe en los otros dos |
+| ------ | ------ | ------ |
+| **Usuarios** | Es referenciado por Clubes y Publicaciones | Núcleo compartido: la identidad (`matricula`) y el vínculo de administración se comparten como referencia, no como copia. |
+| **Clubes** | Referencia a Usuarios (administradores verificados); es referenciado por Publicaciones | Cliente de Usuarios y proveedor de Publicaciones. |
+| **Publicaciones** | Referencia a Clubes y a Usuarios | Cliente-proveedor: consume referencias (`club_id`, `matricula`), no modifica los otros dos contextos. |
 
-**Regla que atraviesa los tres contextos:** ningún contexto copia datos que no le pertenecen; solo guarda la referencia (ID) al dueño real del dato. Es la regla que sostiene la tabla de propiedad de datos y el criterio con el que se detectaron las no conformidades de [`lista_errores.md`](./lista_errores.md). La fila de [`aspectos.md`](../aspectos.md) que corresponde a cada contexto está indicada en su sección "Aspectos por contexto".
+**Regla que atraviesa los tres contextos:** ningún contexto copia datos que no le pertenecen; solo guarda la referencia (ID / matrícula) al dueño real del dato. Es la regla que sostiene [tabla_modulo.md](./tabla_modulo.md) y el criterio con el que se auditan las no conformidades de [lista_errores.md](./lista_errores.md).
 
 ## 8.3. Alineación con la tabla de módulos
 
-El desajuste entre los cuatro módulos del primer corte y los tres contextos vigentes quedó resuelto con el [ADR 0002](../adr/0002-ajuste-contextos-publicaciones.md): Actividades y Notificaciones se fusionaron en Publicaciones, y [`tabla_modulo.md`](./tabla_modulo.md) usa los tres contextos como única fuente de verdad.
+La discrepancia inicial entre los cuatro módulos del corte 1 y los tres contextos delimitados del [ADR 0002](../adr/0002-ajuste-contextos-publicaciones.md) quedó resuelta en [tabla_modulo.md](./tabla_modulo.md), unificando Actividades (incluidos eventos) y Notificaciones dentro del contexto **Publicaciones**.
 
 ## 8.4. Estrategia de consistencia
 
-PostgreSQL es el único almacén de datos de negocio y cada escritura se resuelve en una transacción local de una sola base ([ADR 0008](../adr/0008-no-extraer-publicaciones.md)), con el nivel de aislamiento por defecto de PostgreSQL (READ COMMITTED), que el código no modifica. Por eso la garantía por defecto es consistencia fuerte; la consistencia eventual aparece solo donde se introduce una copia (caché) o un proceso asíncrono (notificaciones). Los riesgos por operación están en [`tabla_garantia_consistencia.md`](./tabla_garantia_consistencia.md).
+* **Consistencia fuerte en PostgreSQL:** Todas las entidades persistentes (`usuarios`, `clubes`, `publicaciones`, `eventos`, `asistencias` y `solicitudes_admin_club`) operan bajo transacciones ACID en la misma base de datos PostgreSQL 18 (`linkclub`).
+* **Integridad referencial y unicidad:** El esquema impone llaves foráneas (`ON DELETE CASCADE` / `SET NULL`), unicidad de correo (insensible a mayúsculas) y matrícula en `usuarios`, unicidad de nombre en `clubes`, unicidad compuesta `(autor_matricula, idempotency_key)` en `publicaciones` y unicidad `(evento_id, usuario_matricula)` en `asistencias`.
+* **Consistencia eventual (prototipo de mensajería):** El módulo experimental `application/messaging/` y `adapters/outbound/messaging/` implementa el patrón *Outbox* con entrega al-menos-una-vez y deduplicación por `message_id` ([ADR 0010](../adr/0010-mensajeria-asincrona-notificaciones.md)), verificado por pruebas automatizadas sin broker externo desplegado.
 
-| Operación | Garantía | Mecanismo | Estado |
-|---|---|---|---|
-| Registro de usuario | Fuerte | Llave primaria en matrícula y unicidad de correo en la base | Implementada. Tanto el correo repetido como la matrícula repetida responden `409 Conflict` (NC-13 resuelta) |
-| Inicio de sesión | Fuerte en la lectura; token sin estado | Consulta a la base, verificación de hash `bcrypt` y token con vencimiento; sin revocación en el servidor | Implementada |
-| Crear publicación | Escritura atómica; efecto único con `Idempotency-Key` | Un INSERT con un único `commit` por solicitud y restricción única `(autor_id, idempotency_key)` | Atómica e implementada con respuesta consistente (ver 8.4.1) |
-| Listar publicaciones y clubes | Fuerte hoy | Consulta directa sin caché; las publicaciones se leen sin paginación | Implementada |
-| Subir imagen y publicar | Sin atomicidad entre archivo y registro | La imagen se sube antes; si la publicación falla, queda un archivo huérfano aceptado como costo ([ADR 0009](../adr/0009-estrategia-persistencia-multimedia.md)) | Implementada |
-| Inscripción, eventos y asistencia | Fuerte | Restricciones únicas `(club_id, usuario_id)` y `(evento_id, usuario_id)` ya definidas en la migración | Sin implementar en la API |
-| Notificar publicación creada | Eventual, al menos una vez | Outbox, reintentos con retroceso, DLQ y consumidor idempotente por `message_id` ([ADR 0009 de mensajería](../adr/0009-mensajeria-asincrona-notificaciones.md)) | Prototipo en memoria, verificado solo por pruebas |
+## 8.5. Estrategia de caché
 
-### 8.4.1. Contraste de dos operaciones: crear y listar publicaciones
+**Decisión vigente: no se implementa caché** ni en el servidor (sin Redis ni caché en memoria) ni caché persistente local en el cliente móvil. Dado el volumen institucional de clubes y publicaciones en la UTB y la comunicación directa entre contenedores dentro de `dokploy-network`, las consultas indexadas en PostgreSQL cumplen con holgura el umbral de latencia $\le 800\text{ ms}$ (escenario **U1**) sin introducir riesgos de datos obsoletos tras crear o editar clubes, eventos o publicaciones.
 
-| Aspecto | Crear publicación (`POST /publicaciones`) | Listar publicaciones (`GET /publicaciones`) |
-|---|---|---|
-| Tipo | Escritura | Lectura pública |
-| Almacén | Tabla `publicaciones` de PostgreSQL, mediante `PublicacionRepositoryPostgres` | La misma tabla, consultada desde el router con la sesión |
-| Transacción | Un INSERT y un `commit`; si falla, la sesión se cierra sin confirmar | Una consulta de solo lectura |
-| Garantía observada | Fuerte: tras el 201, la publicación es visible para cualquier lectura posterior | Lee solo datos confirmados; sin caché, lo ve inmediatamente (lectura de lo propio) |
-| Concurrencia | Dos solicitudes simultáneas con la misma clave pueden pasar la consulta previa; la restricción única `(autor_id, idempotency_key)` impide el segundo registro y el adaptador resuelve devolviendo la publicación existente | No bloquea escrituras |
-| Comportamiento verificado | Un reintento con la misma `Idempotency-Key` y el mismo autor reconstruye la publicación original con su identificador `UUID` sin duplicar datos, o devuelve `409 Conflict` si el contenido difiere (NC-10 resuelta) | Devuelve todos los registros sin paginar, lo que no escala con el volumen del escenario C2 (NC-23) |
+## 8.6. Idempotencia
 
-La garantía real, por tanto, es consistencia fuerte sin caché y sin broker; ninguna garantía de entrega asíncrona se exige al flujo de publicaciones porque la notificación no está conectada a él.
+Para evitar duplicaciones ante reintentos de red o dobles pulsaciones en dispositivos móviles (detalle completo en [docs/resilience/idempotencia.md](../resilience/idempotencia.md)):
 
-## 8.5. Estrategia de caché y política de invalidación
+1. **Cliente móvil (`ApiClient`):** Un interceptor de `Dio` genera e inyecta automáticamente una cabecera `Idempotency-Key` (UUID v4) en toda solicitud `POST` que no la incluya previamente.
+2. **Backend (`CrearPublicacionUseCase` + `PublicacionRepositoryPostgres`):** Al recibir `POST /clubes/{club_id}/publicaciones`, verifica si `(autor_id, idempotency_key)` ya existe. Si existe con el mismo contenido, devuelve `201 Created` con el recurso original sin duplicar filas; si el contenido difiere, rechaza con `409 Conflict`; si la cabecera llega vacía, responde `422 Unprocessable Entity`.
+3. **Asistencia a eventos (`POST /eventos/{evento_id}/asistencia`):** Opera como conmutador transaccional protegido por la restricción única `(evento_id, usuario_matricula)` en PostgreSQL.
 
-**Decisión vigente: no se implementa caché.** El sistema tiene una réplica, una base en la misma red interna y un volumen estimado de 160.000 consultas mensuales; las mediciones preliminares del escenario U1 en [`mediciones_calidad.md`](../mediciones_calidad.md) muestran una latencia P95 de 131 ms, muy por debajo del umbral de 800 ms. La caché se activará solo si las pruebas de carga concurrente superan dicho umbral. El diseño queda definido para ese caso:
+## 8.7. Seguridad (Autenticación y Autorización)
 
-| Aspecto | Diseño |
-|---|---|
-| Alcance | Lecturas públicas: feed general, publicaciones por club, catálogo de clubes y detalle de club. No se cachean escrituras ni respuestas que dependan del usuario. |
-| Ubicación | Memoria del proceso de la API (una réplica). No se incorpora Redis por las restricciones C2 y F1; por eso no aparece un contenedor de caché en el [C4 nivel 2](../c4/contexto.md). |
-| Clave | Ruta y parámetros de consulta normalizados. |
-| Expiración | TTL de 300 segundos. |
-| Invalidación por evento | Una publicación creada elimina las entradas del feed general y del club afectado; la creación de un club elimina las del catálogo. |
-| Garantía resultante | Lectura de lo propio inmediata en la misma réplica; desfase máximo de 300 segundos ante cambios que no pasen por la API. |
-| Límites | Un reinicio vacía la caché. Con más de una réplica la invalidación local deja de bastar y habría que compartirla o retirar la caché. |
+* **Almacenamiento de credenciales:** Las contraseñas se procesan exclusivamente con hash adaptativo `bcrypt` en `auth_router.py` y `usuario_router.py`; nunca se almacenan ni registran en texto plano.
+* **Tokens de sesión:** La API emite tokens JWT firmados con `HS256` (`JWT_SECRET` obligatorio con validación *fail-fast* al arrancar) y expiración configurable (`JWT_EXPIRES_DAYS=7` por defecto). El cliente Flutter los persiste cifrados mediante `flutter_secure_storage`.
+* **Control de acceso basado en roles (RBAC):**
+  * Lecturas públicas: `GET /health`, `GET /clubes`, `GET /clubes/{club_id}`, `GET /publicaciones`, `GET /clubes/{club_id}/publicaciones`, `GET /static/{archivo}` y `GET /eventos` (que acepta token opcional para incluir eventos `SOLO_CLUB` del club administrado).
+  * Escrituras autenticadas (`401 Unauthorized` si falta token o es inválido): todas las rutas `POST`, `PATCH` y `DELETE` excepto `/auth/registro` y `/auth/login`.
+  * Restricción por rol (`403 Forbidden`): crear publicaciones o eventos y editar un club exige `ADMIN_CLUB` con `verificado = true` y `club_administrado_id == club_id` (o `SUPERADMIN`); crear clubes y aprobar/rechazar solicitudes exige `SUPERADMIN`.
 
-## 8.6. Idempotencia y reintentos
+## 8.8. Observabilidad y trazabilidad
 
-El cliente móvil agrega una `Idempotency-Key` (UUID v4) a toda petición `POST` mediante un interceptor. El caso de uso consulta la clave aislada por autor `(autor_id, idempotency_key)` antes de crear y la base impone unicidad sobre ese par. Si la llave ya existe con el mismo payload, se devuelve la publicación original sin duplicar; si el contenido difiere, se responde `409 Conflict`. El diseño completo está en [`docs/resilience/idempotencia.md`](../resilience/idempotencia.md). Los mensajes asíncronos siguen la misma lógica con `message_id` como clave de deduplicación.
-
-## 8.7. Autenticación, autorización y errores
-
-* **Autenticación:** la API emite tokens JWT firmados con HS256, con el sujeto igual a la matrícula y vigencia configurable (7 días por defecto). Las lecturas son públicas y toda escritura, salvo registro e inicio de sesión, exige un token válido mediante la dependencia `require_auth` (escenario U3), incluida la carga de imágenes.
-* **Identidad del autor:** siempre se toma del token, nunca del cuerpo de la petición.
-* **Autorización por rol dentro de cada club:** sin implementar; depende de las membresías.
-* **Formato de error uniforme:** `{"detail": "mensaje"}` en 400, 401, 403, 404, 409, 422 y 503. El manejador de errores de validación de `main.py` fue corregido (NC-06).
-* **Contraseñas y secreto de firma:** las contraseñas se cifran con `bcrypt` al registrar y se verifican mediante hash al iniciar sesión (NC-05 resuelta), y la aplicación exige `JWT_SECRET` al arrancar aplicando *fail-fast* si la variable no está definida (NC-11 resuelta).
-
-## 8.8. Observabilidad
-
-* **Mensajería:** cada etapa deja un registro con `message_id` y `correlation_id`, y existen contadores en memoria (`application/messaging/observabilidad.py`). Es un prototipo sin conexión a la API.
-* **API:** no hay registros estructurados ni métricas expuestas. La dependencia `prometheus-fastapi-instrumentator` está declarada pero no se usa (NC-16).
-* **Estado del servicio:** `/health` actúa como comprobación de vida y disponibilidad (liveness y readiness): ejecuta `SELECT 1` contra PostgreSQL mediante `PostgresStatusAdapter`, devolviendo `200 OK {"status": "ok", "database": "online"}` cuando hay conectividad o `503 Service Unavailable` si la base de datos falla (NC-09 resuelta).
+* **Registro de errores y eventos de API:** `main.py` centraliza los manejadores de excepciones (`RequestValidationError` -> `422` uniforme y `Exception` -> `500` con traza en logger `linkclub.api`) sin filtrar trazas internas ni credenciales al cliente.
+* **Sondeo de disponibilidad:** `GET /health` ejecuta `SELECT 1` contra PostgreSQL mediante `PostgresStatusAdapter`, respondiendo `200 {"status": "ok", "database": "online"}` o `503 Service Unavailable` si la base no responde.
+* **Trazabilidad de mensajes:** `application/messaging/observabilidad.py` registra eventos estructurados con `message_id`, `correlation_id` y contadores (`publicados`, `reintentos`, `procesados`, `duplicados_descartados`, `dlq`) conforme al [ADR 0010](../adr/0010-mensajeria-asincrona-notificaciones.md).

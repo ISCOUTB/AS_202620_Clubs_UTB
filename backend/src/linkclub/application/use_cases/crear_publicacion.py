@@ -18,6 +18,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
         tipo: str = TipoPublicacion.AVISO.value,
         opciones: dict | list | None = None,
         idempotency_key: str | None = None,
+        imagen_url: str | None = None,
     ) -> Publicacion:
         try:
             tipo_publicacion = TipoPublicacion(tipo)
@@ -36,6 +37,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
                     and existente.contenido == contenido
                     and existente.tipo == tipo_publicacion
                     and existente.opciones == opciones
+                    and existente.imagen_url == imagen_url
                 )
                 if not mismo_contenido:
                     raise PublicacionDuplicada(
@@ -51,6 +53,7 @@ class CrearPublicacionUseCase(CrearPublicacionPort):
             tipo=tipo_publicacion,
             opciones=opciones,
             idempotency_key=idempotency_key,
+            imagen_url=imagen_url,
         )
 
         return self.repository.guardar(publicacion)

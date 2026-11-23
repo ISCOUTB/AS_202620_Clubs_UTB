@@ -56,6 +56,7 @@ class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
             contenido=publicacion.contenido,
             tipo=tipo_valor,
             opciones=publicacion.opciones,
+            imagen_url=publicacion.imagen_url,
             idempotency_key=publicacion.idempotency_key,
         )
 
@@ -86,4 +87,5 @@ class PublicacionRepositoryPostgres(PublicacionRepositoryPort):
             opciones=pub_db.opciones,
             creada_en=pub_db.creado_en,
             idempotency_key=pub_db.idempotency_key,
+            imagen_url=pub_db.imagen_url,
         )

@@ -1,45 +1,34 @@
-# C4 - Diagrama de Contexto
-
-- Tipo: C4 nivel 1 (Contexto del sistema)
-- Fecha de actualización: 2026-10-25
-- Alcance: LinkClub como una sola caja, sus usuarios y los sistemas externos con los que se comunica en ejecución.
-- Estado: vigente tras el ADR 0007. Supabase fue descartado; la autenticación y la persistencia son propias del sistema.
+### C4 - Diagrama de Contexto
+*  Tipo: C4 nivel 1 (Contexto del sistema)
+*  Fecha de actualización: 2026-11-22
+*  Alcance: LinkClub como una sola caja, sus usuarios y los sistemas externos con los que se comunica en ejecución.
+*  Estado: vigente tras el ADR 0007. Supabase fue descartado; la autenticación, el control de roles y la persistencia son propios del sistema.
 
 ```mermaid
 graph TD
     classDef persona fill:#08427B,stroke:#073B6F,color:#fff;
     classDef sistema fill:#1168BD,stroke:#105EAB,color:#fff;
+    classDef externo fill:#999999,stroke:#888888,color:#fff;
 
-    EI(["Estudiante interesado<br/>[Persona]<br/>Estudiante que busca clubes y novedades de su interés."]):::persona
-    MC(["Miembro de club<br/>[Persona]<br/>Estudiante vinculado a un club que consulta y publica novedades."]):::persona
-    AC(["Administrador de club<br/>[Persona]<br/>Líder que gestiona la información y la comunidad de su club."]):::persona
+    EST(["Estudiante (ESTUDIANTE)<br/>[Persona]<br/>Estudiante UTB que explora clubes, consulta publicaciones y eventos, confirma asistencia y accede a formularios de inscripción."]):::persona
+    ADM(["Administrador de club (ADMIN_CLUB)<br/>[Persona]<br/>Líder verificado que gestiona la ficha de su club, publica avisos/encuestas/noticias y programa eventos."]):::persona
+    SUP(["Superadmin (SUPERADMIN)<br/>[Persona]<br/>Administrador del sistema que registra nuevos clubes y aprueba o rechaza solicitudes de administradores."]):::persona
 
-    SYS["LinkClub<br/>[Sistema de software]<br/>Plataforma que centraliza avisos, eventos y noticias de los clubes estudiantiles de la UTB. Gestiona su propia autenticación y su persistencia."]:::sistema
+    SYS["LinkClub<br/>[Sistema de software]<br/>Plataforma que centraliza avisos, encuestas, eventos, noticias y directorio de clubes de la UTB. Gestiona su propia autenticación JWT, roles y persistencia."]:::sistema
 
-    EI -->|"Se registra, inicia sesión y consulta clubes y publicaciones · app Flutter, HTTPS"| SYS
-    MC -->|"Consulta el feed y publica avisos · app Flutter, HTTPS"| SYS
-    AC -->|"Publica avisos, eventos y noticias · app Flutter, HTTPS"| SYS
+    FORMS["Microsoft Forms<br/>[Sistema externo]<br/>Formularios institucionales externos usados por cada club para recibir solicitudes de inscripción."]:::externo
+
+    EST -->|"Se registra, inicia sesión, consulta feed/clubes/eventos y confirma asistencia · app Flutter, HTTPS"| SYS
+    ADM -->|"Publica contenido, crea eventos y edita la ficha de su club · app Flutter, HTTPS"| SYS
+    SUP -->|"Crea clubes y aprueba/rechaza solicitudes de administradores · app Flutter, HTTPS"| SYS
+    EST -->|"Diligencia formulario de inscripción del club · navegador externo, HTTPS"| FORMS
 ```
 
-Leyenda
-
-| Elemento | Significado |
-|---|---|
-| Óvalo azul oscuro | Persona que usa el sistema |
-| Caja azul | Sistema de software que se documenta |
-
-Notas
-
-- El sistema no depende de ningún proveedor externo de identidad. El registro exige correo institucional (@utb.edu.co) y matrícula con formato T más 7 u 8 dígitos; el token JWT lo emite la propia API (ver ADR 0007).
-- La consulta de clubes y publicaciones es pública en el contrato; toda escritura requiere sesión (escenario U3).
-- Los sistemas externos de construcción y de contenido multimedia aparecen en el nivel 2, porque en ejecución solo interactúan con contenedores concretos.
-
-# C4 - Diagrama de Contenedores
-
-- Tipo: C4 nivel 2 (Contenedores)
-- Fecha de actualización: 2026-10-25
-- Alcance: unidades desplegables y almacenes de datos de LinkClub, y cómo se comunican.
-- Entorno de despliegue: Dokploy (panel.iscoutb.dev), proyecto clubsutb, entorno production. API pública en https://api-linkclub.iscoutb.dev.
+### C4 - Diagrama de Contenedores
+*  Tipo: C4 nivel 2 (Contenedores)
+*  Fecha de actualización: 2026-11-22
+*  Alcance: unidades desplegables y almacenes de datos de LinkClub, y cómo se comunican.
+*  Entorno de despliegue: Dokploy (panel.iscoutb.dev), proyecto `clubsutb`, entorno `production`. API pública en `[https://api-linkclub.iscoutb.dev](https://api-linkclub.iscoutb.dev)`.
 
 ```mermaid
 graph TD
@@ -48,57 +37,40 @@ graph TD
     classDef almacen fill:#2E7D32,stroke:#1B5E20,color:#fff;
     classDef externo fill:#999999,stroke:#888888,color:#fff;
 
-    EI(["Estudiante interesado<br/>[Persona]<br/>Busca clubes y novedades."]):::persona
-    MC(["Miembro de club<br/>[Persona]<br/>Consulta y publica novedades."]):::persona
-    AC(["Administrador de club<br/>[Persona]<br/>Gestiona su club."]):::persona
+    EST(["Estudiante<br/>[Persona]"]):::persona
+    ADM(["Administrador de club<br/>[Persona]"]):::persona
+    SUP(["Superadmin<br/>[Persona]"]):::persona
 
     subgraph SYS["LinkClub [Sistema de software]"]
-        APP["Aplicación móvil<br/>[Contenedor: Flutter / Dart]<br/>Interfaz de usuario. Guarda el token JWT en almacenamiento seguro y genera la cabecera Idempotency-Key en cada POST."]:::contenedor
+        APP["Aplicación móvil<br/>[Contenedor: Flutter / Dart]<br/>Interfaz Material 3. Guarda el token JWT en flutter_secure_storage, inyecta Idempotency-Key en cada POST y consume la API REST."]:::contenedor
 
         subgraph DOK["Entorno de despliegue: Dokploy, red interna dokploy-network"]
-            API["API Backend<br/>[Contenedor: FastAPI / Python 3.12, Docker]<br/>Arquitectura hexagonal. Emite y valida JWT HS256. Expone REST en el puerto 8000 con HTTPS en api-linkclub.iscoutb.dev."]:::contenedor
-            DB[("Base de datos<br/>[Almacén: PostgreSQL 18, contenedor Docker]<br/>Host interno clubsutb-db-2m0uk5, base linkclub. Usuarios, clubes, membresías, publicaciones, eventos y asistencias.")]:::almacen
+            API["API Backend<br/>[Contenedor: FastAPI / Python 3.12, Docker]<br/>Arquitectura hexagonal. Emite y valida JWT HS256, aplica control de roles (RBAC) y expone REST en puerto 8000 (api-linkclub.iscoutb.dev)."]:::contenedor
+            DB[("Base de datos<br/>[Almacén: PostgreSQL 18, contenedor Docker]<br/>Host interno clubsutb-db-2m0uk5, base linkclub. Tablas: usuarios, clubes, publicaciones, eventos, asistencias y solicitudes_admin_club.")]:::almacen
             FS[("Almacén de imágenes<br/>[Almacén: volumen Docker linkclub_uploads]<br/>Montado en /app/uploads del contenedor API. Conserva las imágenes tras cada despliegue.")]:::almacen
         end
     end
 
     GH["GitHub<br/>[Sistema externo]<br/>Repositorio ISCOUTB/AS_202620_Clubs_UTB, rama master, y workflows de GitHub Actions."]:::externo
-    IMG["Hosts externos de imágenes<br/>[Sistema externo]<br/>Sitios web que alojan imágenes referenciadas por URL en las publicaciones."]:::externo
+    IMG["Hosts externos de imágenes<br/>[Sistema externo]<br/>Sitios web que alojan imágenes referenciadas por URL en publicaciones o eventos."]:::externo
+    FORMS["Microsoft Forms<br/>[Sistema externo]<br/>Enlaces institucionales (ms_forms_url) abiertos externamente para inscripción a clubes."]:::externo
 
-    EI -->|"Usa"| APP
-    MC -->|"Usa"| APP
-    AC -->|"Usa"| APP
+    EST -->|"Usa"| APP
+    ADM -->|"Usa"| APP
+    SUP -->|"Usa"| APP
 
     APP -->|"Solicitudes REST e imágenes de /static · JSON/HTTPS"| API
     APP -->|"Descarga imágenes referenciadas por URL · HTTPS"| IMG
+    APP -->|"Abre enlaces de inscripción institucional · HTTPS"| FORMS
     API -->|"Lee y escribe datos · SQL con SQLAlchemy y psycopg2, red interna"| DB
     API -->|"Guarda y sirve imágenes · sistema de archivos"| FS
     GH -->|"Origen del build en cada push a master · Dockerfile de ./backend"| API
 ```
 
-Leyenda
-
-| Elemento | Significado |
-|---|---|
-| Óvalo azul oscuro | Persona |
-| Caja azul | Contenedor desplegable propio |
-| Cilindro verde | Almacén de datos propio |
-| Caja gris | Sistema externo |
-| Marco DOK | Entorno de despliegue en el servidor del laboratorio |
-
-Notas
-
-- La conexión a la base se hace por la red interna de Docker; el puerto 5432 no es parte del contrato de la aplicación.
-- El TLS se termina en el proxy del dominio configurado en Dokploy (certificado Let's Encrypt). La API escucha en HTTP dentro de la red interna.
-- El contenedor del volumen es un almacén de la API: ningún otro contenedor lo accede. La decisión de persistencia multimedia se documenta en el ADR 0009 (estrategia de persistencia multimedia).
-- La imagen de PostgreSQL desplegada es postgres:18 (panel de Dokploy). El archivo deploy/compose.lab.yaml declara postgres:16-alpine y no es el que sirve la API vigente.
-- Recursos: API y base con límite de 1 GB de memoria y 2 CPU, una réplica cada una.
-
-# C4 - Diagrama de Componentes (API Backend)
-
-- Tipo: C4 nivel 3 (Componentes del contenedor API Backend)
-- Fecha de actualización: 2026-10-25
-- Alcance: componentes de backend/src/linkclub y sus dependencias, con el estado real de implementación.
+### C4 - Diagrama de Componentes (API Backend)
+*  Tipo: C4 nivel 3 (Componentes del contenedor API Backend)
+*  Fecha de actualización: 2026-11-22
+*  Alcance: componentes de `backend/src/linkclub` y sus dependencias, con el estado real de implementación.
 
 ```mermaid
 graph TD
@@ -119,22 +91,24 @@ graph TD
     subgraph API["API Backend [Contenedor: FastAPI / Python 3.12]"]
         subgraph ENT["Adaptadores de entrada - adapters/inbound/api"]
             R_HEALTH["health_router<br/>[Componente: Adaptador de entrada]<br/>GET /health."]:::entrada
-            R_AUTH["auth_router<br/>[Componente: Adaptador de entrada]<br/>POST /auth/registro y POST /auth/login. Emite JWT HS256 con PyJWT."]:::entrada
-            R_CLUB["club_router<br/>[Componente: Adaptador de entrada]<br/>GET /clubes con filtros q y categoria, y detalle por identificador."]:::entrada
-            R_PUB["publicacion_router<br/>[Componente: Adaptador de entrada]<br/>POST y GET /publicaciones, y POST y GET por club. Lee la cabecera Idempotency-Key."]:::entrada
-            R_REC["recurso_router<br/>[Componente: Adaptador de entrada]<br/>POST /recursos/upload. Valida la extensión y guarda la imagen. main.py monta /static."]:::entrada
-            DEP_AUTH["auth_dependency<br/>[Componente: Dependencia de seguridad]<br/>require_auth extrae el Bearer token y devuelve la identidad. Responde 401 o 503."]:::entrada
+            R_AUTH["auth_router<br/>[Componente: Adaptador de entrada]<br/>POST /auth/registro y POST /auth/login (JSON y form). Hash bcrypt y JWT HS256."]:::entrada
+            R_USR["usuario_router<br/>[Componente: Adaptador de entrada]<br/>GET/PATCH/DELETE /usuarios/me, cambio de contraseña y /admin/solicitudes."]:::entrada
+            R_CLUB["club_router<br/>[Componente: Adaptador de entrada]<br/>GET /clubes (q, categoria), GET/PATCH /clubes/{club_id} y POST /clubes."]:::entrada
+            R_PUB["publicacion_router<br/>[Componente: Adaptador de entrada]<br/>GET /publicaciones, GET y POST /clubes/{club_id}/publicaciones con Idempotency-Key."]:::entrada
+            R_EVT["evento_router<br/>[Componente: Adaptador de entrada]<br/>GET y POST /eventos (PUBLICO/SOLO_CLUB) y POST /eventos/{evento_id}/asistencia."]:::entrada
+            R_REC["recurso_router<br/>[Componente: Adaptador de entrada]<br/>POST /recursos/upload (máx. 5 MB). main.py monta /static."]:::entrada
+            DEP_AUTH["auth_dependency<br/>[Componente: Dependencia de seguridad]<br/>require_auth, get_current_user y require_superadmin (401/403/503)."]:::entrada
         end
 
         subgraph APL["Aplicación - application"]
             UC_HEALTH["CheckHealthUseCase<br/>[Componente: Caso de uso]"]:::app
             UC_CLUB["ListarClubesUseCase y ObtenerClubUseCase<br/>[Componente: Caso de uso]"]:::app
-            UC_PUB["CrearPublicacionUseCase<br/>[Componente: Caso de uso]<br/>Valida el tipo y las opciones de encuesta. Aplica idempotencia por clave."]:::app
-            UC_NOT["NotificarPublicacionCreada<br/>[Componente: Caso de uso]<br/>Consumidor idempotente del mensaje publicacion.creada, deduplica por message_id."]:::app
+            UC_PUB["CrearPublicacionUseCase<br/>[Componente: Caso de uso]<br/>Valida tipo, opciones de encuesta e idempotencia por autor."]:::app
+            UC_NOT["NotificarPublicacionCreada<br/>[Componente: Caso de uso]<br/>Consumidor idempotente del mensaje publicacion.creada."]:::app
             PT_STATUS["StatusPort<br/>[Puerto de salida]"]:::puerto
             PT_CLUB["ClubRepositoryPort<br/>[Puerto de salida]"]:::puerto
             PT_PUB["PublicacionRepositoryPort<br/>[Puerto de salida]<br/>obtener_por_idempotencia, guardar, listar_por_club."]:::puerto
-            PT_AUTH["AuthPort<br/>[Puerto de salida]<br/>verificar devuelve el autor_id."]:::puerto
+            PT_AUTH["AuthPort<br/>[Puerto de salida]<br/>verificar devuelve la matrícula (sub)."]:::puerto
             PT_MSG["PublicadorPort, OutboxPort, DeduplicacionPort y NotificadorPort<br/>[Puertos de salida]"]:::puerto
         end
 
@@ -144,27 +118,32 @@ graph TD
         end
 
         subgraph SAL["Adaptadores de salida - adapters/outbound"]
-            AD_PUB["PublicacionRepositoryPostgres<br/>[Componente: Adaptador de salida]<br/>Persiste y consulta publicaciones."]:::salida
+            AD_STATUS["PostgresStatusAdapter<br/>[Componente: Adaptador de salida]<br/>Ejecuta SELECT 1 contra PostgreSQL."]:::salida
+            AD_PUB["PublicacionRepositoryPostgres<br/>[Componente: Adaptador de salida]<br/>Persiste y consulta publicaciones en PostgreSQL."]:::salida
             AD_JWT["LocalJwtAuthAdapter<br/>[Componente: Adaptador de salida]<br/>Verifica firma HS256, exp y sub con PyJWT."]:::salida
-            ORM["Acceso a datos SQLAlchemy<br/>[Componente: Adaptador de salida]<br/>database.py y modelos Usuario, Club y Publicacion. Sesión por petición con get_db."]:::salida
-            AD_STATUS["InMemoryStatusAdapter<br/>[Componente temporal]<br/>Devuelve ok fijo, sin sondear la base."]:::temporal
-            AD_CLUB["InMemoryClubAdapter<br/>[Componente temporal]<br/>Semilla de cinco clubes en memoria."]:::temporal
-            AD_MSG["InMemoryBroker, InMemoryOutbox e InMemoryDedup<br/>[Componente temporal]<br/>Simulan broker con reintentos y DLQ. Sin endpoint que los invoque; cubiertos por test_mensajeria.py."]:::temporal
+            ORM["Acceso a datos SQLAlchemy<br/>[Componente: Adaptador de salida]<br/>database.py y modelos Usuario, Club, Publicacion, Evento, Asistencia y SolicitudAdmin."]:::salida
+            AD_MSG["InMemoryBroker, InMemoryOutbox e InMemoryDedup<br/>[Prototipo en memoria]<br/>Simulan broker con reintentos y DLQ; cubiertos por test_mensajeria.py."]:::temporal
         end
     end
 
     APP_MOVIL -->|"POST /auth/registro y /auth/login · JSON/HTTPS"| R_AUTH
-    APP_MOVIL -->|"GET /clubes · JSON/HTTPS"| R_CLUB
-    APP_MOVIL -->|"GET y POST /publicaciones · JSON/HTTPS"| R_PUB
+    APP_MOVIL -->|"GET/PATCH/DELETE /usuarios/me y /admin/solicitudes · HTTPS"| R_USR
+    APP_MOVIL -->|"GET/POST/PATCH /clubes · JSON/HTTPS"| R_CLUB
+    APP_MOVIL -->|"GET /publicaciones y GET/POST /clubes/{id}/publicaciones · HTTPS"| R_PUB
+    APP_MOVIL -->|"GET/POST /eventos y /asistencia · JSON/HTTPS"| R_EVT
     APP_MOVIL -->|"POST /recursos/upload y GET /static · HTTPS"| R_REC
     OPER -->|"GET /health · HTTPS"| R_HEALTH
 
-    R_PUB -->|"Exige token en escrituras"| DEP_AUTH
+    R_USR -->|"Exige sesión y rol"| DEP_AUTH
+    R_CLUB -->|"Exige rol en escrituras"| DEP_AUTH
+    R_PUB -->|"Exige sesión en escrituras"| DEP_AUTH
+    R_EVT -->|"Exige rol/sesión en escrituras"| DEP_AUTH
+    R_REC -->|"Exige sesión"| DEP_AUTH
     DEP_AUTH -->|"Invoca"| PT_AUTH
     PT_AUTH -.->|"Implementado por"| AD_JWT
 
     R_HEALTH -->|"Invoca"| UC_HEALTH
-    R_CLUB -->|"Invoca"| UC_CLUB
+    R_CLUB -.->|"Contrato de dominio/aplicación"| UC_CLUB
     R_PUB -->|"Invoca"| UC_PUB
 
     UC_HEALTH -->|"Usa"| PT_STATUS
@@ -175,67 +154,27 @@ graph TD
     UC_NOT -->|"Usa"| PT_MSG
 
     PT_STATUS -.->|"Implementado por"| AD_STATUS
-    PT_CLUB -.->|"Implementado por"| AD_CLUB
     PT_PUB -.->|"Implementado por"| AD_PUB
     PT_MSG -.->|"Implementado por"| AD_MSG
 
+    AD_STATUS -->|"Sondea conexión"| ORM
     AD_PUB -->|"Usa sesión"| ORM
     ORM -->|"Lee y escribe datos · SQL, red interna"| DB
 
-    R_AUTH -.->|"Acceso directo a la sesión de base de datos"| ORM
-    R_PUB -.->|"Listados y resolución de autor, acceso directo"| ORM
+    R_AUTH -.->|"Acceso directo a sesión ORM"| ORM
+    R_USR -.->|"Acceso directo a sesión ORM"| ORM
+    R_CLUB -.->|"Consulta y edición directa en ORM"| ORM
+    R_PUB -.->|"Listados y validación de rol en ORM"| ORM
+    R_EVT -.->|"Consulta y gestión de eventos/asistencias en ORM"| ORM
     R_REC -.->|"Escribe imágenes · sistema de archivos"| FS
 ```
 
-Leyenda
+#### Estado de implementación por componente
 
-| Elemento | Significado |
-|---|---|
-| Caja azul intenso | Adaptador de entrada |
-| Caja azul medio | Caso de uso o adaptador de salida operativo |
-| Caja azul grisáceo | Puerto (interfaz) |
-| Caja azul oscuro | Entidad de dominio |
-| Caja con borde naranja discontinuo | Componente temporal: implementación en memoria, pendiente de reemplazo |
-| Cilindro verde | Almacén de datos |
-| Caja gris | Elemento externo al contenedor |
-| Flecha continua | Dependencia o llamada directa |
-| Flecha punteada | Implementación de un puerto, o acceso directo que omite el puerto |
-
-Desviaciones declaradas respecto al estilo hexagonal (ADR 0001)
-
-| Componente | Desviación | Efecto |
-|---|---|---|
-| auth_router | Usa la sesión SQLAlchemy y las constantes JWT directamente, sin caso de uso ni puerto. | La lógica de registro y login no es aislable en pruebas unitarias. |
-| publicacion_router | Las consultas de listado y la resolución del autor se hacen contra la sesión, sin pasar por el puerto. | Cambiar de motor de persistencia obligaría a tocar el adaptador de entrada. |
-| recurso_router | Escribe en el sistema de archivos sin puerto de almacenamiento. | La persistencia multimedia queda acoplada al volumen local (ver ADR 0009). |
-| club_router | Instancia directamente InMemoryClubAdapter. | El catálogo de clubes no proviene de la tabla clubes. |
-| health_router | El estado es fijo, sin verificar la conexión a la base. | El escenario U2 no queda cubierto con una comprobación real. |
-
-Estado de implementación por componente
-
-| Contexto | Implementado | Pendiente |
-|---|---|---|
-| Usuarios | Registro, login, emisión y validación de JWT | Perfil (GET /usuarios/me), roles por membresía |
-| Clubes | Listado y detalle con datos en memoria | Persistencia en PostgreSQL, creación, membresías |
-| Publicaciones | Creación y listado con persistencia, idempotencia por clave, imagen asociada | Control de rol por club (403), tipo noticia verificado de extremo a extremo |
-| Eventos y asistencia | Tablas en la migración 001 | Casos de uso, routers y contrato implementado |
-| Mensajería | Mensaje versionado, outbox, broker simulado y consumidor idempotente | Conexión a un endpoint y a un transporte real |
-
-# Trazabilidad
-
-| Elemento | Referencia |
-|---|---|
-| Estilo arquitectónico | docs/adr/0001-hexagonal.md |
-| Integración REST y contrato | docs/adr/0003-integracion-rest-openapi.md, docs/api/openapi.yaml |
-| Migración a Dokploy y PostgreSQL, descarte de Supabase | docs/adr/0007-migracion-dokploy-postgresql.md |
-| Decisión de no extraer Publicaciones | docs/adr/0008-no-extraer-publicaciones.md |
-| Persistencia multimedia | docs/adr/0009-estrategia-persistencia-multimedia.md |
-| Despliegue | docs/arc42/07_vista_de_despliegue.md y deploy/compose.lab.yaml |
-| Contextos y propiedad de datos | docs/arc42/mapa-contextos-fundamentacion.md, docs/arc42/tabla_modulo.md |
-| Pruebas | backend/tests/test_auth.py, test_contrato_openapi.py, test_publicaciones.py, test_clubes.py, test_mensajeria.py, test_health.py |
-
-# Historial de cambios
-
-| Fecha | Cambio |
-|---|---|
-| 2026-10-25 | Se elimina Supabase de los tres niveles. Se incorporan PostgreSQL 18 y el volumen linkclub_uploads como almacenes, el entorno Dokploy, GitHub y los hosts de imágenes como externos, y los componentes reales del backend con sus desviaciones. |
+| Contexto / Módulo | Implementado | Pendiente / Notas |
+| ------ | ------ | ------ |
+| Usuarios | Registro (`bcrypt`), login (JSON y form), emisión/validación JWT HS256, perfil (`/usuarios/me`, edición, cambio de contraseña, eliminación de cuenta) y flujo de aprobación de administradores (`/admin/solicitudes`). | Sin pendientes funcionales en el alcance vigente. |
+| Clubes | Persistencia completa en PostgreSQL (`ClubModel`), semilla inicial idempotente en arranque, búsqueda por `q` y `categoria`, detalle, creación (`SUPERADMIN`), edición (`ADMIN_CLUB`/`SUPERADMIN`) e inscripción externa vía `ms_forms_url`. | La tabla `membresias` del esquema `001` no se expone en API porque las inscripciones se canalizan por Microsoft Forms. |
+| Publicaciones | Creación (`aviso`, `encuesta`, `noticia`), feed general (`GET /publicaciones`), listado por club, imágenes asociadas, idempotencia por clave y control de rol por club (`403 Forbidden`). | Votación interactiva sobre opciones de encuestas (futuro). |
+| Eventos y asistencia | Programación de eventos (`PUBLICO` y `SOLO_CLUB`), listado filtrado por visibilidad/rol y confirmación o cancelación de asistencia (`POST /eventos/{evento_id}/asistencia`). | Sin pendientes funcionales en el alcance vigente. |
+| Mensajería | Mensaje versionado (`publicacion.creada`), `InMemoryOutbox`, `InMemoryBroker` con backoff y DLQ, y consumidor idempotente verificados por `test_mensajeria.py`. | Conexión a un endpoint y transporte externo si se requiere notificación push en producción. |

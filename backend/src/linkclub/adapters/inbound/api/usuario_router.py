@@ -193,6 +193,12 @@ def aprobar_solicitud_admin(
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
 
+    if solicitud.estado != "PENDIENTE":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esta solicitud ya fue revisada anteriormente.",
+        )
+
     usuario = (
         db.query(UsuarioModel)
         .filter(UsuarioModel.matricula == solicitud.usuario_matricula)
@@ -228,6 +234,12 @@ def rechazar_solicitud_admin(
     )
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+
+    if solicitud.estado != "PENDIENTE":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esta solicitud ya fue revisada anteriormente.",
+        )
 
     usuario = (
         db.query(UsuarioModel)

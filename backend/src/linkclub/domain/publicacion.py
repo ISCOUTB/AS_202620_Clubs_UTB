@@ -3,13 +3,16 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID, uuid4
 
+
 class TipoPublicacion(str, Enum):
     AVISO = "aviso"
     ENCUESTA = "encuesta"
     NOTICIA = "noticia"
 
+
 class PublicacionDuplicada(Exception):
     pass
+
 
 @dataclass
 class Publicacion:
@@ -22,3 +25,4 @@ class Publicacion:
     creada_en: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     opciones: list[str] | None = None
     idempotency_key: str | None = None
+    imagen_url: str | None = None

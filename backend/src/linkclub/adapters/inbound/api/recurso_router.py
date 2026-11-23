@@ -20,7 +20,7 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 def subir_imagen(
     file: Annotated[UploadFile, File(...)],
-    autor_id: Annotated[str, Depends(require_auth)],
+    _: Annotated[str, Depends(require_auth)],
 ):
     if not file.filename or "." not in file.filename:
         raise HTTPException(
@@ -57,5 +57,6 @@ def subir_imagen(
             detail="Error interno al guardar el archivo.",
         ) from exc
 
-    url_publica = f"https://api-linkclub.iscoutb.dev/static/{nuevo_nombre}"
+    base_url = os.environ.get("PUBLIC_BASE_URL", "https://api-linkclub.iscoutb.dev").rstrip("/")
+    url_publica = f"{base_url}/static/{nuevo_nombre}"
     return {"url": url_publica}

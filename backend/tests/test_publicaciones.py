@@ -19,7 +19,6 @@ def test_crear_publicacion_tipo_aviso(headers_auth):
         },
         headers=headers_auth,
     )
-    print(response.json())
     assert response.status_code == 201
     body = response.json()
     assert body["tipo"] == "aviso"
@@ -100,3 +99,44 @@ def test_club_id_en_el_cuerpo_es_rechazado(headers_auth):
         headers=headers_auth,
     )
     assert response.status_code == 422
+
+
+def test_publicacion_persiste_imagen_url_en_listados(headers_auth):
+    url = "https://api-linkclub.iscoutb.dev/static/ejemplo.png"
+    creada = client.post(
+        f"/clubes/{CLUB_1_ID}/publicaciones",
+        json={
+            "titulo": "Afiche oficial",
+            "contenido": "Revisen el cronograma adjunto",
+            "tipo": "noticia",
+            "imagen_url": url,
+        },
+        headers=headers_auth,
+    )
+    assert creada.status_code == 201
+    assert creada.json()["imagen_url"] == url
+
+    feed = client.get("/publicaciones").json()
+    assert any(p["id"] == creada.json()["id"] and p["imagen_url"] == url for p in feed)
+
+    por_club = client.get(f"/clubes/{CLUB_1_ID}/publicaciones").json()
+    assert any(p["id"] == creada.json()["id"] and p["imagen_url"] == url for p in por_club)
+
+
+def test_idempotencia_reintento_identico_y_conflicto(headers_auth):
+    headers = {**headers_auth, "Idempotency-Key": "clave-unica-prueba-001"}
+    payload = {"titulo": "Aviso único", "contenido": "Texto original", "tipo": "aviso"}
+
+    r1 = client.post(f"/clubes/{CLUB_1_ID}/publicaciones", json=payload, headers=headers)
+    assert r1.status_code == 201
+
+    r2 = client.post(f"/clubes/{CLUB_1_ID}/publicaciones", json=payload, headers=headers)
+    assert r2.status_code == 201
+    assert r2.json()["id"] == r1.json()["id"]
+
+    r3 = client.post(
+        f"/clubes/{CLUB_1_ID}/publicaciones",
+        json={"titulo": "Aviso alterado", "contenido": "Otro texto", "tipo": "aviso"},
+        headers=headers,
+    )
+    assert r3.status_code == 409

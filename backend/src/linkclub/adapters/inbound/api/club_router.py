@@ -4,6 +4,7 @@ from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from linkclub.adapters.inbound.api.auth_dependency import get_current_user
@@ -165,9 +166,13 @@ def crear_club(
         ms_forms_url=payload.ms_forms_url,
         aviso_inscripcion=payload.aviso_inscripcion,
     )
-    db.add(nuevo_club)
-    db.commit()
-    db.refresh(nuevo_club)
+    try:
+        db.add(nuevo_club)
+        db.commit()
+        db.refresh(nuevo_club)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Ya existe un club con ese nombre.") from exc
     return _serializar_club(nuevo_club, db)
 
 
@@ -217,10 +222,16 @@ def actualizar_club(
 
     datos_actualizados = payload.model_dump(exclude_unset=True)
     for campo, valor in datos_actualizados.items():
-        if isinstance(valor, str):
+        if campo == "redes_json" and valor is None:
+            valor = {}
+        elif isinstance(valor, str):
             valor = valor.strip()
         setattr(club, campo, valor)
 
-    db.commit()
-    db.refresh(club)
+    try:
+        db.commit()
+        db.refresh(club)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Ya existe un club con ese nombre.") from exc
     return _serializar_club(club, db)

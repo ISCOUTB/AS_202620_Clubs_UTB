@@ -1,47 +1,32 @@
 # 2. Restricciones
 
-Las siguientes restricciones limitan el espacio de decisiones de arquitectura disponible para **LinkClub**. Se agrupan por origen: técnicas, organizacionales, de tiempo y financieras, además de las convenciones de documentación.
+Las siguientes restricciones técnicas, organizacionales y económicas acotan el espacio de diseño arquitectónico de **LinkClub** y justifican las decisiones registradas en `docs/adr/`.
 
 ## 2.1. Restricciones técnicas
 
-| # | Restricción | Justificación |
-|---|---|---|
-| T1 | El frontend/app móvil debe implementarse en **Flutter**. | Es requisito del curso y continuidad directa de la materia de desarrollo móvil inmediatamente anterior, donde el equipo ya adquirió experiencia práctica con el framework. |
-| T2 | El backend debe implementarse como una **API con FastAPI**. | Mismo motivo que T1: continuidad con la experiencia previa del equipo, lo que reduce la curva de aprendizaje dentro del tiempo limitado del curso. |
-| T3 | La persistencia de datos debe basarse en **PostgreSQL**. | Ya declarado como decisión en los [aspectos de calidad](../aspectos.md); es la base de datos con la que el equipo tiene experiencia previa. |
-| T4 | La persistencia y la autenticación son **propias del sistema**: PostgreSQL en contenedor y tokens JWT emitidos por la API, sin proveedor BaaS externo. | Reemplaza la restricción original, que fijaba Supabase. Se descartó por la deriva detectada entre documentación y código, la latencia de red hacia un tercero y el riesgo de límites de capa gratuita (ver [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md)). |
-| T5 | El backend y la base de datos se despliegan como **contenedores Docker en el servidor del laboratorio, administrado con Dokploy**, y deben ser accesibles por una URL pública con HTTPS. | El curso exige una URL pública para la sustentación y el servidor del laboratorio es la alternativa sin tarjeta de crédito (F2). Ver [Sección 7](./07_vista_de_despliegue.md) y [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md). |
+| ID | Restricción | Descripción e impacto arquitectónico |
+| ------ | ------ | ------ |
+| **T1** | **Cliente móvil en Flutter** | La interfaz de usuario debe desarrollarse como aplicación móvil multiplataforma en Flutter (Dart, Material 3), consumiendo exclusivamente servicios REST sobre HTTPS sin acceso directo a base de datos. |
+| **T2** | **Backend en FastAPI** | La API del servidor debe implementarse en Python 3.12 utilizando FastAPI y Pydantic para validación de esquemas y generación de metadatos OpenAPI. |
+| **T3** | **Base de datos PostgreSQL** | La persistencia relacional debe realizarse en PostgreSQL (versión 18 en el despliegue vigente) dentro de un contenedor administrado por el equipo, utilizando SQL estándar compatible sin extensiones propietarias. |
+| **T4** | **Despliegue autónomo en Dokploy** | Tras descartar servicios BaaS externos ([ADR 0007](../adr/0007-migracion-dokploy-postgresql.md)), todos los componentes del servidor deben empaquetarse en contenedores Docker y desplegarse en la instancia de Dokploy del laboratorio (`panel.iscoutb.dev`). |
+| **T5** | **Autenticación JWT propia** | La emisión y verificación de tokens de sesión (`HS256`) y el almacenamiento seguro de credenciales (`bcrypt`) son responsabilidad exclusiva del backend FastAPI, identificando a cada usuario por su matrícula institucional (`^T[0-9]{7,8}$`). |
 
-## 2.2. Restricciones organizacionales
+## 2.2. Restricciones organizacionales y de proceso
 
-| # | Restricción | Justificación |
-|---|---|---|
-| O1 | El equipo de desarrollo está compuesto por **4 integrantes**. | Limita la cantidad de trabajo paralelo posible y obliga a una arquitectura con módulos claramente separables para permitir división de tareas sin bloqueos entre integrantes. |
-| O2 | La documentación de arquitectura debe **corresponder con el código del commit evaluado** en cada entrega. | El proyecto avanza por entregas calificadas sobre el repositorio; cuando documentación y código divergen, se registra la deriva y se corrige (ver [Sección 11](./11_riesgos_y_deuda_tecnica.md)). Esta restricción reemplaza a la original, que condicionaba el inicio del desarrollo a la autorización del docente y quedó superada. |
-| O3 | El proyecto se desarrolla bajo la organización de GitHub **ISCOUTB**, en el repositorio **AS_202620_Clubs_UTB**, con una convención de nombre de repositorio fija impuesta por el curso. | El nombre del repositorio no responde a decisiones de producto (de ahí que el nombre comercial de la app, **LinkClub**, sea independiente del nombre del repositorio). |
+| ID | Restricción | Descripción e impacto arquitectónico |
+| ------ | ------ | ------ |
+| **O1** | **Equipo académico y horizonte semestral** | El proyecto es desarrollado por un equipo de 4 estudiantes dentro del curso *Arquitectura de Software* (NRC 1495, 2026-20). La arquitectura debe favorecer soluciones comprensibles, mantenibles y verificables mediante integración continua (GitHub Actions, `pytest` y SonarCloud). |
 
-## 2.3. Restricciones de tiempo
+## 2.3. Convenciones y restricciones de diseño
 
-| # | Restricción | Justificación |
-|---|---|---|
-| C1 | El proyecto debe avanzar por **entregas incrementales calificadas**, cada una usada como línea base para la siguiente ("reto de corte"). | Obliga a que cada entrega sea autocontenida y coherente con el repositorio en el momento de la evaluación, en lugar de dejar decisiones de arquitectura a medio documentar entre cortes. |
-| C2 | El cronograma del curso **no contempla tiempo para adoptar tecnologías nuevas fuera de las ya conocidas por el equipo** (Flutter, FastAPI, PostgreSQL). | Justifica directamente las restricciones técnicas T1-T3: la prioridad es entregar dentro del tiempo del semestre, no explorar el stack óptimo en abstracto. |
+| ID | Restricción | Descripción e impacto arquitectónico |
+| ------ | ------ | ------ |
+| **C1** | **Enfoque API-first y contrato uniforme** | El archivo `docs/api/openapi.yaml` es la fuente única de verdad de la interfaz REST. Todo cambio incompatible debe detectarse en CI (`oasdiff`) y toda respuesta de error debe respetar el formato `{"detail": "mensaje"}`. |
+| **C2** | **Simplicidad operativa (monolito modular desplegable)** | Se mantiene un único contenedor de API en ejecución ([ADR 0008](../adr/0008-no-extraer-publicaciones.md)) y almacenamiento de archivos en volumen Docker local ([ADR 0009](../adr/0009-estrategia-persistencia-multimedia.md)), evitando introducir microservicios, Redis o brokers externos que incrementen la superficie de fallos. |
 
 ## 2.4. Restricciones financieras
 
-| # | Restricción | Justificación |
-|---|---|---|
-| F1 | **Costo Cero Mensual:** El sistema debe operar en producción a un costo de $0 mensuales. | Condición del proyecto académico, no se cuenta con presupuesto para infraestructura en la nube. |
-| F2 | **Sin tarjeta de crédito obligatoria:** Al menos una alternativa de despliegue para cualquier pieza del sistema debe ser realizable sin registrar una tarjeta de crédito personal. | Requisito explícito de las rúbricas de evaluación del curso para evitar riesgos financieros del equipo. |
-
-## 2.5. Convenciones
-
-| # | Convención | Justificación |
-|---|---|---|
-| CV1 | Toda la documentación de arquitectura se organiza bajo [`/docs/arc42/`](./), [`/docs/c4/`](../c4/) y [`/docs/adr/`](../adr/), siguiendo la plantilla arc42 académica entregada en el curso. | Para mantener consistencia con lo ya montado en las entregas previas y con lo que el docente espera encontrar al evaluar la correspondencia entre documentación y repositorio. |
-
-## 2.6. Historial de cambios
-
-| Fecha | Cambio |
-|---|---|
-| 2026-10-25 | T4 reemplazada (de Supabase a persistencia y autenticación propias). Se agrega T5. O2 reformulada. Se actualiza la introducción. |
+| ID | Restricción | Descripción e impacto arquitectónico |
+| ------ | ------ | ------ |
+| **F1** | **Costo operativo cero ($0 USD)** | El sistema no dispone de presupuesto para servicios gestionados en la nube, almacenamiento S3 externo ni APIs comerciales de pago (incluida la exclusión de modelos LLM generativos documentada en el [ADR 0005](../adr/0005-no-incorporacion-llm.md)). |

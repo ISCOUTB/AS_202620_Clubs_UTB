@@ -1,13 +1,16 @@
-# garantias de consistencia 
+# Garantías de consistencia
 
-La siguiente tabla mostrará los posibles problemas de consistencia y las garantías propuestas para mantener la integridad de la informacion almacenada.
+Esta tabla detalla los riesgos de inconsistencia identificados en las operaciones de **LinkClub** y las garantías implementadas para preservar la integridad de los datos en PostgreSQL 18 y en el flujo cliente-servidor (ver [Sección 8.4](./08_conceptos_transversales.md) y [ADR 0008](../adr/0008-no-extraer-publicaciones.md)).
 
-|Operación|Riesgo de inconsistencia|Garentia de consistencia|
-| --- | --- | --- |
-|Consultar clubes|Mostrar informacion desactualizada|Consultar la API y aplicar una politica de caché con tiempo de expiración definido.|
-|Crear un club|Que se guarde un club con datos inválidos o incompletos|validar los datos y establecer restricciones de integridad.|
-|Inscribir un estudiante|Que un estudiante se registre en el mismo club más de una ves|Establecer una restricción de inscripcion unica para los estudiantes evitar que se registren mas de una ves en el mismo club|
-|Modificar el rol de un usuario|Asignar permisos incompatibles|Validar la operacion en FastAPI y aplicar reglas de autorización en el backend|
-|Cambiar el líder de un club|Asignar un líder inexistente o dejar el club en un estado inválido|Validar la existencia del estudiante antes de confirmar el cambio|
-|Cambiar el estado de un club|Se permite inscripciones cuando el club esta cerrado|Validar el estado del club dentro de la operacion que registra la inscripcion|
-|Consultar datos desactualizados|Flutter muestra información anterior|invalidar la caché afectada o revalidar la informacion con el backend|
+| Operación | Riesgo de inconsistencia | Garantía de consistencia | Estado |
+| ------ | ------ | ------ | ------ |
+| **Consultar clubes, publicaciones y eventos** | Mostrar información desactualizada tras una creación o edición reciente. | Consistencia fuerte: consultas SQL directas e indexadas contra PostgreSQL en red interna (`dokploy-network`) sin caché intermedia ([Sección 8.5](./08_conceptos_transversales.md)). | Implementada |
+| **Registro de usuario** | Duplicar cuentas con la misma matrícula o el mismo correo institucional. | Llave primaria en `usuarios.matricula` y restricción única en `usuarios.correo` (normalizado en minúsculas); ante colisión responde `409 Conflict`. | Implementada |
+| **Crear un club** | Guardar un club con datos incompletos, nombre duplicado o por un usuario sin privilegios. | Validación de esquema con Pydantic, restricción `UNIQUE` en `clubes.nombre` y verificación de rol `SUPERADMIN` (`403 Forbidden`). | Implementada |
+| **Crear una publicación** | Duplicar publicaciones ante reintentos por timeout de red o doble pulsación en móvil. | Transacción ACID única + restricción compuesta `UNIQUE (autor_matricula, idempotency_key)`. Reintento idéntico devuelve `201 Created` original; carga distinta con misma clave devuelve `409 Conflict`. | Implementada |
+| **Confirmar o cancelar asistencia a evento** | Registrar múltiples asistencias activas de un mismo estudiante para el mismo evento. | Restricción `UNIQUE (evento_id, usuario_matricula)` en `asistencias` y operación conmutadora transaccional en `evento_router.py`. | Implementada |
+| **Aprobar o rechazar solicitud de `ADMIN_CLUB`** | Dejar aprobada la solicitud sin actualizar el rol del usuario, o asignar un club inexistente. | Transacción atómica en `usuario_router.py` (exclusiva de `SUPERADMIN`) que actualiza `solicitudes_admin_club.estado` y sincroniza `usuarios.rol`, `usuarios.verificado = true` y `usuarios.club_administrado_id` bajo llave foránea. | Implementada |
+| **Editar club o publicar contenido/evento** | Permitir que un usuario modifique un club que no administra o sin verificación aprobada. | Validación previa al `commit`: exige `rol == SUPERADMIN` o `rol == ADMIN_CLUB` con `verificado == true` y `club_administrado_id == club_id`; de lo contrario aborta con `403 Forbidden`. | Implementada |
+| **Inscribirse a un club** | Permitir registros cuando el club tiene convocatorias cerradas o duplicar registros internos. | La inscripción formal se delega al formulario institucional externo (`ms_forms_url`), habilitado en la interfaz únicamente cuando `inscripciones_abiertas == true`. | Implementada |
+| **Subir imagen y crear publicación** | Que la imagen se guarde en disco pero falle la creación posterior de la publicación. | Operación en dos pasos (`POST /recursos/upload` $\rightarrow$ `POST /clubes/{club_id}/publicaciones`). Un archivo huérfano en `linkclub_uploads` no corrompe el estado relacional; costo aceptado en el [ADR 0009](../adr/0009-estrategia-persistencia-multimedia.md). | Implementada |
+| **Notificar publicación creada** | Pérdida de notificación ante caída del consumidor o entrega duplicada al reintentar. | Consistencia eventual con entrega al-menos-una-vez: `InMemoryOutbox`, `OutboxRelay` con reintentos y deduplicación por `message_id` ([ADR 0010](../adr/0010-mensajeria-asincrona-notificaciones.md)). | Prototipo verificado por pruebas |

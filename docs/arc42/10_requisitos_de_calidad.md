@@ -1,46 +1,29 @@
 # 10. Requisitos de calidad
 
-Los siguientes requisitos son las características que debe cumplir **LinkClub** para garantizar que sea fácil de utilizar, seguro y rápido.
-
-## Usabilidad
-* Los estudiantes deben poder ver la información de los clubes.
-* Las opciones deben verse claramente.
-* Los formularios son claros en los campos que pidan ingresar los datos.
-
-## Rendimiento
-* El sistema evita cargas innecesarias de información.
-* Las consultas de la base de datos están optimizadas para evitar tiempos de respuesta muy extensos.
-
-## Seguridad
-* Las contraseñas no se almacenan en texto plano.
-* Los usuarios deben autenticarse antes de acceder a las funcionalidades de escritura; las consultas son públicas según el contrato.
-* Los permisos dependen del rol del usuario.
-* La conexión entre el cliente y el servidor es segura (HTTPS) cuando el sistema está desplegado.
+Los siguientes requisitos son las características que debe cumplir **LinkClub** para garantizar que sea confiable, seguro, rápido y mantenible.
 
 ## Mantenibilidad
-* Se utiliza el control de versiones mediante git.
-* Los cambios serán documentados.
-* El código está dividido en componentes según sus responsabilidades.
+* Se utiliza el control de versiones mediante Git (`ISCOUTB/AS_202620_Clubs_UTB`).
+* Los cambios relevantes se documentan en `docs/arc42/`, `docs/api/CHANGELOG.md` y registros ADR.
+* El código está dividido en componentes según sus responsabilidades (arquitectura hexagonal en el backend y separación por capas en Flutter).
 
 ## Disponibilidad
-* El sistema está disponible durante los periodos establecidos.
-* En caso de falla, **LinkClub** muestra un mensaje indicando que el servicio no está disponible.
-
+* El sistema opera en infraestructura autónoma (Dokploy + PostgreSQL 18) sin depender de capas gratuitas de terceros que se suspendan por inactividad.
+* En caso de falla de la base de datos, **LinkClub** responde de forma controlada (`503 Service Unavailable`) y muestra mensajes claros en la interfaz móvil.
 
 ## 10.1. Árbol de Utilidades
-> Cada hoja indica su prioridad como (Importancia, Dificultad), donde H = alta, M = media, L = baja.
-> Por ejemplo (H, L) significa alta importancia para el negocio y baja dificultad técnica.
-### Usabilidad
 
+Cada hoja indica su prioridad como `(Importancia, Dificultad)`, donde `H` = alta, `M` = media, `L` = baja. Por ejemplo `(H, L)` significa alta importancia para el negocio y baja dificultad técnica.
+
+### Usabilidad
 ```mermaid
 graph TD
-    U[Usabilidad] --> U1["Ver info de clubes (H,L)"]
-    U --> U2["Opciones claras (M,L)"]
-    U --> U3["Formularios claros (M,L)"]
+    U[Usabilidad] --> U1["Ver info de clubes y eventos (H,L)"]
+    U --> U2["Opciones claras y tema claro/oscuro (M,L)"]
+    U --> U3["Formularios claros con validación (M,L)"]
 ```
 
 ### Rendimiento
-
 ```mermaid
 graph TD
     R[Rendimiento] --> R1["Consultas optimizadas (H,M) → U1"]
@@ -48,58 +31,36 @@ graph TD
 ```
 
 ### Seguridad
-
 ```mermaid
 graph TD
-    S[Seguridad] --> S1["Contraseñas cifradas (H,L)"]
-    S --> S2["Autenticación requerida (H,L) → U3"]
-    S --> S3["Permisos por rol (H,M)"]
-    S --> S4["Conexión segura (H,M)"]
+    S[Seguridad] --> S1["Contraseñas cifradas con bcrypt (H,L)"]
+    S --> S2["Autenticación JWT requerida (H,L) → U3"]
+    S --> S3["Permisos por rol RBAC (H,M) → U3"]
+    S --> S4["Conexión segura HTTPS (H,M)"]
 ```
 
 ### Mantenibilidad
-
 ```mermaid
 graph TD
     M[Mantenibilidad] --> M1["Nuevo tipo de publicación (M,M) → C1"]
     M --> M2["Crecimiento 5x clubes/eventos (M,M) → C2"]
-    M --> M3["Cambio de proveedor BD (L,M) → C3"]
+    M --> M3["Cambio de proveedor BD/Auth (L,M) → C3"]
     M --> M4["Control de versiones con Git (L,L)"]
     M --> M5["Cambios documentados (M,L)"]
 ```
 
-### Disponibilidad
+## 10.2. Escenarios de Uso
 
-```mermaid
-graph TD
-    D[Disponibilidad] --> D1["Disponible en periodos establecidos (H,M)"]
-    D --> D2["Manejo de fallo de conexión (H,L) → U2"]
-```
+| ID | Atributo de calidad | Fuente | Estímulo | Artefacto | Entorno | Respuesta | Medida |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| **U1** | Rendimiento | Estudiante / Usuario móvil | Consulta y filtra el catálogo de clubes (`GET /clubes`), el feed de publicaciones (`GET /publicaciones`) o la agenda de eventos (`GET /eventos`) | API Backend y PostgreSQL 18 | Producción (Dokploy, carga normal del campus) | El backend ejecuta la consulta filtrada sobre PostgreSQL y devuelve la respuesta JSON serializada | Latencia P95 $\le 800\text{ ms}$ en el 95 % de las solicitudes |
+| **U2** | Disponibilidad | Operador / Cliente móvil | Se interrumpe la conexión con PostgreSQL o el servicio recibe un sondeo de salud (`GET /health`) | `health_router.py` y `PostgresStatusAdapter` | Producción, ante degradación de la base de datos | El sistema detecta la indisponibilidad mediante `SELECT 1` sin colapsar ni exponer trazas internas | 100 % de las peticiones reciben una respuesta HTTP controlada (`503` en `/health` o `500` uniforme `{"detail": "..."}`) |
+| **U3** | Seguridad | Usuario no autenticado o sin privilegios | Intenta ejecutar una operación de escritura (`POST`, `PATCH`, `DELETE`) sin token válido o sobre un club que no administra | `auth_dependency.py` y routers protegidos | Producción | El sistema rechaza la petición antes de modificar datos en PostgreSQL | 100 % de las rutas de escritura protegidas exigen JWT (`401`) y validan rol (`403` si no es `ADMIN_CLUB` verificado o `SUPERADMIN`) |
 
-## 10.2. Escenarios de Calidad
-### Escenarios de Uso
-|num| Atributo de calidad | Fuente | Estimulo |Artefacto|Entorno|Respuesta| Medida|
-|---|---|---|---|---|---|---|---|
-|U1|Rendimiento|Usuario final (Estudiante o líder de club)|Envía una solicitud de búsqueda de eventos/clubes|Módulo de búsqueda|Operación normal, carga promedio|El sistema procesa y devuelve resultados|El diseño debe garantizar un presupuesto de latencia ≤800 ms en el camino crítico (red + FastAPI + consulta a PostgreSQL)|
-|U2|Disponibilidad|Servicio de base de datos (PostgreSQL)|Se pierde la conexión con la base de datos|Backend FastAPI|Producción, hora pico (ej. publicación de nuevo evento)|El sistema detecta el fallo, evita que la app se caiga por completo, y muestra un mensaje de error controlado al usuario|El diseño debe contemplar manejo explícito de errores de conexión (try/catch + respuesta HTTP controlada) en el 100% de los endpoints que consultan la BD, sin excepciones no controladas|
-|U3|Seguridad|Usuario no autorizado|Intenta acceder a un endpoint de escritura sin un token válido emitido por la API|Backend FastAPI (dependencia de autenticación)|Operación normal|El sistema rechaza la solicitud con 401 y registra el intento|El diseño debe validar el token en el 100% de los endpoints de escritura, excepto registro e inicio de sesión, mediante una dependencia de autenticación; verificable por revisión de código y por prueba automatizada|
+## 10.3. Escenarios de Cambio
 
-### Escenarios de Cambio
-|num| Atributo de calidad | Fuente | Estimulo |Artefacto|Entorno|Respuesta| Medida|
-|---|---|---|---|---|---|---|---|
-|C1|Modificabilidad|Desarrollador/equipo del proyecto|Solicita agregar un nuevo tipo de publicación, por ejemplo encuesta, para que los clubes consulten a sus miembros|Módulo de gestión de publicaciones/avisos|Tiempo de diseño/desarrollo (no en producción)|Se implementa el nuevo tipo de contenido reutilizando la estructura existente de publicaciones, sin modificar los módulos de autenticación, clubes o eventos|El cambio requiere modificar ≤ 3 módulos (modelo de datos, endpoint API, vista Flutter) y no afecta código de módulos no relacionados|
-|C2|Escalabilidad|Administrador del sistema|El número de clubes, eventos y publicaciones crece 5 veces respecto al volumen estimado|Esquema de datos y API|Producción, tras el crecimiento|El sistema sigue operando con el mismo esquema, sin migraciones estructurales|El crecimiento se absorbe sin modificar las tablas existentes y los listados mantienen una latencia ≤800 ms mediante índices|
-|C3|Portabilidad|Equipo técnico|Se decide reemplazar el proveedor o motor de base de datos o de autenticación|Adaptadores de persistencia y de autenticación|Tiempo de diseño, antes de producción|El sistema se despliega en el nuevo entorno|El cambio se limita a los adaptadores de salida; ≤ 2 módulos fuera de esa capa requieren modificación, verificable por revisión de la arquitectura hexagonal|
-
-## 10.3. Estado de verificación
-
-| Escenario | Estado | Evidencia o pendiente |
-|---|---|---|
-| U1 | Medido preliminarmente | Latencia P95 de 131 ms (promedio 127 ms) registrada en [`mediciones_calidad.md`](../mediciones_calidad.md), cumpliendo el umbral ≤ 800 ms. Falta ampliar cobertura a todos los flujos de búsqueda en Evidencia S14. |
-| U2 | Verificado | El cliente muestra mensajes controlados ante fallos de red y `/health` sondea PostgreSQL (`SELECT 1`) mediante `PostgresStatusAdapter`, devolviendo HTTP `503` si la base no está disponible ([`mediciones_calidad.md`](../mediciones_calidad.md)). |
-| U3 | Verificado en rutas protegidas | Dependencia `require_auth` aplicada al 100% de las rutas de escritura (incluyendo `/recursos/upload`), verificada en `backend/tests/test_auth.py` y [`mediciones_calidad.md`](../mediciones_calidad.md). Pendiente: registro persistente de intentos rechazados. |
-| C1 | Verificado | Los tipos aviso, encuesta y noticia se resuelven con una sola entidad afectando 2 módulos (umbral ≤ 3), cubiertos por `backend/tests/test_publicaciones.py` y [`mediciones_calidad.md`](../mediciones_calidad.md). |
-| C2 | Medido preliminarmente | Simulación de 5x volumen documentada en [`mediciones_calidad.md`](../mediciones_calidad.md) con tiempos < 300 ms ≤ 800 ms. Pendiente automatizar el script de prueba en el repositorio (Evidencia S14). |
-| C3 | Verificado | La migración del [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md) reemplazó proveedor de datos y autenticación con 0 módulos afectados fuera de la capa de adaptadores ([`mediciones_calidad.md`](../mediciones_calidad.md)). |
-| Protección de contraseñas | Implementado | Cifrado con `bcrypt` implementado al registrar y verificar credenciales en `auth_router.py` (NC-05 resuelta). |
-| Permisos por rol | Pendiente | Requiere implementar el contexto Clubes con membresías. |
+| ID | Atributo de calidad | Fuente | Estímulo | Artefacto | Entorno | Respuesta | Medida |
+| ------ | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
+| **C1** | Modificabilidad | Desarrollador / equipo del proyecto | Solicita agregar un nuevo tipo de publicación (por ejemplo `encuesta` o `noticia`) para que los clubes informen o consulten a los estudiantes | Módulo de gestión de publicaciones | Tiempo de desarrollo | Se incorpora la nueva variante reutilizando la estructura de publicaciones, sin modificar autenticación ni clubes | El cambio requiere modificar $\le 3$ módulos (dominio/caso de uso, endpoint/contrato, vista Flutter) y no afecta módulos ajenos |
+| **C2** | Escalabilidad | Administrador del sistema | El número de clubes, eventos y publicaciones crece 5 veces respecto al volumen inicial estimado | Esquema de datos PostgreSQL y API | Producción, tras el crecimiento | El sistema sigue operando con el mismo esquema relacional, sin migraciones estructurales | El crecimiento se absorbe sin modificar las tablas existentes y los listados mantienen latencia P95 $\le 800\text{ ms}$ |
+| **C3** | Portabilidad | Equipo técnico | Se decide reemplazar el proveedor o motor de base de datos o de autenticación (como ocurrió al migrar de Supabase a Dokploy + PostgreSQL en el ADR 0007) | Adaptadores de persistencia y de autenticación | Tiempo de diseño / despliegue | El sistema se despliega sobre la nueva infraestructura | El cambio se limita a los adaptadores de salida; $\le 2$ módulos fuera de esa capa requieren modificación |

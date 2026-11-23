@@ -19,7 +19,7 @@ from linkclub.adapters.outbound.postgres.models.evento_model import (
     EventoModel,
 )
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
-from linkclub.application.ports.outbound_auth_port import AuthPort, TokenInvalido
+from linkclub.application.ports.outbound_auth_port import AuthPort
 
 router = APIRouter(tags=["eventos"])
 optional_bearer = HTTPBearer(auto_error=False)

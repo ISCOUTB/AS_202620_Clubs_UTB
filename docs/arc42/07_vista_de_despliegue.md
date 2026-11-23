@@ -1,16 +1,16 @@
 # 7. Vista de Despliegue
 
-LinkClub opera con costo mensual cero: el backend y la base de datos se ejecutan como contenedores en el servidor del laboratorio de la universidad, administrado con Dokploy, y la integración continua usa GitHub Actions sobre un repositorio público. Todas las piezas son portables porque se basan en contenedores y tecnologías estándar (FastAPI, PostgreSQL, Docker). La decisión de abandonar Supabase como proveedor se registra en el [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md), que reemplaza al [ADR 0004](../adr/0004-despliegue-base-de-datos.md) en lo relativo a persistencia y despliegue.
+LinkClub opera con costo mensual cero: el backend y la base de datos se ejecutan como contenedores en el servidor del laboratorio de la universidad, administrado con Dokploy (`panel.iscoutb.dev`, proyecto `clubsutb`, entorno `production`), y la integración continua usa GitHub Actions sobre un repositorio público. Todas las piezas son portables porque se basan en contenedores y tecnologías estándar (FastAPI, PostgreSQL, Docker). La decisión de abandonar Supabase como proveedor se registra en el [ADR 0007](../adr/0007-migracion-dokploy-postgresql.md), que reemplaza al [ADR 0004](../adr/0004-despliegue-base-de-datos.md) en lo relativo a persistencia y despliegue.
 
 ## 7.1. Nivel de Infraestructura 1 (Contexto Global de Despliegue)
 
 | Pieza del Sistema | Entorno de Despliegue | Justificación | Costo Estimado |
-|---|---|---|---|
-| **Aplicación móvil (Frontend)** | Dispositivo móvil del usuario | Ejecución local en el cliente; interactúa con la API vía HTTPS. | $0 |
-| **API Backend (FastAPI)** | Contenedor Docker en Dokploy, servidor del laboratorio | Ejecuta la lógica de negocio y la autenticación; sin arranque en frío ni límites de capa gratuita de terceros. Dominio público con HTTPS: `api-linkclub.iscoutb.dev`. | $0 |
-| **Base de datos** | Contenedor PostgreSQL en Dokploy, misma red interna que la API | Latencia de red interna mínima y control total del esquema. No forma parte de la superficie pública de la API. | $0 |
-| **Archivos subidos (imágenes)** | Volumen Docker persistente asociado al contenedor de la API | Los archivos sobreviven a los redespliegues; el disco del contenedor es efímero. | $0 |
-| **Pipeline CI/CD** | GitHub Actions y SonarCloud | Ejecuta pruebas, validación del contrato OpenAPI y análisis estático. | $0 |
+| ------ | ------ | ------ | ------ |
+| **Aplicación móvil (Frontend)** | Dispositivo móvil del usuario (Android / iOS / escritorio) | Ejecución local en el cliente Flutter; interactúa con la API vía HTTPS y abre formularios externos (`Microsoft Forms`) en el navegador. | $0 |
+| **API Backend (FastAPI)** | Contenedor Docker en Dokploy, servidor del laboratorio | Ejecuta la lógica de negocio, autenticación JWT y RBAC; sin arranque en frío ni límites de capa gratuita de terceros. Dominio público con HTTPS: `https://api-linkclub.iscoutb.dev`. | $0 |
+| **Base de datos** | Contenedor PostgreSQL 18 en Dokploy, misma red interna (`dokploy-network`) | Latencia de red interna mínima y control total del esquema. No forma parte de la superficie pública de Internet. | $0 |
+| **Archivos subidos (imágenes)** | Volumen Docker persistente (`linkclub_uploads`) asociado al contenedor de la API | Los archivos sobreviven a los redespliegues; el disco del contenedor es efímero ([ADR 0009](../adr/0009-estrategia-persistencia-multimedia.md)). | $0 |
+| **Pipeline CI/CD** | GitHub Actions y SonarCloud | Ejecuta 38 pruebas automatizadas (`pytest`), validación del contrato OpenAPI (`Spectral` + `oasdiff`) y análisis estático. | $0 |
 
 ```mermaid
 graph TD
@@ -18,17 +18,17 @@ graph TD
         APP["Aplicación móvil<br/>Flutter"]
     end
 
-    subgraph DOK["Servidor del laboratorio - Dokploy"]
-        API["API Backend<br/>FastAPI en contenedor Docker"]
-        DB[("PostgreSQL<br/>contenedor Docker")]
-        VOL[("Volumen de imágenes<br/>almacenamiento persistente")]
+    subgraph DOK["Servidor del laboratorio - Dokploy (dokploy-network)"]
+        API["API Backend<br/>FastAPI en contenedor Docker (puerto 8000)"]
+        DB[("PostgreSQL 18<br/>clubsutb-db-2m0uk5")]
+        VOL[("Volumen linkclub_uploads<br/>/app/uploads")]
     end
 
     GH["GitHub<br/>Repositorio y GitHub Actions"]
     SONAR["SonarCloud<br/>Análisis estático"]
 
     APP -->|"HTTPS, REST JSON"| API
-    API -->|"SQL, red interna"| DB
+    API -->|"SQL, red interna (puerto 5432)"| DB
     API -->|"Lectura y escritura de archivos"| VOL
     GH -->|"Build desde la rama master"| API
     GH -->|"Análisis en cada ejecución del pipeline"| SONAR
@@ -37,30 +37,20 @@ graph TD
 ## 7.2. Nivel de Infraestructura 2 (Detalle de Piezas)
 
 ### 7.2.1. API Backend
+* **Construcción:** Dokploy toma el repositorio `ISCOUTB/AS_202620_Clubs_UTB`, rama `master`, y construye la imagen con el `Dockerfile` de la carpeta `backend` (`python:3.12-slim`). La imagen se ejecuta con el usuario sin privilegios `appuser` (UID `1000`).
+* **Exposición:** El servicio publica el puerto interno `8000` detrás del dominio HTTPS `api-linkclub.iscoutb.dev` configurado en Dokploy, con certificado Let's Encrypt automático. El TLS termina en el proxy inverso de la plataforma.
+* **Configuración:** Las variables `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_DAYS`, `CORS_ORIGINS` y `UPLOAD_DIR` se definen en el panel de Dokploy y nunca se versionan en el repositorio (plantilla en `backend/.env.example`).
+* **Recursos:** Una réplica con límite de 1 GB de memoria y 2 CPU.
 
-* **Construcción:** Dokploy toma el repositorio, rama `master`, y construye la imagen con el `Dockerfile` de la carpeta `backend`. La imagen se ejecuta con un usuario sin privilegios.
-* **Exposición:** el servicio publica el puerto 8000 detrás del dominio HTTPS configurado en Dokploy, con certificado Let's Encrypt. El TLS se termina en el proxy de la plataforma.
-* **Configuración:** las variables `DATABASE_URL`, `JWT_SECRET` y `CORS_ORIGINS` se definen en el panel de Dokploy y nunca se versionan en el repositorio.
-* **Recursos:** una réplica con límite de 1 GB de memoria y 2 CPU.
+### 7.2.2. Base de datos (PostgreSQL 18)
+* **Instancia:** Servicio `database` (`clubsutb-db-2m0uk5`) ejecutando `postgres:18` dentro de la red privada `dokploy-network`, puerto `5432` sin exposición pública.
+* **Esquema y arranque:** El esquema base y la sincronización ORM están versionados en `backend/migrations/001_esquema_inicial.sql` y `backend/migrations/002_sincronizar_esquema_orm.sql`. Al iniciar, `main.py` ejecuta `Base.metadata.create_all(bind=engine)` e inserta de forma idempotente los 5 clubes semilla (`_SEMILLA`).
+* **Nota de configuración:** El archivo `deploy/compose.lab.yaml` declara `postgres:16-alpine` como referencia local, mientras que el entorno activo en Dokploy ejecuta `postgres:18`.
 
-### 7.2.2. Base de datos (PostgreSQL)
+### 7.2.3. Almacenamiento multimedia
+* **Persistencia:** Volumen Docker `linkclub_uploads` montado en `/app/uploads` (`UPLOAD_DIR=/app/uploads`).
+* **Acceso:** `recurso_router.py` valida extensiones (`jpg`, `jpeg`, `png`, `webp`, `gif`) y tamaño máximo (5 MB), guarda el archivo con nombre UUIDv4 y `main.py` lo expone en `/static/{archivo}`.
 
-* **Supuestos de uso (tráfico mensual UTB):** base activa de 2.000 estudiantes. Con 2 visitas semanales y 10 operaciones por visita se estiman 160.000 consultas SQL al mes. El almacenamiento primario (texto y UUIDs) se estima en unos 50 MB mensuales.
-* **Costo y punto de quiebre:** el servidor es de la universidad, por lo que el costo es cero y no existen cuotas de terceros que se agoten. El límite pasa a ser el recurso asignado al contenedor (1 GB de memoria, 2 CPU) y el disco del servidor; si el crecimiento los supera, habría que solicitar más recursos al laboratorio.
-* **Persistencia:** los datos residen en un volumen Docker dedicado; el esquema se crea a partir de [`backend/migrations/001_esquema_inicial.sql`](../../backend/migrations/001_esquema_inicial.sql).
-* **Acceso:** la API se conecta por la red interna de Dokploy. La base de datos no debe quedar expuesta a Internet.
-* **Respaldo:** no hay respaldo automático. Se debe ejecutar `pg_dump` de forma manual y periódica; está registrado como riesgo en la [Sección 11](./11_riesgos_y_deuda_tecnica.md).
-
-### 7.2.3. Almacenamiento de imágenes
-
-Las imágenes subidas por los usuarios se guardan en un volumen Docker montado en el contenedor de la API y se sirven bajo la ruta `/static`. La estrategia de persistencia multimedia y su evolución se encuentran documentadas en el [ADR 0009](../adr/0009-estrategia-persistencia-multimedia.md):
-
-* **Persistencia:** el volumen `linkclub_uploads` se monta en `/app/uploads` dentro del contenedor de FastAPI, asegurando que los archivos binarios sobrevivan a reinicios y redespliegues de la imagen.
-* **Validación y nombrado:** el endpoint `POST /recursos/upload` admite únicamente imágenes con extensión `jpg`, `jpeg`, `png`, `webp` o `gif` (se excluye `svg` por seguridad), asigna un nombre único con UUIDv4 y devuelve la URL pública (`https://api-linkclub.iscoutb.dev/static/<uuid>.<ext>`).
-* **Desacoplamiento:** PostgreSQL almacena únicamente la referencia URL en la publicación, evitando almacenar blobs binarios en la base de datos.
-
-### 7.2.4. Integración continua y despliegue (CI/CD)
-
-* **Pruebas y análisis estático:** el workflow [`.github/workflows/backend-tests.yml`](../../.github/workflows/backend-tests.yml) ejecuta `pytest` con `PYTHONPATH=src` y envía el reporte de cobertura y calidad a SonarCloud en cada cambio hacia `master`.
-* **Gobernanza de contrato:** el workflow [`.github/workflows/contrato.yml`](../../.github/workflows/contrato.yml) valida `docs/api/openapi.yaml` con Spectral, verifica conformidad del backend mediante pruebas de contrato y detecta cambios incompatibles con `oasdiff`.
-* **Despliegue continuo:** tras aprobar los cambios en `master`, Dokploy reconstruye el contenedor de la API a partir de `backend/Dockerfile` y actualiza el servicio sin intervención manual.
+### 7.2.4. Pipeline CI/CD y calidad
+* **Pruebas y contrato:** `.github/workflows/backend-tests.yml` ejecuta `pytest` (38 pruebas) y `.github/workflows/contrato.yml` valida `docs/api/openapi.yaml` con `Spectral` y verifica compatibilidad con `oasdiff`.
+* **Análisis estático:** SonarCloud analiza el código fuente excluyendo pruebas y migraciones según `sonar-project.properties`.
