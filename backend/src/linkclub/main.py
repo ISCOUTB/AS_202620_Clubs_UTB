@@ -139,14 +139,14 @@ async def lifespan(app: FastAPI):
 def _configurar_cors(app: FastAPI) -> None:
     origenes_raw = os.environ.get("CORS_ORIGINS", "")
     origenes = [o.strip() for o in origenes_raw.split(",") if o.strip()]
-    if origenes:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=origenes,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origenes,
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 app = FastAPI(title="LinkClub API", version="3.1.0", lifespan=lifespan)

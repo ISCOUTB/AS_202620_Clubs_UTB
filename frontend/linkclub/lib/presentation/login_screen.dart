@@ -44,7 +44,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on DioException catch (error) {
       String errorMessage = 'Error de autenticación. Verifica tus datos.';
-      if (error.response?.statusCode == 401 ||
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout) {
+        errorMessage = 'No se pudo conectar con el servidor.';
+      } else if (error.response?.statusCode == 401 ||
           error.response?.statusCode == 403) {
         errorMessage = 'Correo o contraseña incorrectos.';
       } else if (error.response?.statusCode == 422) {
