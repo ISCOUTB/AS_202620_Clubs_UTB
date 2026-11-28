@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:linkclub/core/session/session_controller.dart';
 import 'package:linkclub/data/event_repository.dart';
 import 'package:linkclub/presentation/create_event_screen.dart';
@@ -12,7 +13,8 @@ class EventsScreen extends StatefulWidget {
   State<EventsScreen> createState() => _EventsScreenState();
 }
 
-class _EventsScreenState extends State<EventsScreen> {
+class _EventsScreenState extends State<EventsScreen>
+    with WidgetsBindingObserver {
   static const String _fontFamily = 'DMSans';
   static const Color _darkBg = Color(0xFF080C14);
   static const Color _darkCard = Color(0xFF0F1623);
@@ -33,7 +35,19 @@ class _EventsScreenState extends State<EventsScreen> {
   static const Color _brandBlue = Color(0xFF1D4ED8);
   static const Color _brandBlueSoft = Color(0xFF60A5FA);
   static const Color _emerald = Color(0xFF10B981);
+  static const Color _amberUrgent = Color(0xFFF59E0B);
   static const Color _buttonTextLight = Color(0xFFF1F5F9);
+
+  static const List<String> _categoriasEventos = [
+    'Todos los eventos',
+    'Tecnología',
+    'Robótica e IA',
+    'Deportes',
+    'Arte y Cultura',
+    'Fotografía y Medios',
+    'Ciencia y Estrategia',
+    'Originales',
+  ];
 
   final EventRepository _repository = EventRepository();
   final TextEditingController _searchController = TextEditingController();
@@ -43,30 +57,65 @@ class _EventsScreenState extends State<EventsScreen> {
   bool _isLoading = true;
   String? _errorMensaje;
 
+  late DateTime _ultimaFechaActualVista;
   late DateTime _lunesSemanaActual;
   DateTime? _diaSeleccionado;
   String _categoriaSeleccionada = 'Todos los eventos';
   String _queryBusqueda = '';
   bool _mostrarBuscador = false;
 
+  DateTime get _hoyReal {
+    final ahora = DateTime.now();
+    return DateTime(ahora.year, ahora.month, ahora.day);
+  }
+
+  bool _mismoDia(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
   @override
   void initState() {
     super.initState();
-    final hoy = DateTime.now();
-    final soloFecha = DateTime(hoy.year, hoy.month, hoy.day);
-    _lunesSemanaActual = soloFecha.subtract(
-      Duration(days: soloFecha.weekday - 1),
-    );
+    WidgetsBinding.instance.addObserver(this);
+    final hoy = _hoyReal;
+    _ultimaFechaActualVista = hoy;
+    _diaSeleccionado = hoy;
+    _lunesSemanaActual = hoy.subtract(Duration(days: hoy.weekday - 1));
     _cargarEventos();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _sincronizarDiaActualSiCambio();
+    }
+  }
+
+  void _sincronizarDiaActualSiCambio() {
+    final hoy = _hoyReal;
+    if (!_mismoDia(hoy, _ultimaFechaActualVista) && mounted) {
+      setState(() {
+        final seguiaHoyAnterior =
+            _diaSeleccionado != null &&
+            _mismoDia(_diaSeleccionado!, _ultimaFechaActualVista);
+        _ultimaFechaActualVista = hoy;
+        _lunesSemanaActual = hoy.subtract(Duration(days: hoy.weekday - 1));
+        if (seguiaHoyAnterior) {
+          _diaSeleccionado = hoy;
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _cargarEventos() async {
+    _sincronizarDiaActualSiCambio();
     setState(() {
       _isLoading = true;
       _errorMensaje = null;
@@ -90,33 +139,68 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
-  List<String> get _categoriasDisponibles {
-    final base = <String>{
-      'Todos los eventos',
-      'Tecnología',
-      'Deportes',
-      'Cultura y Arte',
-    };
-    for (final ev in _todosLosEventos) {
-      if (ev.clubCategoria.trim().isNotEmpty) {
-        base.add(ev.clubCategoria.trim());
-      }
+  String _normalizarCategoriaEvento(String rawCategoria) {
+    final cat = rawCategoria.trim().toLowerCase();
+    if (cat.isEmpty ||
+        cat == 'general' ||
+        cat == 'otro' ||
+        cat == 'otros' ||
+        cat == 'originales') {
+      return 'Originales';
     }
-    return base.toList();
+    if (cat.contains('robót') ||
+        cat.contains('robot') ||
+        cat.contains('inteligencia') ||
+        cat == 'ia') {
+      return 'Robótica e IA';
+    }
+    if (cat.contains('tecnolog') ||
+        cat.contains('program') ||
+        cat.contains('software') ||
+        cat.contains('sistemas')) {
+      return 'Tecnología';
+    }
+    if (cat.contains('deport') ||
+        cat.contains('fútbol') ||
+        cat.contains('futbol') ||
+        cat.contains('volei') ||
+        cat.contains('baloncesto')) {
+      return 'Deportes';
+    }
+    if (cat.contains('arte') ||
+        cat.contains('cultur') ||
+        cat.contains('músic') ||
+        cat.contains('music') ||
+        cat.contains('teatro') ||
+        cat.contains('danza')) {
+      return 'Arte y Cultura';
+    }
+    if (cat.contains('fotograf') ||
+        cat.contains('medio') ||
+        cat.contains('audiovisual') ||
+        cat.contains('cine') ||
+        cat.contains('comunic')) {
+      return 'Fotografía y Medios';
+    }
+    if (cat.contains('cienc') ||
+        cat.contains('ajedrez') ||
+        cat.contains('estrateg') ||
+        cat.contains('investig')) {
+      return 'Ciencia y Estrategia';
+    }
+    return 'Originales';
   }
 
   List<EventoModel> get _eventosFiltrados {
     return _todosLosEventos.where((ev) {
       final coincideDia =
           _diaSeleccionado == null ||
-          (ev.fechaInicio.year == _diaSeleccionado!.year &&
-              ev.fechaInicio.month == _diaSeleccionado!.month &&
-              ev.fechaInicio.day == _diaSeleccionado!.day);
+          _mismoDia(ev.fechaInicio, _diaSeleccionado!);
 
       final coincideCategoria =
           _categoriaSeleccionada == 'Todos los eventos' ||
-          ev.clubCategoria.toLowerCase() ==
-              _categoriaSeleccionada.toLowerCase();
+          _normalizarCategoriaEvento(ev.clubCategoria) ==
+              _categoriaSeleccionada;
 
       final q = _queryBusqueda.toLowerCase();
       final coincideTexto =
@@ -129,13 +213,41 @@ class _EventsScreenState extends State<EventsScreen> {
     }).toList();
   }
 
-  bool _tieneEventosEnDia(DateTime dia) {
-    return _todosLosEventos.any(
-      (ev) =>
-          ev.fechaInicio.year == dia.year &&
-          ev.fechaInicio.month == dia.month &&
-          ev.fechaInicio.day == dia.day,
-    );
+  List<EventoModel> get _eventosInscritosUrgentes {
+    final ahora = DateTime.now();
+    final limite48h = ahora.add(const Duration(hours: 48));
+    final lista = _todosLosEventos.where((ev) {
+      if (!ev.usuarioAsiste || ev.yaFinalizo) return false;
+      final empezoHacePoco = ev.fechaInicio.isAfter(
+        ahora.subtract(const Duration(hours: 2)),
+      );
+      final empiezaPronto = ev.fechaInicio.isBefore(limite48h);
+      return empezoHacePoco && empiezaPronto;
+    }).toList()..sort((a, b) => a.fechaInicio.compareTo(b.fechaInicio));
+    return lista;
+  }
+
+  Future<void> _abrirEnlaceInApp(String url) async {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || (!uri.isScheme('http') && !uri.isScheme('https'))) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El enlace de inscripción no tiene un formato válido.',
+            style: TextStyle(fontFamily: _fontFamily),
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final ok = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    if (!ok) {
+      await launchUrl(uri, mode: LaunchMode.platformDefault);
+    }
   }
 
   Future<void> _abrirCrearEvento() async {
@@ -158,6 +270,29 @@ class _EventsScreenState extends State<EventsScreen> {
     );
     if (creado == true) {
       _cargarEventos();
+    }
+  }
+
+  Future<void> _inscribirseEnEvento(EventoModel evento) async {
+    if (!SessionController.instance.estaAutenticado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Inicia sesión con tu cuenta institucional para inscribirte.',
+            style: TextStyle(fontFamily: _fontFamily),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (evento.tieneEnlaceExterno) {
+      await _abrirEnlaceInApp(evento.enlaceRegistroMs!);
+    }
+
+    if (!evento.usuarioAsiste) {
+      await _toggleAsistencia(evento);
     }
   }
 
@@ -215,7 +350,7 @@ class _EventsScreenState extends State<EventsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'No se pudo registrar tu asistencia. Intenta nuevamente.',
+              'No se pudo registrar tu inscripción. Intenta nuevamente.',
               style: TextStyle(fontFamily: _fontFamily),
             ),
             backgroundColor: Colors.redAccent,
@@ -226,12 +361,150 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
+  void _mostrarOpcionesInscrito(EventoModel evento, bool isDarkMode) {
+    final sheetBg = isDarkMode ? _darkCard : _lightCard;
+    final borderColor = isDarkMode ? _darkBorder : _lightBorder;
+    final titleColor = isDarkMode ? _darkTextPrimary : _lightTextPrimary;
+    final bodyColor = isDarkMode ? _darkTextBody : _lightTextBody;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: sheetBg,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        side: BorderSide(color: borderColor, width: 1),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: borderColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _emerald.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.check_circle_rounded,
+                        color: _emerald,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Ya registraste tu inscripción',
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: titleColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tu cupo está contabilizado en "${evento.titulo}". Recibirás un recordatorio cuando el evento esté próximo.',
+                  style: TextStyle(
+                    fontFamily: _fontFamily,
+                    fontSize: 13.5,
+                    height: 1.45,
+                    color: bodyColor,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                if (evento.tieneEnlaceExterno) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _abrirEnlaceInApp(evento.enlaceRegistroMs!);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _brandBlue,
+                        foregroundColor: _buttonTextLight,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                      label: const Text(
+                        'Abrir formulario de MS Forms nuevamente',
+                        style: TextStyle(
+                          fontFamily: _fontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _toggleAsistencia(evento);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.redAccent,
+                      side: BorderSide(
+                        color: Colors.redAccent.withValues(alpha: 0.45),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: const Text(
+                      'Cancelar mi inscripción',
+                      style: TextStyle(
+                        fontFamily: _fontFamily,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDarkMode ? _darkBg : _lightBg;
     final accentColor = isDarkMode ? _brandBlueSoft : _brandBlue;
     final filtrados = _eventosFiltrados;
+    final urgentes = _eventosInscritosUrgentes;
 
     return ListenableBuilder(
       listenable: SessionController.instance,
@@ -249,7 +522,7 @@ class _EventsScreenState extends State<EventsScreen> {
               'Eventos Disponibles',
               style: TextStyle(
                 fontFamily: _fontFamily,
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.w700,
                 color: isDarkMode ? _darkTextPrimary : _lightTextPrimary,
               ),
@@ -268,6 +541,10 @@ class _EventsScreenState extends State<EventsScreen> {
                 puedeCrearEventos ? 92 : 28,
               ),
               children: [
+                if (urgentes.isNotEmpty) ...[
+                  _buildBannerProximoEvento(urgentes.first, isDarkMode),
+                  const SizedBox(height: 12),
+                ],
                 _buildWeekCalendarCard(isDarkMode),
                 const SizedBox(height: 12),
                 _buildCategoryStrip(isDarkMode),
@@ -320,6 +597,139 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
+  Widget _buildBannerProximoEvento(EventoModel evento, bool isDarkMode) {
+    final ahora = DateTime.now();
+    final diff = evento.fechaInicio.difference(ahora);
+    final hoy = _hoyReal;
+    final manana = hoy.add(const Duration(days: 1));
+
+    String etiquetaUrgencia;
+    if (diff.isNegative) {
+      etiquetaUrgencia = '¡En curso ahora!';
+    } else if (diff.inMinutes < 60) {
+      final mins = diff.inMinutes < 1 ? 1 : diff.inMinutes;
+      etiquetaUrgencia = '¡Empieza en $mins min!';
+    } else if (_mismoDia(evento.fechaInicio, hoy)) {
+      etiquetaUrgencia = 'Hoy • ${_formatearHora12(evento.fechaInicio)}';
+    } else if (_mismoDia(evento.fechaInicio, manana)) {
+      etiquetaUrgencia = 'Mañana • ${_formatearHora12(evento.fechaInicio)}';
+    } else {
+      etiquetaUrgencia =
+          'Próximo • ${evento.fechaInicio.day} ${_mesCorto(evento.fechaInicio.month)}';
+    }
+
+    return GestureDetector(
+      onTap: () => _mostrarDetalleEvento(evento, isDarkMode),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF1A1610) : const Color(0xFFFFFBEB),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _amberUrgent.withValues(alpha: isDarkMode ? 0.55 : 0.45),
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _amberUrgent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.notifications_active_rounded,
+                color: _amberUrgent,
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _amberUrgent.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          etiquetaUrgencia,
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: isDarkMode
+                                ? const Color(0xFFFCD34D)
+                                : const Color(0xFFB45309),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Evento inscrito',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDarkMode
+                                ? _darkTextSecondary
+                                : _lightTextSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    evento.titulo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDarkMode ? _darkTextPrimary : _lightTextPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${evento.clubNombre} • ${evento.lugar}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: _fontFamily,
+                      fontSize: 11.5,
+                      color: isDarkMode
+                          ? _darkTextSecondary
+                          : _lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: isDarkMode ? _darkTextSecondary : _lightTextSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildWeekCalendarCard(bool isDarkMode) {
     final cardBg = isDarkMode ? _darkCard : _lightCard;
     final borderColor = isDarkMode ? _darkBorder : _lightBorder;
@@ -327,7 +737,11 @@ class _EventsScreenState extends State<EventsScreen> {
     final secondaryColor = isDarkMode
         ? _darkTextSecondary
         : _lightTextSecondary;
-    final accentColor = isDarkMode ? _brandBlueSoft : _brandBlue;
+    final hoy = _hoyReal;
+    final lunesActualReal = hoy.subtract(Duration(days: hoy.weekday - 1));
+    final enSemanaActual = _mismoDia(_lunesSemanaActual, lunesActualReal);
+    final hoyYaSeleccionado =
+        _diaSeleccionado != null && _mismoDia(_diaSeleccionado!, hoy);
 
     final diasSemana = List.generate(
       7,
@@ -383,7 +797,44 @@ class _EventsScreenState extends State<EventsScreen> {
               ),
               Row(
                 children: [
-                  if (_diaSeleccionado != null) ...[
+                  if (!enSemanaActual || !hoyYaSeleccionado) ...[
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        final h = _hoyReal;
+                        _lunesSemanaActual = h.subtract(
+                          Duration(days: h.weekday - 1),
+                        );
+                        _diaSeleccionado = h;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _emerald.withValues(
+                            alpha: isDarkMode ? 0.16 : 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _emerald.withValues(alpha: 0.45),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'Hoy',
+                          style: TextStyle(
+                            fontFamily: _fontFamily,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _emerald,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (_diaSeleccionado != null)
                     GestureDetector(
                       onTap: () => setState(() => _diaSeleccionado = null),
                       child: Container(
@@ -407,31 +858,6 @@ class _EventsScreenState extends State<EventsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                  ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: accentColor.withOpacity(0.25),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      'Semana ${_numeroSemana(_lunesSemanaActual)}',
-                      style: TextStyle(
-                        fontFamily: _fontFamily,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: accentColor,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ],
@@ -440,12 +866,9 @@ class _EventsScreenState extends State<EventsScreen> {
           Row(
             children: List.generate(7, (index) {
               final dia = diasSemana[index];
+              final esHoy = _mismoDia(dia, hoy);
               final seleccionado =
-                  _diaSeleccionado != null &&
-                  _diaSeleccionado!.year == dia.year &&
-                  _diaSeleccionado!.month == dia.month &&
-                  _diaSeleccionado!.day == dia.day;
-              final tieneEventos = _tieneEventosEnDia(dia);
+                  _diaSeleccionado != null && _mismoDia(_diaSeleccionado!, dia);
 
               return Expanded(
                 child: Padding(
@@ -464,13 +887,23 @@ class _EventsScreenState extends State<EventsScreen> {
                       duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
-                        color: seleccionado ? _brandBlue : Colors.transparent,
+                        color: seleccionado
+                            ? _brandBlue
+                            : (esHoy
+                                  ? _emerald.withValues(
+                                      alpha: isDarkMode ? 0.12 : 0.08,
+                                    )
+                                  : Colors.transparent),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: seleccionado
-                              ? const Color(0xFF3B82F6).withOpacity(0.5)
-                              : Colors.transparent,
-                          width: 1,
+                          color: esHoy
+                              ? _emerald
+                              : (seleccionado
+                                    ? const Color(
+                                        0xFF3B82F6,
+                                      ).withValues(alpha: 0.5)
+                                    : Colors.transparent),
+                          width: esHoy ? 1.6 : 1,
                         ),
                       ),
                       child: Column(
@@ -481,10 +914,12 @@ class _EventsScreenState extends State<EventsScreen> {
                             style: TextStyle(
                               fontFamily: _fontFamily,
                               fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: esHoy || seleccionado
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
                               color: seleccionado
-                                  ? _buttonTextLight.withOpacity(0.85)
-                                  : secondaryColor,
+                                  ? _buttonTextLight.withValues(alpha: 0.9)
+                                  : (esHoy ? _emerald : secondaryColor),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -493,23 +928,21 @@ class _EventsScreenState extends State<EventsScreen> {
                             style: TextStyle(
                               fontFamily: _fontFamily,
                               fontSize: 13.5,
-                              fontWeight: seleccionado
+                              fontWeight: esHoy || seleccionado
                                   ? FontWeight.w700
                                   : FontWeight.w600,
                               color: seleccionado
                                   ? _buttonTextLight
-                                  : titleColor,
+                                  : (esHoy ? _emerald : titleColor),
                             ),
                           ),
                           const SizedBox(height: 4),
                           Container(
-                            width: 4.5,
-                            height: 4.5,
+                            width: 5,
+                            height: 5,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: tieneEventos
-                                  ? (seleccionado ? _buttonTextLight : _emerald)
-                                  : Colors.transparent,
+                              color: esHoy ? _emerald : Colors.transparent,
                             ),
                           ),
                         ],
@@ -554,7 +987,6 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _buildCategoryStrip(bool isDarkMode) {
-    final categorias = _categoriasDisponibles;
     final cardBg = isDarkMode ? _darkCard : _lightCard;
     final borderColor = isDarkMode ? _darkBorder : _lightBorder;
     final textInactive = isDarkMode ? _darkTextBody : _lightTextBody;
@@ -563,10 +995,10 @@ class _EventsScreenState extends State<EventsScreen> {
       height: 36,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: categorias.length,
+        itemCount: _categoriasEventos.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final cat = categorias[index];
+          final cat = _categoriasEventos[index];
           final activa = cat == _categoriaSeleccionada;
           return GestureDetector(
             onTap: () => setState(() => _categoriaSeleccionada = cat),
@@ -578,7 +1010,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: activa
-                      ? const Color(0xFF3B82F6).withOpacity(0.45)
+                      ? const Color(0xFF3B82F6).withValues(alpha: 0.45)
                       : borderColor,
                   width: 1,
                 ),
@@ -648,14 +1080,23 @@ class _EventsScreenState extends State<EventsScreen> {
         ? _darkTextSecondary
         : _lightTextSecondary;
     final accentColor = isDarkMode ? _brandBlueSoft : _brandBlue;
+    final hoy = _hoyReal;
+
+    String tituloSeccion;
+    if (_diaSeleccionado == null) {
+      tituloSeccion = 'Próximos Eventos';
+    } else if (_mismoDia(_diaSeleccionado!, hoy)) {
+      tituloSeccion = 'Eventos de Hoy';
+    } else {
+      tituloSeccion =
+          'Eventos del ${_diaSeleccionado!.day} ${_mesCorto(_diaSeleccionado!.month)}';
+    }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          _diaSeleccionado != null
-              ? 'Eventos del ${_diaSeleccionado!.day} ${_mesCorto(_diaSeleccionado!.month)}'
-              : 'Próximos Eventos',
+          tituloSeccion,
           style: TextStyle(
             fontFamily: _fontFamily,
             fontSize: 17,
@@ -693,10 +1134,10 @@ class _EventsScreenState extends State<EventsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
+                color: _brandBlue.withValues(alpha: isDarkMode ? 0.16 : 0.08),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: accentColor.withOpacity(0.25),
+                  color: accentColor.withValues(alpha: 0.25),
                   width: 1,
                 ),
               ),
@@ -746,7 +1187,7 @@ class _EventsScreenState extends State<EventsScreen> {
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -778,7 +1219,7 @@ class _EventsScreenState extends State<EventsScreen> {
                         colors: [
                           Colors.transparent,
                           (isDarkMode ? _darkCard : const Color(0xFF0F172A))
-                              .withOpacity(0.85),
+                              .withValues(alpha: 0.85),
                         ],
                       ),
                     ),
@@ -793,10 +1234,12 @@ class _EventsScreenState extends State<EventsScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF080C14).withOpacity(0.78),
+                          color: const Color(
+                            0xFF080C14,
+                          ).withValues(alpha: 0.78),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.14),
+                            color: Colors.white.withValues(alpha: 0.14),
                             width: 1,
                           ),
                         ),
@@ -959,7 +1402,7 @@ class _EventsScreenState extends State<EventsScreen> {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            '+${evento.totalAsistentes} inscritos',
+                            '${evento.totalAsistentes} ${evento.totalAsistentes == 1 ? 'inscrito' : 'inscritos'}',
                             style: TextStyle(
                               fontFamily: _fontFamily,
                               fontSize: 12,
@@ -1003,7 +1446,7 @@ class _EventsScreenState extends State<EventsScreen> {
           child: Icon(
             evento.iconoCategoria,
             size: 52,
-            color: Colors.white.withOpacity(0.14),
+            color: Colors.white.withValues(alpha: 0.14),
           ),
         ),
       ),
@@ -1043,23 +1486,28 @@ class _EventsScreenState extends State<EventsScreen> {
 
     if (evento.usuarioAsiste) {
       return InkWell(
-        onTap: cargando ? null : () => _toggleAsistencia(evento),
+        onTap: cargando
+            ? null
+            : () => _mostrarOpcionesInscrito(evento, isDarkMode),
         borderRadius: BorderRadius.circular(11),
         child: Container(
           height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
-            color: _emerald.withOpacity(isDarkMode ? 0.16 : 0.10),
+            color: _emerald.withValues(alpha: isDarkMode ? 0.16 : 0.10),
             borderRadius: BorderRadius.circular(11),
-            border: Border.all(color: _emerald.withOpacity(0.35), width: 1),
+            border: Border.all(
+              color: _emerald.withValues(alpha: 0.40),
+              width: 1,
+            ),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_rounded, size: 15, color: _emerald),
+              Icon(Icons.check_circle_rounded, size: 15, color: _emerald),
               SizedBox(width: 5),
               Text(
-                'Confirmado',
+                'Inscrito • Asistiré',
                 style: TextStyle(
                   fontFamily: _fontFamily,
                   fontSize: 12,
@@ -1075,18 +1523,24 @@ class _EventsScreenState extends State<EventsScreen> {
 
     return SizedBox(
       height: 36,
-      child: ElevatedButton(
-        onPressed: cargando ? null : () => _toggleAsistencia(evento),
+      child: ElevatedButton.icon(
+        onPressed: cargando ? null : () => _inscribirseEnEvento(evento),
         style: ElevatedButton.styleFrom(
           backgroundColor: _brandBlue,
           foregroundColor: _buttonTextLight,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(11),
           ),
         ),
-        child: Text(
+        icon: Icon(
+          evento.tieneEnlaceExterno
+              ? Icons.open_in_browser_rounded
+              : Icons.event_available_rounded,
+          size: 15,
+        ),
+        label: Text(
           evento.tieneEnlaceExterno ? 'Inscribirme' : 'Asistiré',
           style: const TextStyle(
             fontFamily: _fontFamily,
@@ -1152,10 +1606,12 @@ class _EventsScreenState extends State<EventsScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
+                        color: _brandBlue.withValues(
+                          alpha: isDarkMode ? 0.16 : 0.08,
+                        ),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: accentColor.withOpacity(0.25),
+                          color: accentColor.withValues(alpha: 0.25),
                           width: 1,
                         ),
                       ),
@@ -1196,10 +1652,12 @@ class _EventsScreenState extends State<EventsScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: _emerald.withOpacity(isDarkMode ? 0.16 : 0.10),
+                          color: _emerald.withValues(
+                            alpha: isDarkMode ? 0.16 : 0.10,
+                          ),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: _emerald.withOpacity(0.35),
+                            color: _emerald.withValues(alpha: 0.35),
                             width: 1,
                           ),
                         ),
@@ -1253,7 +1711,7 @@ class _EventsScreenState extends State<EventsScreen> {
                       _buildMetaRow(
                         icon: Icons.people_alt_outlined,
                         label:
-                            '${evento.totalAsistentes} estudiantes confirmados',
+                            '${evento.totalAsistentes} ${evento.totalAsistentes == 1 ? 'estudiante inscrito' : 'estudiantes inscritos'}',
                         accent: accentColor,
                         textColor: bodyColor,
                       ),
@@ -1274,6 +1732,9 @@ class _EventsScreenState extends State<EventsScreen> {
                 MarkdownBody(
                   data: evento.descripcion,
                   selectable: true,
+                  onTapLink: (_, href, __) {
+                    if (href != null) _abrirEnlaceInApp(href);
+                  },
                   styleSheet: MarkdownStyleSheet(
                     p: TextStyle(
                       fontFamily: _fontFamily,
@@ -1285,6 +1746,12 @@ class _EventsScreenState extends State<EventsScreen> {
                       fontFamily: _fontFamily,
                       fontWeight: FontWeight.w700,
                       color: titleColor,
+                    ),
+                    a: TextStyle(
+                      fontFamily: _fontFamily,
+                      color: accentColor,
+                      decoration: TextDecoration.underline,
+                      decorationColor: accentColor,
                     ),
                   ),
                 ),
@@ -1302,15 +1769,20 @@ class _EventsScreenState extends State<EventsScreen> {
                         Icon(Icons.link_rounded, size: 18, color: accentColor),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            evento.enlaceRegistroMs!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: _fontFamily,
-                              fontSize: 12.5,
-                              color: accentColor,
-                              fontWeight: FontWeight.w600,
+                          child: GestureDetector(
+                            onTap: () =>
+                                _abrirEnlaceInApp(evento.enlaceRegistroMs!),
+                            child: Text(
+                              evento.enlaceRegistroMs!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: _fontFamily,
+                                fontSize: 12.5,
+                                color: accentColor,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
                         ),
@@ -1319,7 +1791,6 @@ class _EventsScreenState extends State<EventsScreen> {
                             Clipboard.setData(
                               ClipboardData(text: evento.enlaceRegistroMs!),
                             );
-                            Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
@@ -1340,12 +1811,16 @@ class _EventsScreenState extends State<EventsScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 48,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
                     onPressed: evento.yaFinalizo
                         ? null
                         : () {
                             Navigator.pop(ctx);
-                            _toggleAsistencia(evento);
+                            if (evento.usuarioAsiste) {
+                              _mostrarOpcionesInscrito(evento, isDarkMode);
+                            } else {
+                              _inscribirseEnEvento(evento);
+                            }
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: evento.usuarioAsiste
@@ -1357,12 +1832,24 @@ class _EventsScreenState extends State<EventsScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: Text(
+                    icon: Icon(
+                      evento.yaFinalizo
+                          ? Icons.event_busy_rounded
+                          : (evento.usuarioAsiste
+                                ? Icons.check_circle_rounded
+                                : (evento.tieneEnlaceExterno
+                                      ? Icons.open_in_browser_rounded
+                                      : Icons.event_available_rounded)),
+                      size: 18,
+                    ),
+                    label: Text(
                       evento.yaFinalizo
                           ? 'Evento finalizado'
                           : (evento.usuarioAsiste
-                                ? 'Asistencia confirmada (Toca para cancelar)'
-                                : 'Confirmar mi asistencia'),
+                                ? 'Inscrito • Asistiré'
+                                : (evento.tieneEnlaceExterno
+                                      ? 'Inscribirme en MS Forms'
+                                      : 'Confirmar mi asistencia')),
                       style: const TextStyle(
                         fontFamily: _fontFamily,
                         fontSize: 14,
@@ -1433,10 +1920,10 @@ class _EventsScreenState extends State<EventsScreen> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: _brandBlue.withOpacity(isDarkMode ? 0.16 : 0.08),
+              color: _brandBlue.withValues(alpha: isDarkMode ? 0.16 : 0.08),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: accentColor.withOpacity(0.25),
+                color: accentColor.withValues(alpha: 0.25),
                 width: 1,
               ),
             ),
@@ -1595,15 +2082,5 @@ class _EventsScreenState extends State<EventsScreen> {
       'dic',
     ];
     return meses[month - 1];
-  }
-
-  int _numeroSemana(DateTime fecha) {
-    try {
-      final primerDiaAnio = DateTime(fecha.year, 1, 1);
-      final diasDiferencia = fecha.difference(primerDiaAnio).inDays;
-      return ((diasDiferencia + primerDiaAnio.weekday - 1) / 7).floor() + 1;
-    } catch (_) {
-      return 1;
-    }
   }
 }

@@ -75,9 +75,18 @@ class _DevAdminScreenState extends State<DevAdminScreen> {
               DropdownButtonFormField<String>(
                 value: categoria,
                 decoration: const InputDecoration(labelText: 'Categoría'),
-                items: const ['Tecnología', 'Cultura', 'Deportes', 'Académico']
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
+                items:
+                    const [
+                          'Ciencia e Ingeniería',
+                          'Arte y Cultura',
+                          'Comunidad y Espiritualidad',
+                          'Idiomas e Intercambio',
+                          'Juegos y Tecnología',
+                          'Liderazgo e Impacto Social',
+                          'Originales',
+                        ]
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
                 onChanged: (v) => categoria = v ?? 'Tecnología',
               ),
               const SizedBox(height: 12),

@@ -64,19 +64,25 @@ class ClubModel {
 
   IconData get iconoCategoria {
     final cat = categoria.toLowerCase();
-    if (cat.contains('tec') || cat.contains('prog') || cat.contains('rob')) {
-      return Icons.memory_rounded;
-    }
-    if (cat.contains('art') || cat.contains('cult') || cat.contains('mus')) {
-      return Icons.palette_outlined;
-    }
-    if (cat.contains('dep')) {
-      return Icons.sports_soccer_rounded;
-    }
-    if (cat.contains('cien') || cat.contains('inv')) {
+    if (cat.contains('ciencia') || cat.contains('ingenier')) {
       return Icons.science_outlined;
     }
-    return Icons.groups_rounded;
+    if (cat.contains('arte') || cat.contains('cultur')) {
+      return Icons.palette_outlined;
+    }
+    if (cat.contains('espiritual') || cat.contains('comunidad')) {
+      return Icons.volunteer_activism_outlined;
+    }
+    if (cat.contains('idioma') || cat.contains('intercambio')) {
+      return Icons.translate_rounded;
+    }
+    if (cat.contains('juego') || cat.contains('tecnolog')) {
+      return Icons.sports_esports_outlined;
+    }
+    if (cat.contains('liderazgo') || cat.contains('social')) {
+      return Icons.lightbulb_outline_rounded;
+    }
+    return Icons.auto_awesome_outlined; // Originales / emergentes
   }
 }
 

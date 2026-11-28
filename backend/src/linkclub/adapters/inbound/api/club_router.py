@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -57,6 +58,13 @@ class CrearClubRequest(BaseModel):
     ms_forms_url: Optional[str] = None
     aviso_inscripcion: Optional[str] = None
 
+    @field_validator("nombre", "descripcion", "categoria", mode="before")
+    @classmethod
+    def _limpiar_campos_obligatorios(cls, valor: Any) -> Any:
+        if isinstance(valor, str):
+            return valor.strip()
+        return valor
+
 
 class ActualizarClubRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -75,6 +83,13 @@ class ActualizarClubRequest(BaseModel):
     ms_forms_url: Optional[str] = None
     aviso_inscripcion: Optional[str] = None
 
+    @field_validator("nombre", "descripcion", "categoria", mode="before")
+    @classmethod
+    def _limpiar_campos_texto(cls, valor: Any) -> Any:
+        if isinstance(valor, str):
+            return valor.strip()
+        return valor
+
 
 def _serializar_club(club: ClubModel, db: Session) -> ClubResponse:
     admins = (
@@ -86,6 +101,7 @@ def _serializar_club(club: ClubModel, db: Session) -> ClubResponse:
         )
         .all()
     )
+    redes = club.redes_json if isinstance(club.redes_json, dict) else {}
     return ClubResponse(
         id=str(club.id),
         nombre=club.nombre,
@@ -97,11 +113,11 @@ def _serializar_club(club: ClubModel, db: Session) -> ClubResponse:
         horario=club.horario,
         lugar=club.lugar,
         lider=club.lider,
-        redes_json=club.redes_json or {},
+        redes_json=redes,
         inscripciones_abiertas=bool(club.inscripciones_abiertas),
         ms_forms_url=club.ms_forms_url,
         aviso_inscripcion=club.aviso_inscripcion,
-        total_miembros=len(admins),
+        total_miembros=max(0, int(club.miembros_base or 0), len(admins)),
         administradores=[
             AdministradorClubResponse(usuario_id=a.matricula, nombre=a.nombre)
             for a in admins
@@ -147,12 +163,17 @@ def crear_club(
             detail="Solo un administrador del sistema puede registrar nuevos clubes.",
         )
 
-    existe = db.query(ClubModel).filter(ClubModel.nombre.ilike(payload.nombre.strip())).first()
+    nombre_limpio = payload.nombre.strip()
+    existe = (
+        db.query(ClubModel)
+        .filter(func.lower(ClubModel.nombre) == nombre_limpio.lower())
+        .first()
+    )
     if existe:
         raise HTTPException(status_code=409, detail="Ya existe un club con ese nombre.")
 
     nuevo_club = ClubModel(
-        nombre=payload.nombre.strip(),
+        nombre=nombre_limpio,
         descripcion=payload.descripcion.strip(),
         categoria=payload.categoria.strip(),
         descripcion_completa=payload.descripcion_completa,

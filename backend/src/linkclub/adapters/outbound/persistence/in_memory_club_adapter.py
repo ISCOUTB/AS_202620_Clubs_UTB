@@ -4,11 +4,24 @@ from linkclub.application.ports.outbound_club_repository_port import ClubReposit
 from linkclub.domain.club import Club
 
 _SEMILLA = [
-    ("Club de Programación", "Aprende programación y desarrolla proyectos de software.", "Tecnología"),
-    ("Club de Robótica", "Diseña, construye y programa robots.", "Tecnología"),
-    ("Club de Música", "Un espacio para compartir y desarrollar talentos musicales.", "Arte y cultura"),
-    ("Club de Deportes", "Participa en actividades deportivas y conoce nuevos compañeros.", "Deportes"),
-    ("Club de Fotografía", "Explora la fotografía y aprende nuevas técnicas.", "Arte y cultura"),
+    ("AIChE UTB", "Capítulo estudiantil del American Institute of Chemical Engineers en la UTB.", "Ciencia e Ingeniería"),
+    ("ACS Student Chapter General", "Capítulo estudiantil de la American Chemical Society dedicado a la divulgación científica y química verde.", "Ciencia e Ingeniería"),
+    ("ANEIAP", "Capítulo UTB de la Asociación Nacional de Estudiantes de Ingeniería Industrial, Administrativa y de Producción.", "Ciencia e Ingeniería"),
+    ("M.A.R UTB", "Grupo estudiantil de ingeniería naval, asuntos marítimos, portuarios y oceánicos de la UTB.", "Ciencia e Ingeniería"),
+    ("Mentoras WSTEM 2026", "Red de mentoría y liderazgo de mujeres en Ciencia, Tecnología, Ingeniería y Matemáticas en la UTB.", "Ciencia e Ingeniería"),
+    ("Rincón del dibujante", "Colectivo estudiantil de dibujo, ilustración tradicional y digital, cómic y artes visuales.", "Arte y Cultura"),
+    ("Café y Crochet", "Espacio creativo y social de tejido en crochet, manualidades y tertulia alrededor del café.", "Arte y Cultura"),
+    ("Cine y debate", "Cineclub universitario para proyección de películas, apreciación audiovisual y debate crítico.", "Arte y Cultura"),
+    ("Club de Lectura UTB: Viajes Literarios", "Tertulia literaria y club de lectura para descubrir novelas, cuentos y ensayos en comunidad.", "Arte y Cultura"),
+    ("Pastoral Universitaria UTB", "Espacio institucional de espiritualidad, acompañamiento humano y voluntariado solidario.", "Comunidad y Espiritualidad"),
+    ("Koinonía", "Comunidad estudiantil cristiana de compañerismo, integración, música y valores en el campus.", "Comunidad y Espiritualidad"),
+    ("FE UTB", "Grupo estudiantil de fe, oración, diálogo espiritual y acompañamiento fraterno en la UTB.", "Comunidad y Espiritualidad"),
+    ("Francolombia", "Club de intercambio cultural y lingüístico franco-colombiano en la Universidad Tecnológica de Bolívar.", "Idiomas e Intercambio"),
+    ("Hallyu UTB", "Comunidad estudiantil dedicada a la cultura coreana, idioma coreano, K-pop, K-drama y tradiciones.", "Idiomas e Intercambio"),
+    ("Sociedad del juego", "Club universitario de juegos de mesa modernos, estrategia, rol y juegos de cartas.", "Juegos y Tecnología"),
+    ("Endless", "Colectivo estudiantil de cultura gamer, eSports, desarrollo creativo e innovación digital.", "Juegos y Tecnología"),
+    ("Proyecto CAHAFU", "Iniciativa estudiantil de innovación social, ideación y proyectos con impacto comunitario.", "Liderazgo e Impacto Social"),
+    ("La Mesa Redonda", "Círculo estudiantil de diálogo, debate de ideas, pensamiento crítico y actualidad.", "Liderazgo e Impacto Social"),
 ]
 
 

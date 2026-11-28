@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Boolean, Column, DateTime, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import func
 
@@ -19,6 +19,7 @@ class ClubModel(Base):
     horario = Column(String, nullable=True)
     lugar = Column(String, nullable=True)
     lider = Column(String, nullable=True)
+    miembros_base = Column(Integer, nullable=False, server_default="0", default=0)
     redes_json = Column(JSONB, nullable=False, server_default="{}", default=dict)
     inscripciones_abiertas = Column(Boolean, nullable=False, server_default="false", default=False)
     ms_forms_url = Column(Text, nullable=True)

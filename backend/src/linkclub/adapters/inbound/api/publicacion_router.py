@@ -3,22 +3,33 @@ from typing import Annotated, List, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from linkclub.adapters.inbound.api.auth_dependency import require_auth
+from linkclub.adapters.inbound.api.auth_dependency import (
+    get_auth_port,
+    get_current_user,
+    require_auth,
+)
 from linkclub.adapters.outbound.postgres.database import get_db
 from linkclub.adapters.outbound.postgres.models.club_model import ClubModel
-from linkclub.adapters.outbound.postgres.models.publicacion_model import PublicacionModel
+from linkclub.adapters.outbound.postgres.models.publicacion_model import (
+    PublicacionLikeModel,
+    PublicacionModel,
+)
 from linkclub.adapters.outbound.postgres.models.usuario_model import UsuarioModel
 from linkclub.adapters.outbound.postgres.publicacion_repository import (
     PublicacionRepositoryPostgres,
 )
+from linkclub.application.ports.outbound_auth_port import AuthPort
 from linkclub.application.use_cases.crear_publicacion import CrearPublicacionUseCase
 from linkclub.domain.publicacion import Publicacion, PublicacionDuplicada
 
 router = APIRouter(tags=["publicaciones"])
+optional_bearer = HTTPBearer(auto_error=False)
 
 
 def get_use_case(db: Session = Depends(get_db)) -> CrearPublicacionUseCase:
@@ -65,11 +76,49 @@ class PublicacionResponse(BaseModel):
     opciones: Optional[List[str]] = None
     imagen_url: Optional[str] = None
     creado_en: datetime
+    total_likes: int = 0
+    usuario_dio_like: bool = False
+
+
+class LikeToggleResponse(BaseModel):
+    usuario_dio_like: bool
+    total_likes: int
+
+
+def _obtener_usuario_opcional(
+    cred: HTTPAuthorizationCredentials | None = Depends(optional_bearer),
+    auth: AuthPort = Depends(get_auth_port),
+    db: Session = Depends(get_db),
+) -> Optional[UsuarioModel]:
+    if cred is None:
+        return None
+    try:
+        identidad = auth.verificar(cred.credentials)
+    except Exception:
+        return None
+    usuario = (
+        db.query(UsuarioModel)
+        .filter((UsuarioModel.matricula == identidad) | (UsuarioModel.correo == identidad))
+        .first()
+    )
+    if not usuario or usuario.estado_cuenta != "ACTIVO":
+        return None
+    return usuario
+
+
+def _contar_likes(pub_uuid: uuid.UUID, db: Session) -> int:
+    return int(
+        db.query(func.count(PublicacionLikeModel.id))
+        .filter(PublicacionLikeModel.publicacion_id == pub_uuid)
+        .scalar()
+        or 0
+    )
 
 
 def _serializar_publicacion(
     p: Publicacion,
     db: Session,
+    usuario_actual: Optional[UsuarioModel] = None,
 ) -> PublicacionResponse:
     autor = db.query(UsuarioModel).filter(UsuarioModel.matricula == p.autor_id).first()
     club_nombre = None
@@ -77,6 +126,24 @@ def _serializar_publicacion(
         club = db.query(ClubModel).filter(ClubModel.id == uuid.UUID(str(p.club_id))).first()
         if club:
             club_nombre = club.nombre
+    except ValueError:
+        pass
+
+    total_likes = 0
+    usuario_dio_like = False
+    try:
+        pub_uuid = uuid.UUID(str(p.id))
+        total_likes = _contar_likes(pub_uuid, db)
+        if usuario_actual is not None:
+            usuario_dio_like = (
+                db.query(PublicacionLikeModel)
+                .filter(
+                    PublicacionLikeModel.publicacion_id == pub_uuid,
+                    PublicacionLikeModel.usuario_matricula == usuario_actual.matricula,
+                )
+                .first()
+                is not None
+            )
     except ValueError:
         pass
 
@@ -95,6 +162,8 @@ def _serializar_publicacion(
         opciones=p.opciones,
         imagen_url=p.imagen_url,
         creado_en=fecha_creacion,
+        total_likes=total_likes,
+        usuario_dio_like=usuario_dio_like,
     )
 
 
@@ -136,6 +205,7 @@ def _verificar_permiso_publicar(club_id: str, autor_id: str, db: Session) -> Non
 def listar_publicaciones_feed(
     db: Annotated[Session, Depends(get_db)],
     club_id: Optional[str] = None,
+    usuario: Annotated[Optional[UsuarioModel], Depends(_obtener_usuario_opcional)] = None,
 ):
     query = db.query(PublicacionModel)
     if club_id:
@@ -145,20 +215,72 @@ def listar_publicaciones_feed(
             return []
     registros = query.order_by(PublicacionModel.creado_en.desc()).all()
     repo = PublicacionRepositoryPostgres(db)
-    return [_serializar_publicacion(repo._mapear_a_dominio(r), db) for r in registros]
+    return [
+        _serializar_publicacion(repo._mapear_a_dominio(r), db, usuario)
+        for r in registros
+    ]
 
 
 @router.get("/clubes/{club_id}/publicaciones", response_model=List[PublicacionResponse])
 def listar_publicaciones_por_club(
     club_id: str,
     db: Annotated[Session, Depends(get_db)],
+    usuario: Annotated[Optional[UsuarioModel], Depends(_obtener_usuario_opcional)] = None,
 ):
     repo = PublicacionRepositoryPostgres(db)
     try:
         publicaciones = repo.listar_por_club(club_id)
     except ValueError:
         return []
-    return [_serializar_publicacion(p, db) for p in publicaciones]
+    return [_serializar_publicacion(p, db, usuario) for p in publicaciones]
+
+
+@router.post(
+    "/publicaciones/{publicacion_id}/like",
+    response_model=LikeToggleResponse,
+)
+def alternar_like_publicacion(
+    publicacion_id: str,
+    usuario: Annotated[UsuarioModel, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        pub_uuid = uuid.UUID(publicacion_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Publicación no encontrada.") from exc
+
+    existe_pub = (
+        db.query(PublicacionModel).filter(PublicacionModel.id == pub_uuid).first()
+    )
+    if not existe_pub:
+        raise HTTPException(status_code=404, detail="Publicación no encontrada.")
+
+    like_existente = (
+        db.query(PublicacionLikeModel)
+        .filter(
+            PublicacionLikeModel.publicacion_id == pub_uuid,
+            PublicacionLikeModel.usuario_matricula == usuario.matricula,
+        )
+        .first()
+    )
+
+    if like_existente:
+        db.delete(like_existente)
+        usuario_dio_like = False
+    else:
+        db.add(
+            PublicacionLikeModel(
+                publicacion_id=pub_uuid,
+                usuario_matricula=usuario.matricula,
+            )
+        )
+        usuario_dio_like = True
+
+    db.commit()
+    return LikeToggleResponse(
+        usuario_dio_like=usuario_dio_like,
+        total_likes=_contar_likes(pub_uuid, db),
+    )
 
 
 @router.post(

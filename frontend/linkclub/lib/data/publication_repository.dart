@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:linkclub/core/network/api_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ClubOption {
   final String id;
@@ -27,6 +28,8 @@ class PublicacionModel {
   final String contenido;
   final String? imagenUrl;
   final DateTime creadoEn;
+  final int totalLikes;
+  final bool usuarioDioLike;
 
   PublicacionModel({
     required this.id,
@@ -37,7 +40,35 @@ class PublicacionModel {
     required this.contenido,
     this.imagenUrl,
     required this.creadoEn,
+    this.totalLikes = 0,
+    this.usuarioDioLike = false,
   });
+
+  PublicacionModel copyWith({
+    String? id,
+    String? clubId,
+    String? clubNombre,
+    String? autorNombre,
+    String? titulo,
+    String? contenido,
+    String? imagenUrl,
+    DateTime? creadoEn,
+    int? totalLikes,
+    bool? usuarioDioLike,
+  }) {
+    return PublicacionModel(
+      id: id ?? this.id,
+      clubId: clubId ?? this.clubId,
+      clubNombre: clubNombre ?? this.clubNombre,
+      autorNombre: autorNombre ?? this.autorNombre,
+      titulo: titulo ?? this.titulo,
+      contenido: contenido ?? this.contenido,
+      imagenUrl: imagenUrl ?? this.imagenUrl,
+      creadoEn: creadoEn ?? this.creadoEn,
+      totalLikes: totalLikes ?? this.totalLikes,
+      usuarioDioLike: usuarioDioLike ?? this.usuarioDioLike,
+    );
+  }
 
   factory PublicacionModel.fromJson(Map<String, dynamic> json) {
     final String rawContenido = json['contenido'] ?? '';
@@ -51,6 +82,12 @@ class PublicacionModel {
       contenidoLimpio = rawContenido.replaceFirst(imgRegex, '').trim();
     }
 
+    final int parsedLikes = json['total_likes'] is int
+        ? json['total_likes']
+        : int.tryParse(json['total_likes']?.toString() ?? '0') ?? 0;
+    final bool parsedDioLike =
+        json['usuario_dio_like'] == true || json['usuario_dio_like'] == 1;
+
     return PublicacionModel(
       id: json['id']?.toString() ?? '',
       clubId: json['club_id']?.toString() ?? '',
@@ -62,12 +99,35 @@ class PublicacionModel {
       creadoEn: (json['creada_en'] ?? json['creado_en']) != null
           ? DateTime.parse(json['creada_en'] ?? json['creado_en'])
           : DateTime.now(),
+      totalLikes: parsedLikes,
+      usuarioDioLike: parsedDioLike,
     );
   }
 }
 
+class LikeToggleResult {
+  final bool usuarioDioLike;
+  final int totalLikes;
+
+  const LikeToggleResult({
+    required this.usuarioDioLike,
+    required this.totalLikes,
+  });
+}
+
 class PublicacionRepository {
   final Dio _dio = ApiClient.dio;
+  static const String _likesPrefsKey = 'publicaciones_liked_ids';
+
+  Future<Set<String>> obtenerLikesGuardadosLocalmente() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_likesPrefsKey) ?? const <String>[]).toSet();
+  }
+
+  Future<void> _guardarLikesLocales(Set<String> ids) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_likesPrefsKey, ids.toList());
+  }
 
   Future<List<ClubOption>> obtenerClubes() async {
     final response = await _dio.get('/clubes');
@@ -81,9 +141,53 @@ class PublicacionRepository {
       final List data = response.data is List ? response.data : [];
       final todas = data.map((e) => PublicacionModel.fromJson(e)).toList();
       todas.sort((a, b) => b.creadoEn.compareTo(a.creadoEn));
+
+      final likedIds = {
+        for (final pub in todas)
+          if (pub.usuarioDioLike) pub.id,
+      };
+      await _guardarLikesLocales(likedIds);
+
       return todas;
     } catch (e) {
       throw Exception('Error al cargar el feed de publicaciones.');
+    }
+  }
+
+  Future<LikeToggleResult> alternarLike(String publicacionId) async {
+    final localesPrevios = await obtenerLikesGuardadosLocalmente();
+    final localesActualizados = Set<String>.from(localesPrevios);
+    if (localesActualizados.contains(publicacionId)) {
+      localesActualizados.remove(publicacionId);
+    } else {
+      localesActualizados.add(publicacionId);
+    }
+    await _guardarLikesLocales(localesActualizados);
+
+    try {
+      final response = await _dio.post('/publicaciones/$publicacionId/like');
+      final data = response.data is Map ? response.data : <String, dynamic>{};
+      final bool dioLike =
+          data['usuario_dio_like'] == true || data['usuario_dio_like'] == 1;
+      final int totalLikes = data['total_likes'] is int
+          ? data['total_likes']
+          : int.tryParse(data['total_likes']?.toString() ?? '0') ?? 0;
+
+      final confirmados = Set<String>.from(localesActualizados);
+      if (dioLike) {
+        confirmados.add(publicacionId);
+      } else {
+        confirmados.remove(publicacionId);
+      }
+      await _guardarLikesLocales(confirmados);
+
+      return LikeToggleResult(usuarioDioLike: dioLike, totalLikes: totalLikes);
+    } on DioException catch (e) {
+      await _guardarLikesLocales(localesPrevios);
+      final detalle = e.response?.data is Map
+          ? (e.response?.data['detail'] ?? e.message)
+          : e.message;
+      throw Exception(detalle.toString());
     }
   }
 
