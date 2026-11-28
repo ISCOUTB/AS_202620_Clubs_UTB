@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from linkclub.adapters.inbound.api.auth_router import router as auth_router
@@ -40,6 +40,7 @@ _MIGRACIONES_POSTGRES = (
         ADD COLUMN IF NOT EXISTS horario VARCHAR,
         ADD COLUMN IF NOT EXISTS lugar VARCHAR,
         ADD COLUMN IF NOT EXISTS lider VARCHAR,
+        ADD COLUMN IF NOT EXISTS miembros_base INTEGER NOT NULL DEFAULT 0,
         ADD COLUMN IF NOT EXISTS redes_json JSONB NOT NULL DEFAULT '{}'::jsonb,
         ADD COLUMN IF NOT EXISTS inscripciones_abiertas BOOLEAN NOT NULL DEFAULT false,
         ADD COLUMN IF NOT EXISTS ms_forms_url TEXT,
@@ -115,7 +116,14 @@ def _inicializar_base_datos() -> None:
         with SessionLocal() as db:
             for nombre, descripcion, categoria in _SEMILLA:
                 club_uuid = uuid5(NAMESPACE_DNS, f"linkclub.{nombre}")
-                existe = db.query(ClubModel).filter(ClubModel.id == club_uuid).first()
+                existe = (
+                    db.query(ClubModel)
+                    .filter(
+                        (ClubModel.id == club_uuid)
+                        | (func.lower(func.trim(ClubModel.nombre)) == nombre.strip().lower())
+                    )
+                    .first()
+                )
                 if not existe:
                     db.add(
                         ClubModel(

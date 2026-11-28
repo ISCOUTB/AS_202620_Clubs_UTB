@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:linkclub/core/network/api_client.dart';
 import 'package:linkclub/core/session/session_controller.dart';
 import 'package:linkclub/core/theme/theme_controller.dart';
 import 'package:linkclub/data/auth_repository.dart';
@@ -292,6 +294,52 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
     super.dispose();
   }
 
+  int _puntajeCompletitud(ClubModel club) {
+    int puntaje = 0;
+    if (club.descripcionCompleta != null &&
+        club.descripcionCompleta!.trim().isNotEmpty) {
+      puntaje += 4;
+    }
+    if (club.horario != 'Sábados 9:00 AM - 12:00 PM' &&
+        club.horario != 'Por definir en convocatoria') {
+      puntaje += 3;
+    }
+    if (club.lugar != 'Campus Tecnológico UTB') {
+      puntaje += 3;
+    }
+    if (club.lider != 'Coordinación Bienestar UTB') {
+      puntaje += 2;
+    }
+    if (club.miembrosCount > 0) {
+      puntaje += 2;
+    }
+    if (club.avisoInscripcion != null &&
+        club.avisoInscripcion!.trim().isNotEmpty) {
+      puntaje += 1;
+    }
+    return puntaje;
+  }
+
+  List<ClubModel> _deduplicarClubes(List<ClubModel> clubes) {
+    final Map<String, ClubModel> unicos = {};
+    for (final club in clubes) {
+      final clave = club.nombre.trim().toLowerCase();
+      if (clave.isEmpty) continue;
+      final existente = unicos[clave];
+      if (existente == null ||
+          _puntajeCompletitud(club) > _puntajeCompletitud(existente)) {
+        unicos[clave] = club;
+      }
+    }
+    final lista = unicos.values.toList()
+      ..sort(
+        (a, b) => a.nombre.trim().toLowerCase().compareTo(
+          b.nombre.trim().toLowerCase(),
+        ),
+      );
+    return lista;
+  }
+
   Future<void> _cargarClubes() async {
     setState(() {
       _isLoading = true;
@@ -302,7 +350,7 @@ class _ClubsListScreenState extends State<ClubsListScreen> {
       final clubes = await _clubRepository.obtenerClubes();
       if (mounted) {
         setState(() {
-          _todosLosClubes = clubes;
+          _todosLosClubes = _deduplicarClubes(clubes);
           _isLoading = false;
         });
       }
@@ -988,51 +1036,343 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _confirmarEliminarCuenta(BuildContext context) async {
-    final confirmar = await showDialog<bool>(
+    final usuario = SessionController.instance.usuario;
+    if (usuario == null) return;
+
+    final pass1Ctrl = TextEditingController();
+    final pass2Ctrl = TextEditingController();
+    final matriculaCtrl = TextEditingController();
+
+    int paso = 1; // 1: doble clave, 2: transcribir matrícula
+    bool ocultarPass1 = true;
+    bool ocultarPass2 = true;
+    bool procesando = false;
+    String? errorDialogo;
+
+    final eliminada = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Eliminar cuenta',
-          style: TextStyle(
-            fontFamily: _fontDisplay,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
-        ),
-        content: const Text(
-          'Esta acción es permanente y eliminará tu acceso institucional a LinkClub. ¿Deseas continuar?',
-          style: TextStyle(fontFamily: _fontBody, height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: _errorRed,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          final alertaBg = isDark
+              ? _errorRed.withValues(alpha: 0.16)
+              : _errorContainer.withValues(alpha: 0.72);
+          final alertaText = isDark ? const Color(0xFFFFB4AB) : _errorRed;
+          final matriculaEsperada = usuario.matricula.trim();
+          final matriculaCoincide =
+              matriculaCtrl.text.trim() == matriculaEsperada;
+
+          Future<void> validarClavesYAvanzar() async {
+            final p1 = pass1Ctrl.text.trim();
+            final p2 = pass2Ctrl.text.trim();
+
+            if (p1.isEmpty || p2.isEmpty) {
+              setStateDialog(() {
+                errorDialogo = 'Completa ambos campos de contraseña.';
+              });
+              return;
+            }
+            if (p1 != p2) {
+              setStateDialog(() {
+                errorDialogo = 'Las contraseñas no coinciden.';
+              });
+              return;
+            }
+
+            setStateDialog(() {
+              procesando = true;
+              errorDialogo = null;
+            });
+
+            try {
+              await ApiClient.dio.post(
+                '/auth/login',
+                data: {'correo': usuario.correo, 'password': p1},
+              );
+              if (!ctx.mounted) return;
+              setStateDialog(() {
+                procesando = false;
+                errorDialogo = null;
+                paso = 2;
+              });
+            } on DioException catch (e) {
+              if (!ctx.mounted) return;
+              final status = e.response?.statusCode;
+              setStateDialog(() {
+                procesando = false;
+                errorDialogo = (status == 401 || status == 403)
+                    ? 'La contraseña actual es incorrecta.'
+                    : 'No se pudo verificar tu contraseña. Intenta de nuevo.';
+              });
+            } catch (_) {
+              if (!ctx.mounted) return;
+              setStateDialog(() {
+                procesando = false;
+                errorDialogo = 'Error de conexión al validar tu clave.';
+              });
+            }
+          }
+
+          Future<void> ejecutarEliminacionDefinitiva() async {
+            if (!matriculaCoincide) return;
+            setStateDialog(() {
+              procesando = true;
+              errorDialogo = null;
+            });
+
+            try {
+              await AuthRepository().eliminarMiCuenta();
+              await SessionController.instance.cerrarSesion();
+              if (ctx.mounted) Navigator.pop(ctx, true);
+            } catch (e) {
+              if (!ctx.mounted) return;
+              setStateDialog(() {
+                procesando = false;
+                errorDialogo = e.toString().replaceFirst('Exception: ', '');
+              });
+            }
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: alertaText, size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    paso == 1
+                        ? 'Eliminar cuenta (1/2)'
+                        : 'Confirmación final (2/2)',
+                    style: const TextStyle(
+                      fontFamily: _fontDisplay,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: alertaBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _errorRed.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Text(
+                      paso == 1
+                          ? 'Proceso delicado, permanente e irreversible: se eliminará tu cuenta institucional, tus membresías y tus registros en LinkClub sin posibilidad de recuperación.'
+                          : 'Último aviso: tu cuenta se borrará de forma definitiva e irreversible. Esta acción no se puede deshacer.',
+                      style: TextStyle(
+                        fontFamily: _fontBody,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                        color: alertaText,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (paso == 1) ...[
+                    const Text(
+                      'Ingresa tu contraseña dos veces para continuar:',
+                      style: TextStyle(
+                        fontFamily: _fontBody,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: pass1Ctrl,
+                      obscureText: ocultarPass1,
+                      enabled: !procesando,
+                      onChanged: (_) {
+                        if (errorDialogo != null) {
+                          setStateDialog(() => errorDialogo = null);
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña actual',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            ocultarPass1
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 20,
+                          ),
+                          onPressed: () => setStateDialog(
+                            () => ocultarPass1 = !ocultarPass1,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: pass2Ctrl,
+                      obscureText: ocultarPass2,
+                      enabled: !procesando,
+                      onChanged: (_) {
+                        if (errorDialogo != null) {
+                          setStateDialog(() => errorDialogo = null);
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Confirmar contraseña',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            ocultarPass2
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 20,
+                          ),
+                          onPressed: () => setStateDialog(
+                            () => ocultarPass2 = !ocultarPass2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontFamily: _fontBody,
+                          fontSize: 13.5,
+                          height: 1.45,
+                          color: Theme.of(ctx).colorScheme.onSurface,
+                        ),
+                        children: [
+                          const TextSpan(
+                            text: 'Para confirmar, transcribe tu matrícula ',
+                          ),
+                          TextSpan(
+                            text: matriculaEsperada,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: alertaText,
+                            ),
+                          ),
+                          const TextSpan(text: ':'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: matriculaCtrl,
+                      enabled: !procesando,
+                      textCapitalization: TextCapitalization.characters,
+                      onChanged: (_) => setStateDialog(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Número de matrícula',
+                        hintText: matriculaEsperada,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (errorDialogo != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorDialogo!,
+                      style: TextStyle(
+                        fontFamily: _fontBody,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: alertaText,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar definitivamente'),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: procesando ? null : () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar'),
+              ),
+              if (paso == 1)
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _errorRed,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: procesando ? null : validarClavesYAvanzar,
+                  child: procesando
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Continuar'),
+                )
+              else
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _errorRed,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: (!matriculaCoincide || procesando)
+                      ? null
+                      : ejecutarEliminacionDefinitiva,
+                  child: procesando
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Aceptar y eliminar'),
+                ),
+            ],
+          );
+        },
       ),
     );
 
-    if (confirmar == true) {
-      await AuthRepository().eliminarMiCuenta();
-      await SessionController.instance.cerrarSesion();
-      if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (_) => false,
-        );
-      }
+    pass1Ctrl.dispose();
+    pass2Ctrl.dispose();
+    matriculaCtrl.dispose();
+
+    if (eliminada == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tu cuenta ha sido eliminada permanentemente.'),
+          backgroundColor: _errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (_) => false,
+      );
     }
   }
 

@@ -26,10 +26,12 @@ class PublicacionModel {
   final String autorNombre;
   final String titulo;
   final String contenido;
-  final String? imagenUrl;
+  final List<String> imagenesUrls;
   final DateTime creadoEn;
   final int totalLikes;
   final bool usuarioDioLike;
+
+  String? get imagenUrl => imagenesUrls.isNotEmpty ? imagenesUrls.first : null;
 
   PublicacionModel({
     required this.id,
@@ -38,11 +40,16 @@ class PublicacionModel {
     required this.autorNombre,
     required this.titulo,
     required this.contenido,
-    this.imagenUrl,
+    List<String>? imagenesUrls,
+    String? imagenUrl,
     required this.creadoEn,
     this.totalLikes = 0,
     this.usuarioDioLike = false,
-  });
+  }) : imagenesUrls =
+           imagenesUrls ??
+           ((imagenUrl != null && imagenUrl.trim().isNotEmpty)
+               ? [imagenUrl.trim()]
+               : const <String>[]);
 
   PublicacionModel copyWith({
     String? id,
@@ -51,6 +58,7 @@ class PublicacionModel {
     String? autorNombre,
     String? titulo,
     String? contenido,
+    List<String>? imagenesUrls,
     String? imagenUrl,
     DateTime? creadoEn,
     int? totalLikes,
@@ -63,7 +71,11 @@ class PublicacionModel {
       autorNombre: autorNombre ?? this.autorNombre,
       titulo: titulo ?? this.titulo,
       contenido: contenido ?? this.contenido,
-      imagenUrl: imagenUrl ?? this.imagenUrl,
+      imagenesUrls:
+          imagenesUrls ??
+          (imagenUrl != null
+              ? (imagenUrl.trim().isNotEmpty ? [imagenUrl.trim()] : const [])
+              : this.imagenesUrls),
       creadoEn: creadoEn ?? this.creadoEn,
       totalLikes: totalLikes ?? this.totalLikes,
       usuarioDioLike: usuarioDioLike ?? this.usuarioDioLike,
@@ -72,15 +84,22 @@ class PublicacionModel {
 
   factory PublicacionModel.fromJson(Map<String, dynamic> json) {
     final String rawContenido = json['contenido'] ?? '';
-    String? imagen = json['imagen_url'];
-    String contenidoLimpio = rawContenido;
+    final String? imagenPrincipal = json['imagen_url']?.toString().trim();
+    final List<String> urls = <String>[];
+
+    if (imagenPrincipal != null && imagenPrincipal.isNotEmpty) {
+      urls.add(imagenPrincipal);
+    }
 
     final imgRegex = RegExp(r'!\[[^\]]*\]\(([^)]+)\)');
-    final match = imgRegex.firstMatch(rawContenido);
-    if (match != null) {
-      imagen ??= match.group(1);
-      contenidoLimpio = rawContenido.replaceFirst(imgRegex, '').trim();
+    for (final match in imgRegex.allMatches(rawContenido)) {
+      final url = match.group(1)?.trim();
+      if (url != null && url.isNotEmpty && !urls.contains(url)) {
+        urls.add(url);
+      }
     }
+
+    final String contenidoLimpio = rawContenido.replaceAll(imgRegex, '').trim();
 
     final int parsedLikes = json['total_likes'] is int
         ? json['total_likes']
@@ -95,7 +114,7 @@ class PublicacionModel {
       autorNombre: json['autor_nombre'] ?? json['autor_id'] ?? 'Estudiante UTB',
       titulo: json['titulo'] ?? 'Aviso',
       contenido: contenidoLimpio,
-      imagenUrl: imagen,
+      imagenesUrls: urls.take(5).toList(),
       creadoEn: (json['creada_en'] ?? json['creado_en']) != null
           ? DateTime.parse(json['creada_en'] ?? json['creado_en'])
           : DateTime.now(),
@@ -199,55 +218,82 @@ class PublicacionRepository {
     return DioMediaType('image', 'jpeg');
   }
 
+  Future<String?> _subirArchivoUnico(dynamic archivoLocal) async {
+    final String fileName = kIsWeb
+        ? archivoLocal.name
+        : archivoLocal.path.split('/').last;
+    final mediaType = _detectarMediaType(fileName);
+    FormData formData;
+
+    if (kIsWeb) {
+      final bytes = await archivoLocal.readAsBytes();
+      formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          bytes,
+          filename: fileName,
+          contentType: mediaType,
+        ),
+      });
+    } else {
+      formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          archivoLocal.path,
+          filename: fileName,
+          contentType: mediaType,
+        ),
+      });
+    }
+
+    final responseUpload = await _dio.post('/recursos/upload', data: formData);
+
+    if (responseUpload.statusCode == 200 || responseUpload.statusCode == 201) {
+      final String rutaRelativa = responseUpload.data['url'] ?? '';
+      if (rutaRelativa.startsWith('http')) {
+        return rutaRelativa;
+      } else if (rutaRelativa.isNotEmpty) {
+        return '${_dio.options.baseUrl}$rutaRelativa';
+      }
+    }
+    return null;
+  }
+
   Future<void> crearPublicacionConArchivo({
     required String clubId,
     required String titulo,
     required String contenido,
     String? imagenUrl,
     dynamic archivoLocal,
+    List<dynamic>? archivosLocales,
+    List<String>? imagenesUrls,
   }) async {
-    String? urlFinal = imagenUrl;
+    final List<String> urlsFinales = <String>[];
 
-    if (archivoLocal != null) {
-      try {
-        final String fileName = kIsWeb
-            ? archivoLocal.name
-            : archivoLocal.path.split('/').last;
-        final mediaType = _detectarMediaType(fileName);
-        FormData formData;
-
-        if (kIsWeb) {
-          final bytes = await archivoLocal.readAsBytes();
-          formData = FormData.fromMap({
-            'file': MultipartFile.fromBytes(
-              bytes,
-              filename: fileName,
-              contentType: mediaType,
-            ),
-          });
-        } else {
-          formData = FormData.fromMap({
-            'file': await MultipartFile.fromFile(
-              archivoLocal.path,
-              filename: fileName,
-              contentType: mediaType,
-            ),
-          });
+    if (imagenesUrls != null) {
+      for (final u in imagenesUrls) {
+        final limpia = u.trim();
+        if (limpia.isNotEmpty && !urlsFinales.contains(limpia)) {
+          urlsFinales.add(limpia);
         }
+      }
+    }
+    if (imagenUrl != null &&
+        imagenUrl.trim().isNotEmpty &&
+        !urlsFinales.contains(imagenUrl.trim())) {
+      urlsFinales.add(imagenUrl.trim());
+    }
 
-        final responseUpload = await _dio.post(
-          '/recursos/upload',
-          data: formData,
-        );
+    final List<dynamic> listaArchivos = <dynamic>[
+      if (archivosLocales != null) ...archivosLocales,
+      if (archivoLocal != null) archivoLocal,
+    ];
 
-        if (responseUpload.statusCode == 200 ||
-            responseUpload.statusCode == 201) {
-          final String rutaRelativa = responseUpload.data['url'] ?? '';
-          if (rutaRelativa.startsWith('http')) {
-            urlFinal = rutaRelativa;
-          } else if (rutaRelativa.isNotEmpty) {
-            urlFinal = '${_dio.options.baseUrl}$rutaRelativa';
-          }
+    for (final archivo in listaArchivos.take(5 - urlsFinales.length)) {
+      try {
+        final subida = await _subirArchivoUnico(archivo);
+        if (subida != null &&
+            subida.isNotEmpty &&
+            !urlsFinales.contains(subida)) {
+          urlsFinales.add(subida);
         }
       } on DioException catch (e) {
         final detalle = e.response?.data is Map
@@ -257,8 +303,19 @@ class PublicacionRepository {
       }
     }
 
-    final String cuerpoFinal = (urlFinal != null && urlFinal.isNotEmpty)
-        ? '$contenido\n\n![Afiche]($urlFinal)'
+    final List<String> limitadas = urlsFinales.take(5).toList();
+    final String? imagenPrincipal = limitadas.isNotEmpty
+        ? limitadas.first
+        : null;
+
+    final String bloquesMarkdown = limitadas
+        .asMap()
+        .entries
+        .map((entry) => '![Afiche ${entry.key + 1}](${entry.value})')
+        .join('\n\n');
+
+    final String cuerpoFinal = bloquesMarkdown.isNotEmpty
+        ? '$contenido\n\n$bloquesMarkdown'
         : contenido;
 
     try {
@@ -268,7 +325,7 @@ class PublicacionRepository {
           'titulo': titulo,
           'contenido': cuerpoFinal,
           'tipo': 'aviso',
-          if (urlFinal != null && urlFinal.isNotEmpty) 'imagen_url': urlFinal,
+          if (imagenPrincipal != null) 'imagen_url': imagenPrincipal,
         },
       );
     } on DioException catch (e) {

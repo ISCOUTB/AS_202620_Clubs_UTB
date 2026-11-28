@@ -1,10 +1,9 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:linkclub/data/publication_repository.dart';
 import 'package:linkclub/core/session/session_controller.dart';
+import 'package:linkclub/data/publication_repository.dart';
+import 'package:linkclub/presentation/publication_carousel.dart';
 
 class CreatePublicationScreen extends StatefulWidget {
   final String? clubIdFijo;
@@ -19,6 +18,7 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     with SingleTickerProviderStateMixin {
   static const String _fontDisplay = 'Plus Jakarta Sans';
   static const String _fontBody = 'Inter';
+  static const int _maxImagenes = 5;
 
   // Paleta Academic Vanguard
   static const Color _primaryBlue = Color(0xFF2563EB);
@@ -45,12 +45,12 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   final TextEditingController _urlController = TextEditingController();
   final PublicacionRepository _repository = PublicacionRepository();
 
-  List<ClubOption> _clubes = [];
-  String? _clubSeleccionadoId;
-  bool _cargandoClubes = true;
-  bool _clubBloqueado = false;
+  String? _clubAdministradoId;
+  String? _clubAdministradoNombre;
+  bool _cargandoClub = true;
 
-  XFile? _imagenSeleccionada;
+  final List<XFile> _imagenesSeleccionadas = [];
+  final List<String> _urlsExternas = [];
   bool _usarUrlExterna = false;
   bool _isLoading = false;
 
@@ -58,7 +58,7 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _cargarClubes();
+    _cargarClubAdministrado();
 
     _tabController.addListener(() {
       if (_tabController.index == 1) {
@@ -68,35 +68,64 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     });
   }
 
-  Future<void> _cargarClubes() async {
+  Future<void> _cargarClubAdministrado() async {
     final session = SessionController.instance;
-    final String? fijo =
-        widget.clubIdFijo ??
-        (session.esAdminClubReal ? session.usuario?.clubAdministradoId : null);
-
-    List<ClubOption> lista = [];
-    try {
-      lista = await _repository.obtenerClubes();
-    } catch (_) {}
-
-    if (!mounted) return;
-
-    if (fijo != null && !lista.any((c) => c.id == fijo)) {
-      lista = [
-        ...lista,
-        ClubOption(
-          id: fijo,
-          nombre: session.usuario?.clubAdministradoNombre ?? 'Club asignado',
-          categoria: '',
-        ),
-      ];
+    if (session.usuario == null) {
+      await session.cargarSesion();
     }
 
+    final String? clubCuentaId =
+        (session.usuario?.clubAdministradoId != null &&
+            session.usuario!.clubAdministradoId!.trim().isNotEmpty)
+        ? session.usuario!.clubAdministradoId!.trim()
+        : null;
+
+    final String? clubFijoParam =
+        (widget.clubIdFijo != null && widget.clubIdFijo!.trim().isNotEmpty)
+        ? widget.clubIdFijo!.trim()
+        : null;
+
+    String? idObjetivo = clubFijoParam ?? clubCuentaId;
+    String? nombreObjetivo;
+
+    if (idObjetivo != null && idObjetivo == clubCuentaId) {
+      final nombreSesion = session.usuario?.clubAdministradoNombre?.trim();
+      if (nombreSesion != null && nombreSesion.isNotEmpty) {
+        nombreObjetivo = nombreSesion;
+      }
+    }
+
+    if (idObjetivo == null || nombreObjetivo == null) {
+      try {
+        final lista = await _repository.obtenerClubes();
+        if (idObjetivo != null) {
+          final match = lista.where((c) => c.id == idObjetivo);
+          if (match.isNotEmpty) {
+            nombreObjetivo = match.first.nombre;
+          }
+        } else if (session.esSuperAdminReal) {
+          final institucional = lista.where(
+            (c) =>
+                c.categoria.trim().toLowerCase() == 'institucional' ||
+                c.nombre.trim() == '-Desarrollo y Soporte-',
+          );
+          if (institucional.isNotEmpty) {
+            idObjetivo = institucional.first.id;
+            nombreObjetivo = institucional.first.nombre;
+          }
+        }
+      } catch (_) {}
+    }
+
+    nombreObjetivo ??=
+        session.usuario?.clubAdministradoNombre ??
+        (session.esSuperAdminReal ? '-Desarrollo y Soporte-' : 'Club asignado');
+
+    if (!mounted) return;
     setState(() {
-      _clubes = lista;
-      _clubBloqueado = fijo != null;
-      _clubSeleccionadoId = fijo ?? (lista.isNotEmpty ? lista.first.id : null);
-      _cargandoClubes = false;
+      _clubAdministradoId = idObjetivo;
+      _clubAdministradoNombre = nombreObjetivo;
+      _cargandoClub = false;
     });
   }
 
@@ -109,25 +138,98 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     super.dispose();
   }
 
-  String get _nombreClubSeleccionado {
-    if (_clubSeleccionadoId == null) return 'Club UTB';
-    final match = _clubes.where((c) => c.id == _clubSeleccionadoId);
-    return match.isNotEmpty ? match.first.nombre : 'Club UTB';
+  String get _nombreClubActual {
+    if (_clubAdministradoNombre != null &&
+        _clubAdministradoNombre!.trim().isNotEmpty) {
+      return _clubAdministradoNombre!.trim();
+    }
+    return SessionController.instance.usuario?.clubAdministradoNombre ??
+        'Club UTB';
   }
 
-  Future<void> _seleccionarImagen() async {
+  List<PublicationCarouselItem> get _itemsCarruselActuales {
+    if (_usarUrlExterna) {
+      final limpias = List<String>.from(_urlsExternas);
+      final pendiente = _urlController.text.trim();
+      if (pendiente.isNotEmpty &&
+          !limpias.contains(pendiente) &&
+          limpias.length < _maxImagenes) {
+        limpias.add(pendiente);
+      }
+      return limpias
+          .map((u) => PublicationCarouselItem(pathOrUrl: u, isLocalFile: false))
+          .toList();
+    }
+    return _imagenesSeleccionadas
+        .map(
+          (x) => PublicationCarouselItem(pathOrUrl: x.path, isLocalFile: true),
+        )
+        .toList();
+  }
+
+  Future<void> _seleccionarImagenes() async {
+    final restantes = _maxImagenes - _imagenesSeleccionadas.length;
+    if (restantes <= 0) {
+      _mostrarAviso(
+        'Puedes adjuntar un máximo de $_maxImagenes fotos por publicación.',
+        Colors.orangeAccent,
+      );
+      return;
+    }
+
     final ImagePicker picker = ImagePicker();
-    final XFile? imagen = await picker.pickImage(
-      source: ImageSource.gallery,
+    final List<XFile> elegidas = await picker.pickMultiImage(
       imageQuality: 80,
+      limit: restantes,
     );
 
-    if (imagen != null) {
-      setState(() {
-        _imagenSeleccionada = imagen;
-        _urlController.clear();
-      });
+    if (elegidas.isEmpty || !mounted) return;
+
+    setState(() {
+      for (final img in elegidas) {
+        if (_imagenesSeleccionadas.length >= _maxImagenes) break;
+        final yaExiste = _imagenesSeleccionadas.any(
+          (actual) => actual.path == img.path && actual.name == img.name,
+        );
+        if (!yaExiste) {
+          _imagenesSeleccionadas.add(img);
+        }
+      }
+      _urlsExternas.clear();
+      _urlController.clear();
+    });
+  }
+
+  void _agregarUrlExterna() {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) return;
+
+    final uri = Uri.tryParse(url);
+    if (uri == null || (!uri.isScheme('http') && !uri.isScheme('https'))) {
+      _mostrarAviso(
+        'Ingresa un enlace válido que empiece con http:// o https://',
+        Colors.orangeAccent,
+      );
+      return;
     }
+
+    if (_urlsExternas.length >= _maxImagenes) {
+      _mostrarAviso(
+        'Puedes adjuntar un máximo de $_maxImagenes fotos por publicación.',
+        Colors.orangeAccent,
+      );
+      return;
+    }
+
+    if (_urlsExternas.contains(url)) {
+      _urlController.clear();
+      return;
+    }
+
+    setState(() {
+      _urlsExternas.add(url);
+      _urlController.clear();
+    });
   }
 
   void _aplicarFormato(String wrapper, {String prefix = ''}) {
@@ -281,8 +383,11 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     final titulo = _tituloController.text.trim();
     final contenido = _contenidoController.text.trim();
 
-    if (_clubSeleccionadoId == null || _clubSeleccionadoId!.isEmpty) {
-      _mostrarAviso('Selecciona un club para publicar.', Colors.orangeAccent);
+    if (_clubAdministradoId == null || _clubAdministradoId!.isEmpty) {
+      _mostrarAviso(
+        'No tienes un club asignado para publicar.',
+        Colors.orangeAccent,
+      );
       return;
     }
     if (titulo.isEmpty) {
@@ -300,20 +405,19 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
       return;
     }
 
+    if (_usarUrlExterna && _urlController.text.trim().isNotEmpty) {
+      _agregarUrlExterna();
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      final imagenFinalUrl =
-          _usarUrlExterna && _urlController.text.trim().isNotEmpty
-          ? _urlController.text.trim()
-          : null;
-
       await _repository.crearPublicacionConArchivo(
-        clubId: _clubSeleccionadoId!,
+        clubId: _clubAdministradoId!,
         titulo: titulo,
         contenido: contenido,
-        imagenUrl: imagenFinalUrl,
-        archivoLocal: _usarUrlExterna ? null : _imagenSeleccionada,
+        imagenesUrls: _usarUrlExterna ? _urlsExternas : null,
+        archivosLocales: _usarUrlExterna ? null : _imagenesSeleccionadas,
       );
 
       if (mounted) {
@@ -406,10 +510,14 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
     final textSecondary = isDarkMode ? _darkTextSecondary : _lightTextSecondary;
     final accentColor = isDarkMode ? _softBlue : _deepSapphire;
 
-    final nombreAutor = _nombreClubSeleccionado;
+    final nombreAutor = _nombreClubActual;
     final inicialAutor = nombreAutor.isNotEmpty
         ? nombreAutor[0].toUpperCase()
         : 'U';
+    final totalFotos = _usarUrlExterna
+        ? _urlsExternas.length
+        : _imagenesSeleccionadas.length;
+    final carruselItems = _itemsCarruselActuales;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -542,45 +650,69 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_cargandoClubes)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: LinearProgressIndicator(color: _primaryBlue),
-                  )
-                else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: surfaceColor,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: borderColor, width: 1),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
+                // Recordatorio fijo del club administrado
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: _primaryBlue.withValues(
+                            alpha: isDarkMode ? 0.18 : 0.10,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
                           Icons.groups_rounded,
                           size: 20,
                           color: isDarkMode ? _softBlue : _primaryBlue,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _nombreClubSeleccionado,
-                            style: TextStyle(
-                              fontFamily: _fontBody,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: textPrimary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Club administrado',
+                              style: TextStyle(
+                                fontFamily: _fontBody,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                                color: textSecondary,
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 1),
+                            Text(
+                              _cargandoClub && _clubAdministradoNombre == null
+                                  ? 'Cargando club...'
+                                  : _nombreClubActual,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: _fontDisplay,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ),
                 const SizedBox(height: 14),
                 TextField(
                   controller: _tituloController,
@@ -712,16 +844,30 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                 ),
                 const SizedBox(height: 16),
 
-                // Sección Multimedia
-                Text(
-                  'IMAGEN O AFICHE DEL EVENTO',
-                  style: TextStyle(
-                    fontFamily: _fontBody,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: textSecondary,
-                  ),
+                // Sección Multimedia (hasta 5 fotos)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'IMÁGENES O AFICHES (MÁX. $_maxImagenes)',
+                      style: TextStyle(
+                        fontFamily: _fontBody,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: textSecondary,
+                      ),
+                    ),
+                    Text(
+                      '$totalFotos / $_maxImagenes',
+                      style: TextStyle(
+                        fontFamily: _fontBody,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: totalFotos > 0 ? accentColor : textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 Container(
@@ -775,119 +921,178 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                           setState(() {
                             _usarUrlExterna = newSelection.first;
                             if (_usarUrlExterna) {
-                              _imagenSeleccionada = null;
+                              _imagenesSeleccionadas.clear();
                             } else {
+                              _urlsExternas.clear();
                               _urlController.clear();
                             }
                           });
                         },
                       ),
                       const SizedBox(height: 14),
-                      if (_usarUrlExterna)
-                        TextField(
-                          controller: _urlController,
-                          style: TextStyle(
-                            fontFamily: _fontBody,
-                            fontSize: 14,
-                            color: textPrimary,
-                          ),
-                          decoration: _inputDecoration(
-                            label: 'URL de la imagen',
-                            hint: 'https://ejemplo.com/afiche.jpg',
-                            icon: Icons.language_rounded,
+                      if (_usarUrlExterna) ...[
+                        if (_urlsExternas.isNotEmpty) ...[
+                          PublicationCarousel(
+                            items: _urlsExternas
+                                .map(
+                                  (u) => PublicationCarouselItem(
+                                    pathOrUrl: u,
+                                    isLocalFile: false,
+                                  ),
+                                )
+                                .toList(),
                             isDarkMode: isDarkMode,
-                            surfaceColor: elevatedColor,
-                            borderColor: borderColor,
-                            textSecondary: textSecondary,
+                            height: 220,
+                            borderRadius: BorderRadius.circular(12),
+                            onRemoveAt: (idx) {
+                              setState(() => _urlsExternas.removeAt(idx));
+                            },
                           ),
-                        )
-                      else if (_imagenSeleccionada != null)
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: kIsWeb
-                                  ? Image.network(
-                                      _imagenSeleccionada!.path,
-                                      height: 190,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Image.file(
-                                      File(_imagenSeleccionada!.path),
-                                      height: 190,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                    ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Material(
-                                color: Colors.black.withValues(alpha: 0.65),
-                                shape: const CircleBorder(),
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () => setState(
-                                    () => _imagenSeleccionada = null,
+                          const SizedBox(height: 12),
+                        ],
+                        if (_urlsExternas.length < _maxImagenes)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _urlController,
+                                  onSubmitted: (_) => _agregarUrlExterna(),
+                                  style: TextStyle(
+                                    fontFamily: _fontBody,
+                                    fontSize: 14,
+                                    color: textPrimary,
                                   ),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(6),
-                                    child: Icon(
-                                      Icons.close_rounded,
-                                      size: 18,
-                                      color: Colors.white,
+                                  decoration: _inputDecoration(
+                                    label:
+                                        'URL de la imagen (${_urlsExternas.length + 1}/$_maxImagenes)',
+                                    hint: 'https://ejemplo.com/afiche.jpg',
+                                    icon: Icons.language_rounded,
+                                    isDarkMode: isDarkMode,
+                                    surfaceColor: elevatedColor,
+                                    borderColor: borderColor,
+                                    textSecondary: textSecondary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                height: 50,
+                                child: FilledButton(
+                                  onPressed: _agregarUrlExterna,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: _primaryBlue,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
+                                  child: const Icon(
+                                    Icons.add_rounded,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ] else ...[
+                        if (_imagenesSeleccionadas.isNotEmpty) ...[
+                          PublicationCarousel(
+                            items: _imagenesSeleccionadas
+                                .map(
+                                  (img) => PublicationCarouselItem(
+                                    pathOrUrl: img.path,
+                                    isLocalFile: true,
+                                  ),
+                                )
+                                .toList(),
+                            isDarkMode: isDarkMode,
+                            height: 220,
+                            borderRadius: BorderRadius.circular(12),
+                            onRemoveAt: (idx) {
+                              setState(
+                                () => _imagenesSeleccionadas.removeAt(idx),
+                              );
+                            },
+                          ),
+                          if (_imagenesSeleccionadas.length < _maxImagenes) ...[
+                            const SizedBox(height: 10),
+                            OutlinedButton.icon(
+                              onPressed: _seleccionarImagenes,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: accentColor,
+                                side: BorderSide(
+                                  color: _primaryBlue.withValues(alpha: 0.4),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 11,
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 20,
+                              ),
+                              label: Text(
+                                'Agregar más fotos (${_imagenesSeleccionadas.length}/$_maxImagenes)',
+                                style: const TextStyle(
+                                  fontFamily: _fontBody,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
                           ],
-                        )
-                      else
-                        InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: _seleccionarImagen,
-                          child: Container(
-                            height: 110,
-                            decoration: BoxDecoration(
-                              color: elevatedColor,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: _primaryBlue.withValues(alpha: 0.35),
-                                width: 1.2,
+                        ] else
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: _seleccionarImagenes,
+                            child: Container(
+                              height: 115,
+                              decoration: BoxDecoration(
+                                color: elevatedColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _primaryBlue.withValues(alpha: 0.35),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: _primaryBlue.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      color: accentColor,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Seleccionar hasta $_maxImagenes fotos de la galería',
+                                    style: TextStyle(
+                                      fontFamily: _fontBody,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: accentColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: _primaryBlue.withValues(alpha: 0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.add_photo_alternate_outlined,
-                                    color: accentColor,
-                                    size: 22,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Seleccionar imagen de la galería',
-                                  style: TextStyle(
-                                    fontFamily: _fontBody,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: accentColor,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
-                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -916,145 +1121,131 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                       ),
                     ],
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 42,
-                              height: 42,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [_primaryBlue, _deepSapphire],
-                                ),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  inicialAutor,
-                                  style: const TextStyle(
-                                    fontFamily: _fontDisplay,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                    color: Colors.white,
+                            Row(
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [_primaryBlue, _deepSapphire],
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      inicialAutor,
+                                      style: const TextStyle(
+                                        fontFamily: _fontDisplay,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nombreAutor,
+                                        style: TextStyle(
+                                          fontFamily: _fontDisplay,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          color: textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Ahora',
+                                        style: TextStyle(
+                                          fontFamily: _fontBody,
+                                          fontSize: 12,
+                                          color: textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    nombreAutor,
-                                    style: TextStyle(
-                                      fontFamily: _fontDisplay,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 15,
-                                      color: textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Ahora',
-                                    style: TextStyle(
-                                      fontFamily: _fontBody,
-                                      fontSize: 12,
-                                      color: textSecondary,
-                                    ),
-                                  ),
-                                ],
+                            if (_tituloController.text.trim().isNotEmpty) ...[
+                              const SizedBox(height: 14),
+                              Text(
+                                _tituloController.text.trim(),
+                                style: TextStyle(
+                                  fontFamily: _fontDisplay,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: textPrimary,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            MarkdownBody(
+                              data: _contenidoController.text.isEmpty
+                                  ? '*El contenido de tu publicación aparecerá aquí...*'
+                                  : _contenidoController.text,
+                              selectable: true,
+                              styleSheet: MarkdownStyleSheet(
+                                p: TextStyle(
+                                  fontFamily: _fontBody,
+                                  fontSize: 14.5,
+                                  height: 1.5,
+                                  color: textPrimary,
+                                ),
+                                h3: TextStyle(
+                                  fontFamily: _fontDisplay,
+                                  fontSize: 16.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: textPrimary,
+                                ),
+                                strong: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: textPrimary,
+                                ),
+                                em: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: textSecondary,
+                                ),
+                                a: TextStyle(
+                                  color: accentColor,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: accentColor,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        if (_tituloController.text.trim().isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          Text(
-                            _tituloController.text.trim(),
-                            style: TextStyle(
-                              fontFamily: _fontDisplay,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: textPrimary,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        MarkdownBody(
-                          data: _contenidoController.text.isEmpty
-                              ? '*El contenido de tu publicación aparecerá aquí...*'
-                              : _contenidoController.text,
-                          selectable: true,
-                          styleSheet: MarkdownStyleSheet(
-                            p: TextStyle(
-                              fontFamily: _fontBody,
-                              fontSize: 14.5,
-                              height: 1.5,
-                              color: textPrimary,
-                            ),
-                            h3: TextStyle(
-                              fontFamily: _fontDisplay,
-                              fontSize: 16.5,
-                              fontWeight: FontWeight.w700,
-                              color: textPrimary,
-                            ),
-                            strong: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: textPrimary,
-                            ),
-                            em: TextStyle(
-                              fontStyle: FontStyle.italic,
-                              color: textSecondary,
-                            ),
-                            a: TextStyle(
-                              color: accentColor,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                              decorationColor: accentColor,
-                            ),
-                          ),
+                      ),
+                      if (carruselItems.isNotEmpty)
+                        PublicationCarousel(
+                          items: carruselItems,
+                          isDarkMode: isDarkMode,
+                          height: 300,
                         ),
-                        if (_imagenSeleccionada != null ||
-                            _urlController.text.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: _usarUrlExterna
-                                ? Image.network(
-                                    _urlController.text,
-                                    width: double.infinity,
-                                    height: 200,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        const SizedBox.shrink(),
-                                  )
-                                : (kIsWeb
-                                      ? Image.network(
-                                          _imagenSeleccionada!.path,
-                                          width: double.infinity,
-                                          height: 200,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : Image.file(
-                                          File(_imagenSeleccionada!.path),
-                                          width: double.infinity,
-                                          height: 200,
-                                          fit: BoxFit.cover,
-                                        )),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        Divider(color: borderColor, height: 1),
-                        const SizedBox(height: 12),
-                        Row(
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
                             _buildDummyAction(
@@ -1067,15 +1258,10 @@ class _CreatePublicationScreenState extends State<CreatePublicationScreen>
                               'Comentar',
                               textSecondary,
                             ),
-                            _buildDummyAction(
-                              Icons.share_outlined,
-                              'Compartir',
-                              textSecondary,
-                            ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],

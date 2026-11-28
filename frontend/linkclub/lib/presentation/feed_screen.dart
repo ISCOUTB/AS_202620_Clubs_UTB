@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:linkclub/core/session/session_controller.dart';
 import 'package:linkclub/data/publication_repository.dart';
 import 'package:linkclub/presentation/create_publication_screen.dart';
+import 'package:linkclub/presentation/publication_carousel.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -905,7 +906,7 @@ class _FeedScreenState extends State<FeedScreen> {
         : _lightTextSecondary;
     final accentColor = isDarkMode ? _brandBlueSoft : _brandBlue;
     final isLiked = pub.usuarioDioLike;
-    final hasImage = pub.imagenUrl != null && pub.imagenUrl!.trim().isNotEmpty;
+    final hasImage = pub.imagenesUrls.isNotEmpty;
     final autorNombre = pub.autorNombre;
     final clubNombre =
         (pub.clubNombre != null && pub.clubNombre!.trim().isNotEmpty)
@@ -1109,39 +1110,19 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
           ),
 
-          // Imagen adaptativa
+          // Carrusel adaptativo con marco uniforme
           if (hasImage)
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 200, maxHeight: 460),
-              decoration: BoxDecoration(
-                color: isDarkMode ? _darkElevated : _lightElevated,
-                border: Border.symmetric(
-                  horizontal: BorderSide(color: borderColor, width: 1),
-                ),
-              ),
-              child: Image.network(
-                pub.imagenUrl!,
-                fit: BoxFit.contain,
-                width: double.infinity,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 220,
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: accentColor,
-                      ),
+            PublicationCarousel(
+              items: pub.imagenesUrls
+                  .map(
+                    (url) => PublicationCarouselItem(
+                      pathOrUrl: url,
+                      isLocalFile: false,
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox.shrink(),
-              ),
+                  )
+                  .toList(),
+              isDarkMode: isDarkMode,
+              height: 310,
             ),
 
           // Barra inferior: Me gusta persistente con contador (sin Compartir)
